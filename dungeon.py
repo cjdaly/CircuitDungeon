@@ -23,13 +23,16 @@
 
 import board, displayio
 
-board.DISPLAY.auto_brightness = False
-board.DISPLAY.brightness = 0.33
+def init():
+  board.DISPLAY.auto_brightness = False
+  board.DISPLAY.brightness = 0.33
+  #
+  splash = displayio.Group()
+  board.DISPLAY.show(splash)
+  #
+  f = open("/0x72_DungeonTilesetII_v1.2-top.bmp", "rb")
+  odb = displayio.OnDiskBitmap(f)
+  tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), position=(0,0))
+  splash.append(tg)
 
-splash = displayio.Group()
-board.DISPLAY.show(splash)
 
-f = open("/tileset.bmp", "rb")
-odb = displayio.OnDiskBitmap(f)
-tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), position=(0,0))
-splash.append(tg)
