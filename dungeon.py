@@ -26,13 +26,26 @@ import board, displayio
 def init():
   board.DISPLAY.auto_brightness = False
   board.DISPLAY.brightness = 0.33
-  #
   splash = displayio.Group()
   board.DISPLAY.show(splash)
-  #
+  return splash
+
+def test(tile):
+  splash = init()
   f = open("/0x72_DungeonTilesetII_v1.2-top.bmp", "rb")
   odb = displayio.OnDiskBitmap(f)
-  tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), position=(0,0))
+  if tile == -1:
+    tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), position=(0,0))
+  else:
+    tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), position=(0,0), width=32, height=16, tile_width=16, tile_height=16, default_tile=tile)
+  splash.append(tg)
+
+
+def test2(tile=3):
+  splash = init()
+  f = open("/0x72_DungeonTilesetII_v1.2-top.bmp", "rb")
+  odb = displayio.OnDiskBitmap(f)
+  tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), position=(128,16), width=8, height=1, tile_width=16, tile_height=16, default_tile=tile)
   splash.append(tg)
 
 
