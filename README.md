@@ -1,3 +1,5 @@
+![CircuitDungeon splash](images/CircuitDungeonSplash.JPG)
+
 # CircuitDungeon
 
 Attempt to make a simple dungeon game for CircuitPython devices with screens,
