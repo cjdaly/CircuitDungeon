@@ -12,6 +12,4 @@ and under Creative Commons "CC0" license:
     
     Copyright/Attribution Notice: 
     You can use these tilesets in your program freely. No attribution is required. As a courtesy, include a link to the OGA page: http://opengameart.org/content/dungeon-crawl-32x32-tiles-supplemental, or the crawl-tiles page: https://github.com/crawl/tiles
-    
-    
-The various `.bmp` files here are derived from `ProjectUtumno_full.png`.
+

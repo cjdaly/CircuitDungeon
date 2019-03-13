@@ -21,15 +21,24 @@
 # THE SOFTWARE.
 
 
-import board, displayio, terminalio
+import board, neopixel, displayio, terminalio
 from adafruit_display_text import text_area
 
 def init():
+  NP_0 = neopixel.NeoPixel(board.NEOPIXEL,1,brightness=0.5)
+  NP_0[0]=(11,0,22)
   board.DISPLAY.auto_brightness = False
   board.DISPLAY.brightness = 0.33
-  splash = displayio.Group()
+  splash = displayio.Group(max_size=8)
   board.DISPLAY.show(splash)
   return splash
+
+def load_bmp(filename, x=0, y=0):
+  f = open("/tileset1/" + filename + ".bmp", "rb")
+  odb = displayio.OnDiskBitmap(f)
+  tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), position=(0,0))
+  tg.position=(x,y)
+  return tg
 
 def test():
   splash = init()
@@ -40,17 +49,17 @@ def test():
   ta.y=0
   splash.append(ta)
   #
-  f = open("/tileset1/gateway.bmp", "rb")
-  odb = displayio.OnDiskBitmap(f)
-  tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), position=(0,0))
-  tg.position=(32,64)
-  splash.append(tg)
+  gateway=load_bmp("gateway",32,64)
+  splash.append(gateway)
   #
-  f2 = open("/tileset1/knight_f.bmp", "rb")
-  odb2 = displayio.OnDiskBitmap(f2)
-  tg2=displayio.TileGrid(odb2, pixel_shader=displayio.ColorConverter(), position=(0,0))
-  tg2.position=(16,64)
-  splash.append(tg2)
-  return tg2
+  npc1=load_bmp("npc_masked",104,4)
+  splash.append(npc1)
+  #
+  npc2=load_bmp("npc_skeleton",100,80)
+  splash.append(npc2)
+  #
+  pc=load_bmp("knight_f",16,64)
+  splash.append(pc)
+  return pc
 
 

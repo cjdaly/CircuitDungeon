@@ -11,4 +11,3 @@ The files `0x72_DungeonTilesetII_v1.2.png` and `tiles_list_v1` are from
     
     - Robert
 
-The various `.bmp` files here are derived from `0x72_DungeonTilesetII_v1.2.png`.
