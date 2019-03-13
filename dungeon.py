@@ -33,7 +33,7 @@ def init():
 
 def test():
   splash = init()
-  title="Circuit\nDungeon"
+  title="Circuit\n Dungeon!"
   ta = text_area.TextArea(terminalio.FONT, text=title)
   ta.scale=2
   ta.x=16
