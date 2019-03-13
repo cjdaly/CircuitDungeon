@@ -21,7 +21,8 @@
 # THE SOFTWARE.
 
 
-import board, displayio
+import board, displayio, terminalio
+from adafruit_display_text import text_area
 
 def init():
   board.DISPLAY.auto_brightness = False
@@ -33,13 +34,23 @@ def init():
 def test():
   splash = init()
   title="Circuit\nDungeon"
-  ta = text_area.TextArea(terminalio.FONT, text=title, scale=2)
-  ta.x=4
-  ta.y=4
+  ta = text_area.TextArea(terminalio.FONT, text=title)
+  ta.scale=2
+  ta.x=16
+  ta.y=0
   splash.append(ta)
+  #
   f = open("/tileset1/gateway.bmp", "rb")
   odb = displayio.OnDiskBitmap(f)
   tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), position=(0,0))
-  tg.position=(32,48)
+  tg.position=(32,64)
   splash.append(tg)
+  #
+  f2 = open("/tileset1/knight_f.bmp", "rb")
+  odb2 = displayio.OnDiskBitmap(f2)
+  tg2=displayio.TileGrid(odb2, pixel_shader=displayio.ColorConverter(), position=(0,0))
+  tg2.position=(16,64)
+  splash.append(tg2)
+  return tg2
+
 
