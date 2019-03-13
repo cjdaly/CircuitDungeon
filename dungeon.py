@@ -32,8 +32,14 @@ def init():
 
 def test():
   splash = init()
+  title="Circuit\nDungeon"
+  ta = text_area.TextArea(terminalio.FONT, text=title, scale=2)
+  ta.x=4
+  ta.y=4
+  splash.append(ta)
   f = open("/tileset1/gateway.bmp", "rb")
   odb = displayio.OnDiskBitmap(f)
   tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), position=(0,0))
+  tg.position=(32,48)
   splash.append(tg)
 
