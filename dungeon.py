@@ -30,22 +30,10 @@ def init():
   board.DISPLAY.show(splash)
   return splash
 
-def test(tile):
+def test():
   splash = init()
-  f = open("/0x72_DungeonTilesetII_v1.2-top.bmp", "rb")
+  f = open("/tileset1/gateway.bmp", "rb")
   odb = displayio.OnDiskBitmap(f)
-  if tile == -1:
-    tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), position=(0,0))
-  else:
-    tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), position=(0,0), width=32, height=16, tile_width=16, tile_height=16, default_tile=tile)
+  tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), position=(0,0))
   splash.append(tg)
-
-
-def test2(tile=3):
-  splash = init()
-  f = open("/0x72_DungeonTilesetII_v1.2-top.bmp", "rb")
-  odb = displayio.OnDiskBitmap(f)
-  tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), position=(128,16), width=8, height=1, tile_width=16, tile_height=16, default_tile=tile)
-  splash.append(tg)
-
 
