@@ -1,0 +1,39 @@
+! map1 - sample dungeon
+
+!! TERRAIN
+= =floor1
+=.=floor2
+=:=floor3
+="=floor4
+=o=floor_hole
+===floor_ladder
+=$=chest_open:solid
+=#=wall_mid:solid
+=M=wall_left:solid
+=N=wall_right:solid
+=R=wall_banner_red:solid
+=G=wall_banner_green:solid
+=B=wall_banner_blue:solid
+=Y=wall_banner_yellow:solid
+=;=wall_goo:solid
+=,=floor_goo
+
+
+!0123456789012345
+/M#R##;#######G#N
+/M    ,  #   "  N
+/M  :    ##     N
+/M     M##$     N
+/M  o    #   :  N
+/M              N
+/M    . "    ###N
+/M         M#B  N
+/M      :       N
+/M  :           N
+/M  ## #     =  N
+/M #Y##;#N   .  N
+/M    #,        N
+/M "  #    $    N
+/M              N
+/M##############N
+
