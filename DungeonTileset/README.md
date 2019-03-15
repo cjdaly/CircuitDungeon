@@ -1,8 +1,10 @@
-# Dungeon Tileset II
+# Dungeon Tileset
 
-The files `0x72_DungeonTilesetII_v1.2.png` and `tiles_list_v1` are from
-[itch.io](https://0x72.itch.io/dungeontileset-ii) and under Creative Commons license:
+The file `0x72_16x16DungeonTileset.v4.png` is from
+[itch.io](https://0x72.itch.io/16x16-dungeon-tileset) and under Creative Commons license:
 
+    Hi!
+    
     You can use this tileset for whatever you like (CC-0).
     
     Credit is not necessary, but if you create something using this tileset

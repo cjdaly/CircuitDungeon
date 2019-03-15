@@ -25,11 +25,25 @@
 tile16=16
 tile32=32
 DC_png=../DungeonCrawl/ProjectUtumno_full.png
+DT_png=../DungeonTileset/0x72_16x16DungeonTileset.v4.png
 DT2_png=../DungeonTilesetII/0x72_DungeonTilesetII_v1.2.png
 
 rm -rf tileset1
 mkdir tileset1
 
+# Dungeon Tileset
+#
+convert $DT_png -crop "16x16+$[tile16*3]+$[tile16*0]" tileset1/wall_pipe_low.bmp
+convert $DT_png -crop "16x16+$[tile16*4]+$[tile16*0]" tileset1/wall_pipe_high.bmp
+convert $DT_png -crop "16x16+$[tile16*5]+$[tile16*3]" tileset1/wall_pipe_mid.bmp
+convert $DT_png -crop "16x16+$[tile16*7]+$[tile16*0]" tileset1/wall_grate_mid.bmp
+convert $DT_png -crop "16x16+$[tile16*4]+$[tile16*1]" tileset1/wall_grate_low.bmp
+convert $DT_png -crop "16x16+$[tile16*4]+$[tile16*2]" tileset1/wall_step_right.bmp
+convert $DT_png -crop "16x16+$[tile16*4]+$[tile16*3]" tileset1/wall_step_left.bmp
+
+
+# Dungeon Tileset II
+#
 convert $DT2_png -crop "16x24+$[tile16*8]+$[tile32*0+8]" tileset1/elf_f.bmp
 convert $DT2_png -crop "16x24+$[tile16*8]+$[tile32*1+8]" tileset1/elf_m.bmp
 convert $DT2_png -crop "16x24+$[tile16*8]+$[tile32*2+8]" tileset1/knight_f.bmp
@@ -93,7 +107,8 @@ convert $DT2_png -crop "16x16+$[tile16*5]+$[tile16*11]" tileset1/floor_stairs.bm
 
 convert $DT2_png -crop "64x48+$[tile16*1]+$[tile16*13]" tileset1/gateway.bmp
 
-
+# Dungeon Crawl
+#
 convert $DC_png -crop "32x32+$[tile32*13]+$[tile32*13]" tileset1/tree1.bmp
 convert $DC_png -crop "32x32+$[tile32*14]+$[tile32*13]" tileset1/tree2.bmp
 convert $DC_png -crop "32x32+$[tile32*15]+$[tile32*13]" tileset1/tree3.bmp
