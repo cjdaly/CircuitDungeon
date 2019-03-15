@@ -33,6 +33,13 @@ def init():
   board.DISPLAY.show(splash)
   return splash
 
+def title_text(title="Circuit\n Dungeon!"):
+  ta = text_area.TextArea(terminalio.FONT, text=title)
+  ta.scale=2
+  ta.x=16
+  ta.y=0
+  return ta
+
 def load_bmp(filename, x=0, y=0):
   f = open("/tileset1/" + filename + ".bmp", "rb")
   odb = displayio.OnDiskBitmap(f)
@@ -40,17 +47,23 @@ def load_bmp(filename, x=0, y=0):
   tg.position=(x,y)
   return tg
 
+def load_map(mapname, x=0, y=0):
+  f = open("/maps/" + mapname + "/" + mapname + ".bmp", "rb")
+  odb = displayio.OnDiskBitmap(f)
+  tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), position=(0,0))
+  tg.position=(x,y)
+  return tg
+
 def test():
   splash = init()
-  title="Circuit\n Dungeon!"
-  ta = text_area.TextArea(terminalio.FONT, text=title)
-  ta.scale=2
-  ta.x=16
-  ta.y=0
-  splash.append(ta)
+  #title=title_text()
+  #splash.append(title)
   #
-  gateway=load_bmp("gateway",32,64)
-  splash.append(gateway)
+  map=load_map("map1", -64,-48)
+  splash.append(map)
+  #
+  #gateway=load_bmp("gateway",32,64)
+  #splash.append(gateway)
   #
   npc1=load_bmp("npc_masked",104,4)
   splash.append(npc1)
@@ -60,6 +73,7 @@ def test():
   #
   pc=load_bmp("knight_f",16,64)
   splash.append(pc)
-  return pc
+  #
+  return map
 
 
