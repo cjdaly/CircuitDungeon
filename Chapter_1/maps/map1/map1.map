@@ -1,0 +1,35 @@
+! map1 - sample dungeon
+
+!! TERRAIN
+= =wall1
+=.=wall2
+=:=wall3
+=<=wall_hole_left:vert
+=>=wall_hole_right:vert
+=R=wall_banner_red
+=G=wall_banner_green
+=B=wall_banner_blue
+=Y=wall_banner_yellow
+=#=platform_x2:solid
+=^=platform_a1:solid
+=x=platform_x1:solid
+=X=platform_x3:solid
+
+
+!0123456789012345
+/################
+/#  :           #
+/#    <######   #
+/#    >  #R  :  #
+/#    <         #
+/#### >     #####
+/#G   <     #B  #
+/#    > :       #
+/#  : <         #
+/# x##^^        #
+/# #Y#####>  .  #
+/#    #.  <     #
+/#    #   >     #
+/#        <     #
+/xxxxxxxxx^xxxxxx
+/XXXXXXXXXXXXXXXX

@@ -24,9 +24,10 @@
 
 tile16=16
 tile32=32
-DC_png=../DungeonCrawl/ProjectUtumno_full.png
-DT_png=../DungeonTileset/0x72_16x16DungeonTileset.v4.png
-DT2_png=../DungeonTilesetII/0x72_DungeonTilesetII_v1.2.png
+SRC_art=../../sourceArt
+DC_png=$SRC_art/DungeonCrawl/ProjectUtumno_full.png
+DT_png=$SRC_art/DungeonTileset/0x72_16x16DungeonTileset.v4.png
+DT2_png=$SRC_art/DungeonTilesetII/0x72_DungeonTilesetII_v1.2.png
 
 rm -rf tileset1
 mkdir tileset1
