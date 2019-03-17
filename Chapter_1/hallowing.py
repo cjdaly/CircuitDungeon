@@ -41,7 +41,7 @@ def title_text(title="Circuit\n Dungeon!"):
   return ta
 
 def load_hero(filename, x=0, y=0):
-  f = open("/tiles/heroes" + filename + ".bmp", "rb")
+  f = open("/tiles/heroes/" + filename + ".bmp", "rb")
   odb = displayio.OnDiskBitmap(f)
   tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), position=(0,0), tile_width=16,tile_height=24)
   tg.position=(x,y)
@@ -62,7 +62,7 @@ def test():
   map=load_map("map1", -64,-48)
   splash.append(map)
   #
-  pc=load_hero("knight_f",16,64)
+  pc=load_hero("knight_fe",16,64)
   splash.append(pc)
   #
   return pc
