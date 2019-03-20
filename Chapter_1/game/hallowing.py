@@ -22,49 +22,26 @@
 
 
 import board, neopixel, displayio, terminalio
-from adafruit_display_text import text_area
+# from adafruit_display_text import label
+
+def load_tilegrid(filename, w=16,h=16,tw=16,th=16):
+  f = open("/game/art/" + filename + ".bmp", "rb")
+  odb = displayio.OnDiskBitmap(f)
+  tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), width=w, height=h, tile_width=tw, tile_height=th)
+  return tg
 
 def init():
-  NP_0 = neopixel.NeoPixel(board.NEOPIXEL,1,brightness=0.5)
+  game={}
+  NP_0=neopixel.NeoPixel(board.NEOPIXEL,1,brightness=0.5)
   NP_0[0]=(11,0,22)
+  game['NeoPix']=NP_0
   board.DISPLAY.auto_brightness = False
   board.DISPLAY.brightness = 0.33
-  splash = displayio.Group(max_size=8)
-  board.DISPLAY.show(splash)
-  return splash
-
-def title_text(title="Circuit\n Dungeon!"):
-  ta = text_area.TextArea(terminalio.FONT, text=title)
-  ta.scale=2
-  ta.x=16
-  ta.y=0
-  return ta
-
-def load_hero(filename, x=0, y=0):
-  f = open("/tiles/heroes/" + filename + ".bmp", "rb")
-  odb = displayio.OnDiskBitmap(f)
-  tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), position=(0,0), tile_width=16,tile_height=24)
-  tg.position=(x,y)
-  return tg
-
-def load_map(mapname, x=0, y=0):
-  f = open("/maps/" + mapname + "/" + mapname + ".bmp", "rb")
-  odb = displayio.OnDiskBitmap(f)
-  tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), position=(0,0))
-  tg.position=(x,y)
-  return tg
-
-def test():
-  splash = init()
-  #title=title_text()
-  #splash.append(title)
-  #
-  map=load_map("map1", -64,-48)
-  splash.append(map)
-  #
-  pc=load_hero("knight_fe",16,64)
-  splash.append(pc)
-  #
-  return pc
-
+  gr=displayio.Group(max_size=8)
+  game['group']=gr
+  map=load_tilegrid("terrain")
+  game['map']=map
+  gr.append(map)
+  board.DISPLAY.show(gr)
+  return game
 
