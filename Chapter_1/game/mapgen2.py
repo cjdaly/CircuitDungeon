@@ -20,32 +20,35 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+import os
 
-import board, neopixel, displayio, terminalio
-# from adafruit_display_text import label
+# #%_o><"RGBYx[X]
+terrain = {
+  ' ':"+0+0",
+  '#':"+16+0",
+  '%':"+32+0",
+  '_':"+48+0",
+  'o':"+0+16",
+  '>':"+16+16",
+  '<':"+32+16",
+  '"':"+48+16",
+  'R':"+0+32",
+  'G':"+16+32",
+  'B':"+32+32",
+  'Y':"+48+32",
+  'x':"+0+48",
+  '[':"+16+48",
+  'X':"+32+48",
+  ']':"+48+48"
+}
 
-def load_mapbmp(filename):
-  f = open("/game/maps/" + filename + ".bmp", "rb")
-  odb = displayio.OnDiskBitmap(f)
-  tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter())
-  return tg
-  
-def load_tilegrid(filename, w=16,h=16,tw=16,th=16):
-  f = open("/game/art/" + filename + ".bmp", "rb")
-  odb = displayio.OnDiskBitmap(f)
-  tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), width=w, height=h, tile_width=tw, tile_height=th)
-  return tg
+maps = ['map0', 'map1']
 
-def TM(game,c):
-  if c in game['terr']:
-    return game['terr'][c]
-  else:
-    return 0  
-
-def load_map(game, mapname):
+def generate_map(mapname):
+  game={}
   game['map_tx']=[]
   i=0
-  with open("/game/maps/" + mapname + ".map") as f:
+  with open("maps/" + mapname + ".map") as f:
     for line in f:
       if line.startswith("?"):
         game['terr']={}
@@ -56,26 +59,16 @@ def load_map(game, mapname):
       elif line.startswith("/"):
         game['map_tx'].append(line[1:17])
         i+=1
-  if 'map_tg' in game:
-    for y in range(16):
-      for x in range(16):
-        game['map_tg'][x,y]=TM(game, game['map_tx'][y][x])
+  for y in range(16):
+    args=mapname + " " + str(y)
+    for x in range(16):
+      c=game['map_tx'][y][x]
+      args+=" " + terrain[c]
+    os.system("./draw-map-row2.sh " + args)
 
-def init():
-  board.DISPLAY.auto_brightness = False
-  board.DISPLAY.brightness = 0.33
-  NP_0=neopixel.NeoPixel(board.NEOPIXEL,1,brightness=0.5)
-  NP_0[0]=(11,0,22)
-  game={}
-  game['NeoPix']=NP_0
-  gr=displayio.Group(max_size=8)
-  game['group']=gr
-  # map=load_tilegrid("terrain")
-  # game['map_tg']=map
-  map=load_mapbmp('map0')
-  game['map_bmp']=map
-  load_map(game, 'map0')
-  gr.append(map)
-  board.DISPLAY.show(gr)
-  return game
+
+for map in maps:
+  print(map)
+  generate_map(map)
+
 
