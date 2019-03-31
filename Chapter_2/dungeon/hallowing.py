@@ -22,60 +22,55 @@
 
 
 import board, neopixel, displayio, terminalio
-# from adafruit_display_text import label
-
-def load_mapbmp(filename):
-  f = open("/game/maps/" + filename + ".bmp", "rb")
-  odb = displayio.OnDiskBitmap(f)
-  tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter())
-  return tg
+from adafruit_display_text import label
   
 def load_tilegrid(filename, w=16,h=16,tw=16,th=16):
-  f = open("/game/art/" + filename + ".bmp", "rb")
+  f = open("/dungeon/art/" + filename + ".bmp", "rb")
   odb = displayio.OnDiskBitmap(f)
   tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), width=w, height=h, tile_width=tw, tile_height=th)
   return tg
 
 def TM(game,c):
-  if c in game['terr']:
-    return game['terr'][c]
+  if c in game['tMap']:
+    return game['tMap'][c]
   else:
-    return 0  
+    return 14 # red flag
 
 def load_map(game, mapname):
-  game['map_tx']=[]
-  i=0
-  with open("/game/maps/" + mapname + ".map") as f:
+  game['map_txt']=[]
+  with open("/dungeon/maps/" + mapname + ".map") as f:
     for line in f:
-      if line.startswith("?"):
-        game['terr']={}
-        j=0
-        for c in line[1:17]:
-          game['terr'][c]=j
-          j+=1
-      elif line.startswith("/"):
-        game['map_tx'].append(line[1:17])
-        i+=1
+      if line.startswith("/"):
+        game['map_txt'].append(line[1:9])
   if 'map_tg' in game:
-    for y in range(16):
-      for x in range(16):
-        game['map_tg'][x,y]=TM(game, game['map_tx'][y][x])
+    for y in range(6):
+      for x in range(8):
+        game['map_tg'][x,y]=TM(game, game['map_txt'][y][x])
+
+def cycle_lights(game):
+  board.DISPLAY.auto_brightness = False
+  board.DISPLAY.brightness = game['disp_BL']
+  game['NeoPix'].brightness=game['np_BR']
+  game['NeoPix'][0]=game['np_RBG']
 
 def init():
-  board.DISPLAY.auto_brightness = False
-  board.DISPLAY.brightness = 0.33
   NP_0=neopixel.NeoPixel(board.NEOPIXEL,1,brightness=0.5)
-  NP_0[0]=(11,0,22)
-  game={}
-  game['NeoPix']=NP_0
+  game={'disp_BL':0.33, 'NeoPix':NP_0, 'np_BR'=0.5, 'np_RGB'=(0,11,22)}
+  game['tMap']={} ; i=0
+  for c in "(_)=$o-[#]HIJWRB<hijwGY>MNP& ,.mnp`":
+    game['tMap'][c]=i ; i+=1
+  #
   gr=displayio.Group(max_size=8)
   game['group']=gr
-  # map=load_tilegrid("terrain")
-  # game['map_tg']=map
-  map=load_mapbmp('map0')
-  game['map_bmp']=map
+  txt=label.Label(terminalio.FONT, max_glyphs=21, color=0x00FFFF)
+  txt.x=0 ; txt.y=120
+  txt.text="Hello World!"
+  gr.append(txt)
+  #
+  game['map_tg']=load_tilegrid("terrain", 8,6)
   load_map(game, 'map0')
   gr.append(map)
   board.DISPLAY.show(gr)
+  cycle_lights(game)
   return game
 

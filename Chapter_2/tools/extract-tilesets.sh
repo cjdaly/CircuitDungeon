@@ -50,7 +50,13 @@ convert $TR_bmp\
  \( $DT2_png -crop "16x16+$[tile16*5]+$[tile16*11]" \) -geometry +$[tile16*4]+$[tile16*0] -composite\
  \( $DT2_png -crop "16x16+$[tile16*6]+$[tile16*9]" \) -geometry +$[tile16*5]+$[tile16*0] -composite\
  $TR_bmp
- 
+
+ST_bmp=$DST_art/status.bmp
+convert -size 128x32 xc:transparent $ST_bmp
+convert $ST_bmp\
+ \( $IND_png -crop "128x16+$[tile16*21]+$[tile16*9]" \) -geometry +$[tile16*0]+$[tile16*0] -composite\
+ \( $IND_png -crop "96x16+$[tile16*4]+$[tile16*10]" \) -geometry +$[tile16*0]+$[tile16*1] -composite\
+ $ST_bmp
 
 OB_bmp=$DST_art/objects.bmp
 convert -size 64x32 xc:transparent $OB_bmp
@@ -61,23 +67,26 @@ convert $OB_bmp\
 
 
 HR_bmp=$DST_art/heroes.bmp
-convert -size 128x72 xc:transparent $HR_bmp
+convert -size 128x96 xc:transparent $HR_bmp
 convert $HR_bmp\
- \( $DT2_png -crop "64x24+$[tile16*12]+$[tile16*2+8]" \) -geometry +$[tile16*0]+$[tile24*0] -composite\
- \( $DT2_png -crop "16x24+$[tile16*12]+$[tile16*2+8]" -flop \) -geometry +$[tile16*4]+$[tile24*0] -composite\
- \( $DT2_png -crop "16x24+$[tile16*13]+$[tile16*2+8]" -flop \) -geometry +$[tile16*5]+$[tile24*0] -composite\
- \( $DT2_png -crop "16x24+$[tile16*14]+$[tile16*2+8]" -flop \) -geometry +$[tile16*6]+$[tile24*0] -composite\
- \( $DT2_png -crop "16x24+$[tile16*15]+$[tile16*2+8]" -flop \) -geometry +$[tile16*7]+$[tile24*0] -composite\
- \( $DT2_png -crop "64x24+$[tile16*12]+$[tile16*4+8]" \) -geometry +$[tile16*0]+$[tile24*1] -composite\
- \( $DT2_png -crop "16x24+$[tile16*12]+$[tile16*4+8]" -flop \) -geometry +$[tile16*4]+$[tile24*1] -composite\
- \( $DT2_png -crop "16x24+$[tile16*13]+$[tile16*4+8]" -flop \) -geometry +$[tile16*5]+$[tile24*1] -composite\
- \( $DT2_png -crop "16x24+$[tile16*14]+$[tile16*4+8]" -flop \) -geometry +$[tile16*6]+$[tile24*1] -composite\
- \( $DT2_png -crop "16x24+$[tile16*15]+$[tile16*4+8]" -flop \) -geometry +$[tile16*7]+$[tile24*1] -composite\
- \( $DT2_png -crop "64x24+$[tile16*12]+$[tile16*8+8]" \) -geometry +$[tile16*0]+$[tile24*2] -composite\
- \( $DT2_png -crop "16x24+$[tile16*12]+$[tile16*8+8]" -flop \) -geometry +$[tile16*4]+$[tile24*2] -composite\
- \( $DT2_png -crop "16x24+$[tile16*13]+$[tile16*8+8]" -flop \) -geometry +$[tile16*5]+$[tile24*2] -composite\
- \( $DT2_png -crop "16x24+$[tile16*14]+$[tile16*8+8]" -flop \) -geometry +$[tile16*6]+$[tile24*2] -composite\
- \( $DT2_png -crop "16x24+$[tile16*15]+$[tile16*8+8]" -flop \) -geometry +$[tile16*7]+$[tile24*2] -composite\
+ \( $DT2_png -crop "128x24+$[tile16*8]+$[tile16*2+8]" \) -geometry +$[tile16*0]+$[tile24*0] -composite\
+ \( $DT2_png -crop "16x24+$[tile16*8]+$[tile16*2+8]" -flop \) -geometry +$[tile16*0]+$[tile24*1] -composite\
+ \( $DT2_png -crop "16x24+$[tile16*9]+$[tile16*2+8]" -flop \) -geometry +$[tile16*1]+$[tile24*1] -composite\
+ \( $DT2_png -crop "16x24+$[tile16*10]+$[tile16*2+8]" -flop \) -geometry +$[tile16*2]+$[tile24*1] -composite\
+ \( $DT2_png -crop "16x24+$[tile16*11]+$[tile16*2+8]" -flop \) -geometry +$[tile16*3]+$[tile24*1] -composite\
+ \( $DT2_png -crop "16x24+$[tile16*12]+$[tile16*2+8]" -flop \) -geometry +$[tile16*4]+$[tile24*1] -composite\
+ \( $DT2_png -crop "16x24+$[tile16*13]+$[tile16*2+8]" -flop \) -geometry +$[tile16*5]+$[tile24*1] -composite\
+ \( $DT2_png -crop "16x24+$[tile16*14]+$[tile16*2+8]" -flop \) -geometry +$[tile16*6]+$[tile24*1] -composite\
+ \( $DT2_png -crop "16x24+$[tile16*15]+$[tile16*2+8]" -flop \) -geometry +$[tile16*7]+$[tile24*1] -composite\
+ \( $DT2_png -crop "128x24+$[tile16*8]+$[tile16*4+8]" \) -geometry +$[tile16*0]+$[tile24*2] -composite\
+ \( $DT2_png -crop "16x24+$[tile16*8]+$[tile16*4+8]" -flop \) -geometry +$[tile16*0]+$[tile24*3] -composite\
+ \( $DT2_png -crop "16x24+$[tile16*9]+$[tile16*4+8]" -flop \) -geometry +$[tile16*1]+$[tile24*3] -composite\
+ \( $DT2_png -crop "16x24+$[tile16*10]+$[tile16*4+8]" -flop \) -geometry +$[tile16*2]+$[tile24*3] -composite\
+ \( $DT2_png -crop "16x24+$[tile16*11]+$[tile16*4+8]" -flop \) -geometry +$[tile16*3]+$[tile24*3] -composite\
+ \( $DT2_png -crop "16x24+$[tile16*12]+$[tile16*4+8]" -flop \) -geometry +$[tile16*4]+$[tile24*3] -composite\
+ \( $DT2_png -crop "16x24+$[tile16*13]+$[tile16*4+8]" -flop \) -geometry +$[tile16*5]+$[tile24*3] -composite\
+ \( $DT2_png -crop "16x24+$[tile16*14]+$[tile16*4+8]" -flop \) -geometry +$[tile16*6]+$[tile24*3] -composite\
+ \( $DT2_png -crop "16x24+$[tile16*15]+$[tile16*4+8]" -flop \) -geometry +$[tile16*7]+$[tile24*3] -composite\
  $HR_bmp
 
 
