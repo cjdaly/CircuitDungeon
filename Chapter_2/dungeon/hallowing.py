@@ -51,11 +51,11 @@ def cycle_lights(game):
   board.DISPLAY.auto_brightness = False
   board.DISPLAY.brightness = game['disp_BL']
   game['NeoPix'].brightness=game['np_BR']
-  game['NeoPix'][0]=game['np_RBG']
+  game['NeoPix'][0]=game['np_RGB']
 
 def init():
   NP_0=neopixel.NeoPixel(board.NEOPIXEL,1,brightness=0.5)
-  game={'disp_BL':0.33, 'NeoPix':NP_0, 'np_BR'=0.5, 'np_RGB'=(0,11,22)}
+  game={'disp_BL':0.33, 'NeoPix':NP_0, 'np_BR':0.5, 'np_RGB':(0,11,22)}
   game['tMap']={} ; i=0
   for c in "(_)=$o-[#]HIJWRB<hijwGY>MNP& ,.mnp`":
     game['tMap'][c]=i ; i+=1
@@ -67,9 +67,14 @@ def init():
   txt.text="Hello World!"
   gr.append(txt)
   #
+  game['status_tg']=load_tilegrid("status", 8,1)
+  game['status_tg'][0,0]=2
+  game['status_tg'][7,0]=2
+  #
   game['map_tg']=load_tilegrid("terrain", 8,6)
+  game['map_tg'].y=16
   load_map(game, 'map0')
-  gr.append(map)
+  gr.append(game['map_tg'])
   board.DISPLAY.show(gr)
   cycle_lights(game)
   return game

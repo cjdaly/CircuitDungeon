@@ -54,8 +54,8 @@ convert $TR_bmp\
 ST_bmp=$DST_art/status.bmp
 convert -size 128x32 xc:transparent $ST_bmp
 convert $ST_bmp\
- \( $IND_png -crop "128x16+$[tile16*21]+$[tile16*9]" \) -geometry +$[tile16*0]+$[tile16*0] -composite\
- \( $IND_png -crop "96x16+$[tile16*4]+$[tile16*10]" \) -geometry +$[tile16*0]+$[tile16*1] -composite\
+ \( $IND_png -crop "96x16+$[tile16*4]+$[tile16*10]" \) -geometry +$[tile16*2]+$[tile16*0] -composite\
+ \( $IND_png -crop "128x16+$[tile16*21]+$[tile16*9]" \) -geometry +$[tile16*0]+$[tile16*1] -composite\
  $ST_bmp
 
 OB_bmp=$DST_art/objects.bmp
