@@ -53,6 +53,16 @@ def cycle_lights(game):
   game['NeoPix'].brightness=game['np_BR']
   game['NeoPix'][0]=game['np_RGB']
 
+def strut(game):
+  for i in range(20):
+    game['hero_tg'].x += 4
+    game['hero_tg'][0,0] = i % 4 + 4
+    board.DISPLAY.wait_for_frame()
+  for i in range(20):
+    game['hero_tg'].x -= 4
+    game['hero_tg'][0,0] = i % 4 + 12
+    board.DISPLAY.wait_for_frame()
+
 def init():
   NP_0=neopixel.NeoPixel(board.NEOPIXEL,1,brightness=0.5)
   game={'disp_BL':0.33, 'NeoPix':NP_0, 'np_BR':0.5, 'np_RGB':(0,11,22)}
@@ -68,13 +78,19 @@ def init():
   gr.append(txt)
   #
   game['status_tg']=load_tilegrid("status", 8,1)
+  game['status_tg'].y=16*6
   game['status_tg'][0,0]=2
   game['status_tg'][7,0]=2
+  gr.append(game['status_tg'])
   #
   game['map_tg']=load_tilegrid("terrain", 8,6)
-  game['map_tg'].y=16
   load_map(game, 'map0')
   gr.append(game['map_tg'])
+  #
+  game['hero_tg']=load_tilegrid("heroes", 1,1,16,24)
+  game['hero_tg'].x=16 ; game['hero_tg'].y=60
+  gr.append(game['hero_tg'])
+  #
   board.DISPLAY.show(gr)
   cycle_lights(game)
   return game
