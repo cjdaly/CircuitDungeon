@@ -23,6 +23,7 @@
 import board, displayio, terminalio
 from gamepadshift import GamePadShift
 from digitalio import DigitalInOut
+from adafruit_bitmap_font import bitmap_font
 from adafruit_display_text import label
 
 def load_tilegrid(filename, w=16,h=16,tw=16,th=16):
@@ -57,31 +58,42 @@ def init():
   for c in ' (_)"[#]RGBYOoX^CDEF':
     game['terrMap'][c]=i ; i+=1
   #
-  grp=displayio.Group(max_size=8)
+  grp=displayio.Group(max_size=6)
   game['group']=grp
   #
-  game['jokeRoom']=load_tilegrid("terrain", 10,6)
-  game['jokeRoom'].x=0 ; game['jokeRoom'].y=16
+  jokeRoom=load_tilegrid("terrain", 10,6)
+  jokeRoom.x=0 ; jokeRoom.y=16
   load_joke(game, game['joke'])
-  grp.append(game['jokeRoom'])
+  grp.append(jokeRoom)
+  game['jokeRoom']=jokeRoom
   #
   textT=label.Label(terminalio.FONT, max_glyphs=26, color=0xFF00FF)
   textT.x=1 ; textT.y=7
   textT.text="Hello World! Hello World!A"
   grp.append(textT)
+  game['textT']=textT
   #
   textB=label.Label(terminalio.FONT, max_glyphs=26, color=0x00FFFF)
   textB.x=1 ; textB.y=119
   textB.text="Nullo World! Nullo World!Z"
   grp.append(textB)
+  game['textB']=textB
   #
-  game['rugrat1']=load_tilegrid("rugrats", 1,1,16,24)
-  game['rugrat1'].x=32 ; game['rugrat1'].y=68
-  grp.append(game['rugrat1'])
+  font = bitmap_font.load_font("/dad/fonts/Helvetica-Bold-16.bdf")
+  textM = label.Label(font, max_glyphs=12, color=0xFFFF00)
+  textM.x=0 ; textM.y=40
+  textM.text="Yello World!"
+  grp.append(textM)
+  game['textM']=textM
+  #
+  rugrat1=load_tilegrid("rugrats", 1,1,16,24)
+  rugrat1.x=32 ; rugrat1.y=68
+  grp.append(rugrat1)
+  game['rugrat1']=rugrat1
   #
   board.DISPLAY.show(grp)
   return game
-  
+
 def play():
   game = init()
   gPad=game['gamepad'] ; DSP=board.DISPLAY
@@ -92,9 +104,9 @@ def play():
     game['rugrat1'][0,0]=iFr
     #
     gPad.get_pressed() # discard extra clicks
-    DSP.wait_for_frame()
+    DSP.wait_for_frame(); iFr=iFr+1
     gpVal=gPad.get_pressed()
     if gpVal == 33:
       done=True
-    iFr=iFr+1
+  return game
 
