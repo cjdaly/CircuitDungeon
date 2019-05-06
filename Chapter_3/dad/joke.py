@@ -23,6 +23,7 @@
 import board, displayio, terminalio
 from gamepadshift import GamePadShift
 from digitalio import DigitalInOut
+from adafruit_display_text import label
 
 def load_tilegrid(filename, w=16,h=16,tw=16,th=16):
   f = open("/dad/stuff/" + filename + ".bmp", "rb")
@@ -63,6 +64,16 @@ def init():
   game['jokeRoom'].x=0 ; game['jokeRoom'].y=16
   load_joke(game, game['joke'])
   grp.append(game['jokeRoom'])
+  #
+  textT=label.Label(terminalio.FONT, max_glyphs=25, color=0xFFFFFF)
+  textT.x=0 ; textT.y=0
+  textT.text="Hello World! Hello World!"
+  grp.append(textT)
+  #
+  textB=label.Label(terminalio.FONT, max_glyphs=25, color=0x00FFFF)
+  textB.x=0 ; textB.y=120
+  textB.text="Nullo World! Nullo World!"
+  grp.append(textB)
   #
   game['rugrat1']=load_tilegrid("rugrats", 1,1,16,24)
   game['rugrat1'].x=32 ; game['rugrat1'].y=68
