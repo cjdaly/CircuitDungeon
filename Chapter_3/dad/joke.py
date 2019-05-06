@@ -65,14 +65,14 @@ def init():
   load_joke(game, game['joke'])
   grp.append(game['jokeRoom'])
   #
-  textT=label.Label(terminalio.FONT, max_glyphs=25, color=0xFFFFFF)
-  textT.x=0 ; textT.y=0
-  textT.text="Hello World! Hello World!"
+  textT=label.Label(terminalio.FONT, max_glyphs=26, color=0xFF00FF)
+  textT.x=1 ; textT.y=7
+  textT.text="Hello World! Hello World!A"
   grp.append(textT)
   #
-  textB=label.Label(terminalio.FONT, max_glyphs=25, color=0x00FFFF)
-  textB.x=0 ; textB.y=120
-  textB.text="Nullo World! Nullo World!"
+  textB=label.Label(terminalio.FONT, max_glyphs=26, color=0x00FFFF)
+  textB.x=1 ; textB.y=119
+  textB.text="Nullo World! Nullo World!Z"
   grp.append(textB)
   #
   game['rugrat1']=load_tilegrid("rugrats", 1,1,16,24)
