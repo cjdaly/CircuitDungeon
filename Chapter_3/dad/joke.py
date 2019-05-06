@@ -23,7 +23,6 @@
 import board, displayio, terminalio
 from gamepadshift import GamePadShift
 from digitalio import DigitalInOut
-from adafruit_display_text import label
 
 def load_tilegrid(filename, w=16,h=16,tw=16,th=16):
   f = open("/dad/stuff/" + filename + ".bmp", "rb")
@@ -52,6 +51,7 @@ def init():
   game={}
   game['gamepad']=GamePadShift(DigitalInOut(board.BUTTON_CLOCK),DigitalInOut(board.BUTTON_OUT),DigitalInOut(board.BUTTON_LATCH))
   #
+  game['joke']='paper'
   game['terrMap']={} ; i=0
   for c in ' (_)"[#]RGBYOoX^CDEF':
     game['terrMap'][c]=i ; i+=1
@@ -60,22 +60,29 @@ def init():
   game['group']=grp
   #
   game['map_tg']=load_tilegrid("terrain", 10,6)
-  load_joke(game, 'paper')
+  load_joke(game, game['joke'])
   grp.append(game['map_tg'])
+  #
+  game['rugrat1']=load_tilegrid("rugrats", 1,1,16,24)
+  game['rugrat1'].x=16 ; game['rugrat1'].y=60
+  grp.append(game['rugrat1'])
   #
   board.DISPLAY.show(grp)
   return game
   
 def play():
   game = init()
-  gPad=game['gamepad'] ; DSP=board.DISPLAY ; gpVal=0 ; done=False
+  gPad=game['gamepad'] ; DSP=board.DISPLAY
+  gpVal=0 , iFr=0 ; done=False
   while not done:
-    # game logic
+    if iFr>3:
+      iFr=0
+    game['rugrat1'][0,0]=iFr
     #
     gPad.get_pressed() # discard extra clicks
     DSP.wait_for_frame()
     gpVal=gPad.get_pressed()
     if gpVal == 33:
       done=True
-
+    iFr=iFr+1
 
