@@ -38,16 +38,21 @@ def TM(game,c):
   else:
     return 8 # red flag
 
-def load_joke(game, joke_name):
+def load_joke(game):
   game['jokeRoomTxt']=[]
-  with open("/dad/jokes/" + joke_name + ".dad") as f:
+  with open("/dad/jokes/" + game['joke'] + ".dad") as f:
     for line in f:
       if line.startswith("/"):
         game['jokeRoomTxt'].append(line[1:11])
-  if 'jokeRoom' in game:
-    for y in range(6):
-      for x in range(10):
-        game['jokeRoom'][x,y]=TM(game, game['jokeRoomTxt'][y][x])
+      elif line startswith(":T:"):
+        game['textT']=line[3:].strip()
+      elif line startswith(":M:"):
+        game['textM']=line[3:].strip()
+      elif line startswith(":B:"):
+        game['textB']=line[3:].strip()
+  for y in range(6):
+    for x in range(10):
+      game['jokeRoom'][x,y]=TM(game, game['jokeRoomTxt'][y][x])
 
 def init():
   game={}
@@ -62,10 +67,9 @@ def init():
   game['group']=grp
   #
   jokeRoom=load_tilegrid("terrain", 10,6)
-  game['jokeRoom']=jokeRoom
   jokeRoom.x=0 ; jokeRoom.y=16
-  load_joke(game, game['joke'])
   grp.append(jokeRoom)
+  game['jokeRoom']=jokeRoom
   #
   textT=label.Label(terminalio.FONT, max_glyphs=26, color=0xFF00FF)
   textT.x=1 ; textT.y=7
@@ -106,7 +110,10 @@ def init():
   grp.append(textM)
   game['textM']=textM
   #
-  board.DISPLAY.show(grp)
+  DSP=board.DISPLAY
+  DSP.show(grp) ; DSP.wait_for_frame()
+  load_joke(game) ; DSP.wait_for_frame()
+  #
   return game
 
 def play():
