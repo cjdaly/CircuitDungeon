@@ -57,9 +57,9 @@ def load_joke(game):
     for x in range(10):
       game['jokeRoom'][x,y]=TM(game, game['jokeRoomTxt'][y][x])
 
-def init_tilegrid(game, filename,name, w=1,h=1,tw=32,th=32, x,y):
+def init_tilegrid(game, filename,name, w,h,tw,th, x,y):
   tg=load_tilegrid(filename, w,h,tw,th)
-  tg.x=x ; rugrat1.y=y
+  tg.x=x ; tg.y=y
   game['group'].append(tg)
   game[name]=tg
 
@@ -83,7 +83,7 @@ def init():
   init_tilegrid(game, "terrain","jokeRoom", 10,6,16,16, 0,16)
   #
   init_label(game, "textT", terminalio.FONT, 26, 0xFF00FF, 1, 7, "Hello World! Hello World!A")
-  init_label(game, "textB", terminalio.FONT, 26, 0x00FFFF, 1, 7, "Nullo World! Nullo World!Z")
+  init_label(game, "textB", terminalio.FONT, 26, 0x00FFFF, 1, 119, "Nullo World! Nullo World!Z")
   #
   init_tilegrid(game, "rugrats","rugrat1", 1,1,16,24, 32,68)
   init_tilegrid(game, "pets","pet1", 1,1,32,32, -33,-33)
