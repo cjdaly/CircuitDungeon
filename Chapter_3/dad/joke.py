@@ -26,7 +26,7 @@ from digitalio import DigitalInOut
 from adafruit_bitmap_font import bitmap_font
 from adafruit_display_text import label
 
-def load_tilegrid(filename, w=16,h=16,tw=16,th=16):
+def load_tilegrid(filename,w,h,tw,th):
   f = open("/dad/stuff/" + filename + ".bmp", "rb")
   odb = displayio.OnDiskBitmap(f)
   tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), width=w, height=h, tile_width=tw, tile_height=th)
@@ -57,6 +57,18 @@ def load_joke(game):
     for x in range(10):
       game['jokeRoom'][x,y]=TM(game, game['jokeRoomTxt'][y][x])
 
+def init_tilegrid(game, filename,name, w=1,h=1,tw=32,th=32, x,y):
+  tg=load_tilegrid(filename, w,h,tw,th)
+  tg.x=x ; rugrat1.y=y
+  game['group'].append(tg)
+  game[name]=tg
+
+def init_label(game, name, font, len, color, x,y, text):
+  lbl=label.Label(font, max_glyphs=len, color=color)
+  lbl.x=x ; lbl.y=y; lbl.text=text
+  game['group'].append(lbl)
+  game[name]=lbl
+
 def init():
   game={}
   game['gamepad']=GamePadShift(DigitalInOut(board.BUTTON_CLOCK),DigitalInOut(board.BUTTON_OUT),DigitalInOut(board.BUTTON_LATCH))
@@ -66,54 +78,22 @@ def init():
   for c in ' (_)"[#]RGBYOoX^CDEF':
     game['terrMap'][c]=i ; i+=1
   #
-  grp=displayio.Group(max_size=8)
-  game['group']=grp
+  game['group']=displayio.Group(max_size=8)
   #
-  jokeRoom=load_tilegrid("terrain", 10,6)
-  jokeRoom.x=0 ; jokeRoom.y=16
-  grp.append(jokeRoom)
-  game['jokeRoom']=jokeRoom
+  init_tilegrid(game, "terrain","jokeRoom", 10,6,16,16, 0,16)
   #
-  textT=label.Label(terminalio.FONT, max_glyphs=26, color=0xFF00FF)
-  textT.x=1 ; textT.y=7
-  textT.text="Hello World! Hello World!A"
-  grp.append(textT)
-  game['textT']=textT
+  init_label(game, "textT", terminalio.FONT, 26, 0xFF00FF, 1, 7, "Hello World! Hello World!A")
+  init_label(game, "textB", terminalio.FONT, 26, 0x00FFFF, 1, 7, "Nullo World! Nullo World!Z")
   #
-  textB=label.Label(terminalio.FONT, max_glyphs=26, color=0x00FFFF)
-  textB.x=1 ; textB.y=119
-  textB.text="Nullo World! Nullo World!Z"
-  grp.append(textB)
-  game['textB']=textB
-  #
-  rugrat1=load_tilegrid("rugrats", 1,1,16,24)
-  rugrat1.x=32 ; rugrat1.y=68
-  grp.append(rugrat1)
-  game['rugrat1']=rugrat1
-  #
-  pet1=load_tilegrid("pets", 1,1,32,32)
-  pet1.x=-33 ; pet1.y=-33
-  grp.append(pet1)
-  game['pet1']=pet1
-  #
-  snack1=load_tilegrid("snacks", 1,1,32,32)
-  snack1.x=96 ; snack1.y=60
-  grp.append(snack1)
-  game['snack1']=snack1
-  #
-  silly1=load_tilegrid("sillies", 1,1,32,32)
-  silly1.x=-33 ; silly1.y=-33
-  grp.append(silly1)
-  game['silly1']=silly1
+  init_tilegrid(game, "rugrats","rugrat1", 1,1,16,24, 32,68)
+  init_tilegrid(game, "pets","pet1", 1,1,32,32, -33,-33)
+  init_tilegrid(game, "snacks","snack1", 1,1,32,32, 96,60)
+  init_tilegrid(game, "sillies","silly1", 1,1,32,32, -33,-33)
   #
   font = bitmap_font.load_font("/dad/fonts/Helvetica-Bold-16.bdf")
-  textM = label.Label(font, max_glyphs=18, color=0xFFFF00)
-  textM.x=8 ; textM.y=60
-  textM.text="Mello Yello World!"
-  grp.append(textM)
-  game['textM']=textM
+  init_label(game, "textM", font, 18, 0xFFFF00, 8, 58, "Mello Yello World!")
   #
-  board.DISPLAY.show(grp) ; WAIT_FRAME()
+  board.DISPLAY.show(game['group']) ; WAIT_FRAME()
   load_joke(game) ; WAIT_FRAME()
   #
   return game
