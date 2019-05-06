@@ -38,18 +38,21 @@ def TM(game,c):
   else:
     return 8 # red flag
 
+def WAIT_FRAME():
+  board.DISPLAY.wait_for_frame()
+
 def load_joke(game):
   game['jokeRoomTxt']=[]
   with open("/dad/jokes/" + game['joke'] + ".dad") as f:
     for line in f:
       if line.startswith("/"):
         game['jokeRoomTxt'].append(line[1:11])
-      elif line startswith(":T:"):
-        game['textT']=line[3:].strip()
-      elif line startswith(":M:"):
-        game['textM']=line[3:].strip()
-      elif line startswith(":B:"):
-        game['textB']=line[3:].strip()
+      elif line.startswith(":T:"):
+        game['textT'].text=line[3:].rstrip() ; WAIT_FRAME()
+      elif line.startswith(":M:"):
+        game['textM'].text=line[3:].rstrip() ; WAIT_FRAME()
+      elif line.startswith(":B:"):
+        game['textB'].text=line[3:].rstrip() ; WAIT_FRAME()
   for y in range(6):
     for x in range(10):
       game['jokeRoom'][x,y]=TM(game, game['jokeRoomTxt'][y][x])
@@ -110,9 +113,8 @@ def init():
   grp.append(textM)
   game['textM']=textM
   #
-  DSP=board.DISPLAY
-  DSP.show(grp) ; DSP.wait_for_frame()
-  load_joke(game) ; DSP.wait_for_frame()
+  board.DISPLAY.show(grp) ; WAIT_FRAME()
+  load_joke(game) ; WAIT_FRAME()
   #
   return game
 
@@ -126,7 +128,7 @@ def play():
     game['rugrat1'][0,0]=iFr
     #
     gPad.get_pressed() # discard extra clicks
-    DSP.wait_for_frame(); iFr=iFr+1
+    WAIT_FRAME(); iFr=iFr+1
     DSP.auto_brightness = False ; DSP.brightness=0.5
     gpVal=gPad.get_pressed()
     if gpVal == 33:
