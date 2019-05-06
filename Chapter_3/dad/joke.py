@@ -79,13 +79,6 @@ def init():
   grp.append(textB)
   game['textB']=textB
   #
-  font = bitmap_font.load_font("/dad/fonts/Helvetica-Bold-16.bdf")
-  textM = label.Label(font, max_glyphs=18, color=0xFFFF00)
-  textM.x=8 ; textM.y=60
-  textM.text="Mello Yello World!"
-  grp.append(textM)
-  game['textM']=textM
-  #
   rugrat1=load_tilegrid("rugrats", 1,1,16,24)
   rugrat1.x=32 ; rugrat1.y=68
   grp.append(rugrat1)
@@ -97,7 +90,7 @@ def init():
   game['pet1']=pet1
   #
   snack1=load_tilegrid("snacks", 1,1,32,32)
-  snack1.x=-33 ; snack1.y=-33
+  snack1.x=96 ; snack1.y=60
   grp.append(snack1)
   game['snack1']=snack1
   #
@@ -105,6 +98,13 @@ def init():
   silly1.x=-33 ; silly1.y=-33
   grp.append(silly1)
   game['silly1']=silly1
+  #
+  font = bitmap_font.load_font("/dad/fonts/Helvetica-Bold-16.bdf")
+  textM = label.Label(font, max_glyphs=18, color=0xFFFF00)
+  textM.x=8 ; textM.y=60
+  textM.text="Mello Yello World!"
+  grp.append(textM)
+  game['textM']=textM
   #
   board.DISPLAY.show(grp)
   return game
