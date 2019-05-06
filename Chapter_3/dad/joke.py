@@ -58,7 +58,7 @@ def init():
   for c in ' (_)"[#]RGBYOoX^CDEF':
     game['terrMap'][c]=i ; i+=1
   #
-  grp=displayio.Group(max_size=6)
+  grp=displayio.Group(max_size=8)
   game['group']=grp
   #
   jokeRoom=load_tilegrid("terrain", 10,6)
@@ -81,7 +81,7 @@ def init():
   #
   font = bitmap_font.load_font("/dad/fonts/Helvetica-Bold-16.bdf")
   textM = label.Label(font, max_glyphs=18, color=0xFFFF00)
-  textM.x=16 ; textM.y=52
+  textM.x=8 ; textM.y=60
   textM.text="Mello Yello World!"
   grp.append(textM)
   game['textM']=textM
@@ -91,20 +91,36 @@ def init():
   grp.append(rugrat1)
   game['rugrat1']=rugrat1
   #
+  pet1=load_tilegrid("pets", 1,1,32,32)
+  pet1.x=-33 ; pet1.y=-33
+  grp.append(pet1)
+  game['pet1']=pet1
+  #
+  snack1=load_tilegrid("snacks", 1,1,32,32)
+  snack1.x=-33 ; snack1.y=-33
+  grp.append(snack1)
+  game['snack1']=snack1
+  #
+  silly1=load_tilegrid("sillies", 1,1,32,32)
+  silly1.x=-33 ; silly1.y=-33
+  grp.append(silly1)
+  game['silly1']=silly1
+  #
   board.DISPLAY.show(grp)
   return game
 
 def play():
   game = init()
   gPad=game['gamepad'] ; DSP=board.DISPLAY
-  gpVal=0 ; iFr=0 ; done=False
+  gpVal=0 ; iFr=0 ; iTr=0; done=False
   while not done:
     if iFr>3:
-      iFr=0
+      iFr=0 ; iTr+=1
     game['rugrat1'][0,0]=iFr
     #
     gPad.get_pressed() # discard extra clicks
     DSP.wait_for_frame(); iFr=iFr+1
+    DSP.auto_brightness = False ; DSP.brightness=0.5
     gpVal=gPad.get_pressed()
     if gpVal == 33:
       done=True
