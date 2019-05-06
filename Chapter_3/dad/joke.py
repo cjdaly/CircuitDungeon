@@ -62,10 +62,10 @@ def init():
   game['group']=grp
   #
   jokeRoom=load_tilegrid("terrain", 10,6)
+  game['jokeRoom']=jokeRoom
   jokeRoom.x=0 ; jokeRoom.y=16
   load_joke(game, game['joke'])
   grp.append(jokeRoom)
-  game['jokeRoom']=jokeRoom
   #
   textT=label.Label(terminalio.FONT, max_glyphs=26, color=0xFF00FF)
   textT.x=1 ; textT.y=7
@@ -80,9 +80,9 @@ def init():
   game['textB']=textB
   #
   font = bitmap_font.load_font("/dad/fonts/Helvetica-Bold-16.bdf")
-  textM = label.Label(font, max_glyphs=12, color=0xFFFF00)
-  textM.x=0 ; textM.y=40
-  textM.text="Yello World!"
+  textM = label.Label(font, max_glyphs=18, color=0xFFFF00)
+  textM.x=16 ; textM.y=52
+  textM.text="Mello Yello World!"
   grp.append(textM)
   game['textM']=textM
   #
