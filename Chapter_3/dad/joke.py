@@ -53,7 +53,7 @@ def init():
   game={}
   game['gamepad']=GamePadShift(DigitalInOut(board.BUTTON_CLOCK),DigitalInOut(board.BUTTON_OUT),DigitalInOut(board.BUTTON_LATCH))
   #
-  game['joke']='paper'
+  game['joke']='home'
   game['terrMap']={} ; i=0
   for c in ' (_)"[#]RGBYOoX^CDEF':
     game['terrMap'][c]=i ; i+=1
