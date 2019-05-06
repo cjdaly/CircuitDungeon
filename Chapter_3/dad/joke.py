@@ -37,15 +37,15 @@ def TM(game,c):
     return 8 # red flag
 
 def load_joke(game, joke_name):
-  game['map_txt']=[]
+  game['jokeRoomTxt']=[]
   with open("/dad/jokes/" + joke_name + ".dad") as f:
     for line in f:
       if line.startswith("/"):
-        game['map_txt'].append(line[1:11])
-  if 'map_tg' in game:
+        game['jokeRoomTxt'].append(line[1:11])
+  if 'jokeRoom' in game:
     for y in range(6):
       for x in range(10):
-        game['map_tg'][x,y]=TM(game, game['map_txt'][y][x])
+        game['jokeRoom'][x,y]=TM(game, game['jokeRoomTxt'][y][x])
 
 def init():
   game={}
@@ -59,12 +59,13 @@ def init():
   grp=displayio.Group(max_size=8)
   game['group']=grp
   #
-  game['map_tg']=load_tilegrid("terrain", 10,6)
+  game['jokeRoom']=load_tilegrid("terrain", 10,6)
+  game['jokeRoom'].x=0 ; game['jokeRoom'].y=16
   load_joke(game, game['joke'])
-  grp.append(game['map_tg'])
+  grp.append(game['jokeRoom'])
   #
   game['rugrat1']=load_tilegrid("rugrats", 1,1,16,24)
-  game['rugrat1'].x=16 ; game['rugrat1'].y=60
+  game['rugrat1'].x=32 ; game['rugrat1'].y=68
   grp.append(game['rugrat1'])
   #
   board.DISPLAY.show(grp)
@@ -73,7 +74,7 @@ def init():
 def play():
   game = init()
   gPad=game['gamepad'] ; DSP=board.DISPLAY
-  gpVal=0 , iFr=0 ; done=False
+  gpVal=0 ; iFr=0 ; done=False
   while not done:
     if iFr>3:
       iFr=0
