@@ -52,9 +52,9 @@ def TM(game,c):
 
 def reset_CCPU(CCPU):
   NOMS=CCPU['NOMS'];
-  NOMS['nom'].clear() ; NOMS['NOM'].clear()
-  NOMS['Nom'].clear() ; NOMS['nOm'].clear()
-  NOMS['NoM'].clear() ; NOMS['noM'].clear()
+  NOMS['noms'].clear() ; NOMS['NOMs'].clear()
+  NOMS['Noms'].clear() ; NOMS['nOms'].clear()
+  NOMS['NoMs'].clear() ; NOMS['noMs'].clear()
   CCPU['MAP'].clear()
   CCPU['REGS'].clear()
   CCPU['YOS'].clear()
@@ -66,7 +66,7 @@ def load_joke(game, CCPU, joke):
       if line.startswith("/"):
         CCPU['MAP'].append(line[1:11])
       elif line[:4].lower()=='nom:':
-        CCPU['NOMS'][line[:3]].append(line[4:].rstrip())
+        CCPU['NOMS'][line[:3]+'s'].append(line[4:].rstrip())
       elif line[:3].lower()=='yo:':
         k,v=CCPU['decodeYo'].match(line[3:].rstrip()).groups()
         CCPU['YOS'][k]=v
@@ -127,11 +127,11 @@ def frame(game, CCPU, pL, pD):
   noms=None
   if fCount==0:
     noms=NOMS['Noms']
-  elsif fCount==1:
+  elif fCount==1:
     noms=NOMS['nOms']
-  elsif fCount==2:
+  elif fCount==2:
     noms=NOMS['NoMs']
-  elsif fCount==3:
+  elif fCount==3:
     noms=NOMS['noMs']
   #
   for nom in noms:

@@ -26,7 +26,7 @@ from digitalio import DigitalInOut
 from adafruit_bitmap_font import bitmap_font
 from adafruit_display_text import label
 
-import chomp_code
+from dad import chomp_code
 
 def load_tilegrid(filename,w,h,tw,th):
   f = open("/dad/stuff/" + filename + ".bmp", "rb")
