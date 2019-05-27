@@ -3,7 +3,7 @@
 
 :T:Welcome home...
 
-!0123456789
+%0123456789
 /##########
 /#R#G##B#Y#
 /#        #
@@ -12,4 +12,8 @@
 /##########
 
 :B:...now go away!!!
+
+nom:anim1(rugrat1,@FR)
+
+YO:msg1=Hello World...
 
