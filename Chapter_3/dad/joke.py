@@ -46,15 +46,11 @@ def init_label(game, name, font, len, color, x,y, text):
   game['group'].append(lbl)
   game[name]=lbl
 
-def WAIT_FRAME():
-  board.DISPLAY.wait_for_frame()
-
 def init():
   game={}
   game['gamepad']=GamePadShift(DigitalInOut(board.BUTTON_CLOCK),DigitalInOut(board.BUTTON_OUT),DigitalInOut(board.BUTTON_LATCH))
-  game['DSP']=board.DISPLAY
+  DSP=board.DISPLAY ; game['DSP']=DSP
   #
-  game['joke']='home'
   game['terrMap']={} ; i=0
   for c in ' (_)"[#]RGBYOoX^CDEF':
     game['terrMap'][c]=i ; i+=1
@@ -63,41 +59,46 @@ def init():
   #
   init_tilegrid(game, "terrain","jokeRoom", 10,6,16,16, 0,16)
   #
-  init_label(game, "textT", terminalio.FONT, 26, 0xFF00FF, 1, 7, "")
-  init_label(game, "textB", terminalio.FONT, 26, 0x00FFFF, 1, 119, "")
+  init_label(game, "textT", terminalio.FONT, 26, 0xFF00FF, 1, -33, "")
+  init_label(game, "textB", terminalio.FONT, 26, 0x00FFFF, 1, -33, "")
   #
   init_tilegrid(game, "rugrats","rugrat1", 1,1,16,24, 32,68)
   init_tilegrid(game, "pets","pet1", 1,1,32,32, -33,-33)
-  init_tilegrid(game, "snacks","snack1", 1,1,32,32, 96,60)
+  init_tilegrid(game, "snacks","snack1", 1,1,32,32, -33,-33)
   init_tilegrid(game, "sillies","silly1", 1,1,32,32, -33,-33)
   #
   font = bitmap_font.load_font("/dad/fonts/Helvetica-Bold-16.bdf")
-  init_label(game, "textM", font, 18, 0xFFFF00, 8, 58, "")
+  init_label(game, "textM", font, 18, 0xFFFF00, 8, -33, "")
   #
-  board.DISPLAY.show(game['group']) ; WAIT_FRAME()
+  DSP.show(game['group']) ; DSP.wait_for_frame()
   #
   return game
 
-def play():
-  game = init() ; CCPU = chomp_code.init(game)
-  chomp_code.load_joke(game, CCPU, 'home')
+def play(game=None):
+  DSP = board.DISPLAY
+  if not game:
+    game = init()
+  CCPU = chomp_code.init(game)
   #
-  gPad=game['gamepad']; game['gpVal']=0
-  pL=[-1,0,0] # frame, turn, level
-  pD={}
+  gPad=game['gamepad']
+  nomKey=['Noms','nOms','NoMs','noMs']
+  pL=[-1,0,0,0] # frame, turn, level, gamepad
+  pD={'spriteBase':0, 'faceRight':True}
   done=False
+  #
+  chomp_code.load_joke(game, CCPU, 'home')
+  chomp_code.eval_noms('SUPs', game, CCPU, pL, pD)
   #
   while not done:
     pL[0]+=1
     if pL[0]>3:
       pL[0]=0 ; pL[1]+=1
-    game['gpVal']=gPad.get_pressed()
-    chomp_code.pre_frame(game, CCPU, pL, pD)
-    chomp_code.frame(game, CCPU, pL, pD)
-    WAIT_FRAME()
-    game['gpVal']=gPad.get_pressed()
-    chomp_code.post_frame(game, CCPU, pL, pD)
-    if game['gpVal'] == 33:
+    chomp_code.eval_noms(nomKey[pL[0]], game, CCPU, pL, pD)
+    chomp_code.eval_noms('noms', game, CCPU, pL, pD)
+    DSP.wait_for_frame()
+    pL[3]=gPad.get_pressed()
+    chomp_code.eval_noms('NOMs', game, CCPU, pL, pD)
+    if pL[3] == 33:
       done=True
   return game
 

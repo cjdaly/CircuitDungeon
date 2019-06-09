@@ -1,7 +1,6 @@
+YO:txtM:  The Dad Joke
 
-:M:  The Dad Joke
-
-:T:Welcome home...
+YO:txtT:Welcome home...
 
 %0123456789
 /##########
@@ -11,9 +10,16 @@
 /#_________
 /##########
 
-:B:...now go away!!!
+YO:txtB:...now go away!!!
+
+SUP:setTopText(DSP,textT,$txtT)
+SUP:setBottomText(DSP,textB,$txtB)
+SUP:setMiddleText(DSP,textM,$txtM)
 
 nom:anim1(rugrat1,@FR)
 
-YO:msg1=Hello World...
+Nom:randomap(jokeRoom,3,1,8,12,2)
+nOm:randomap(jokeRoom,6,1,8,12,2)
+NoM:randomap(jokeRoom,1,1,8,12)
+noM:randomap(jokeRoom,8,1,8,12)
 
