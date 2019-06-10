@@ -46,7 +46,8 @@ def init(game):
   OPS['setTopText']=CC_setTopText
   OPS['setBottomText']=CC_setBottomText
   OPS['setMiddleText']=CC_setMiddleText
-  OPS['anim1']=CC_anim1
+  OPS['playerMove']=CC_playerMove
+  OPS['playerMorph']=CC_playerMorph
   OPS['randomap']=CC_randomap
   return CCPU
 
@@ -143,7 +144,7 @@ def HH_setTextTG(DSP,tilegrid,text,color,x,y=-33):
   tilegrid.text=text ; tilegrid.color=color
   DSP.wait_for_frame()
 
-def CC_setTopText(DSP,tilegrid,text='',hide=False,color=0xFF00FF):
+def CC_setTopText(DSP,tilegrid,text,hide=False,color=0xFF00FF):
   if hide:
     HH_setTextTG(DSP,tilegrid,text,color,1)
   else:
@@ -161,11 +162,25 @@ def CC_setMiddleText(DSP,tilegrid,text,hide=False,color=0xFFFF00):
   else:
     HH_setTextTG(DSP,tilegrid,text,color,8,58)
 
-def CC_anim1(rugrat, iFR):
-  rugrat[0,0]=iFR
+def CC_playerMove(rugrat,iFR,pD):
+  if pD['faceRight']:
+    rugrat[0,0]=pD['spriteBase']+iFR
+  else:
+    rugrat[0,0]=pD['spriteBase']+iFR+8
+
+def CC_playerMorph(iGP,pD):
+  if iGP==1:
+    if pD['spriteBase'] == 0:
+      pD['spriteBase']=16
+    else:
+      pD['spriteBase']=16
+  elif iGP==16:
+    pD['faceRight']=True
+  elif iGP==128:
+    pD['faceRight']=False
 
 def CC_randomap(mapTG,x,y,min,max,prob=4):
-  if random.randint(1,prob)=1:
+  if random.randint(1,prob)==1:
     mapTG[x,y]=random.randint(min,max)
 
 

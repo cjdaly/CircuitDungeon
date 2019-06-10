@@ -16,10 +16,11 @@ SUP:setTopText(DSP,textT,$txtT)
 SUP:setBottomText(DSP,textB,$txtB)
 SUP:setMiddleText(DSP,textM,$txtM)
 
-nom:anim1(rugrat1,@FR)
+nom:playerMove(rugrat1,@FR,##)
+NOM:playerMorph(@GP,##)
 
-Nom:randomap(jokeRoom,3,1,8,12,2)
-nOm:randomap(jokeRoom,6,1,8,12,2)
-NoM:randomap(jokeRoom,1,1,8,12)
-noM:randomap(jokeRoom,8,1,8,12)
+Nom:randomap(jokeRoom,3,1,8,11,2)
+nOm:randomap(jokeRoom,6,1,8,11,2)
+NoM:randomap(jokeRoom,1,1,8,13)
+noM:randomap(jokeRoom,8,1,8,11)
 
