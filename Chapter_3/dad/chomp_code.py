@@ -164,20 +164,34 @@ def CC_setMiddleText(DSP,tilegrid,text,hide=False,color=0xFFFF00):
 
 def CC_playerMove(rugrat,iFR,pD):
   if pD['faceRight']:
-    rugrat[0,0]=pD['spriteBase']+iFR
+    if pD['onTheMove']:
+      pD['onTheMove']=False; rugrat[0,0].x+=1
+      rugrat[0,0]=pD['spriteBase']+iFR+4
+    else:
+      rugrat[0,0]=pD['spriteBase']+iFR
   else:
-    rugrat[0,0]=pD['spriteBase']+iFR+8
+    if pD['onTheMove']:
+      pD['onTheMove']=False; rugrat[0,0].x-=1
+      rugrat[0,0]=pD['spriteBase']+iFR+12
+    else:
+      rugrat[0,0]=pD['spriteBase']+iFR+8
 
 def CC_playerMorph(iGP,pD):
   if iGP==1:
     if pD['spriteBase'] == 0:
       pD['spriteBase']=16
     else:
-      pD['spriteBase']=16
+      pD['spriteBase']=0
   elif iGP==16:
-    pD['faceRight']=True
+    if pD['faceRight']:
+      pD['onTheMove']=True
+    else:
+      pD['faceRight']=True
   elif iGP==128:
-    pD['faceRight']=False
+    if not pD['faceRight']:
+      pD['onTheMove']=True
+    else:
+      pD['faceRight']=False
 
 def CC_randomap(mapTG,x,y,min,max,prob=4):
   if random.randint(1,prob)==1:

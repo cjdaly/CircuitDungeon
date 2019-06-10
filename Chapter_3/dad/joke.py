@@ -83,7 +83,7 @@ def play(game=None):
   gPad=game['gamepad']
   nomKey=['Noms','nOms','NoMs','noMs']
   pL=[-1,0,0,0] # frame, turn, level, gamepad
-  pD={'spriteBase':0, 'faceRight':True}
+  pD={'spriteBase':0, 'faceRight':True, 'onTheMove':False}
   done=False
   #
   chomp_code.load_joke(game, CCPU, 'home')
