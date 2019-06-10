@@ -165,13 +165,13 @@ def CC_setMiddleText(DSP,tilegrid,text,hide=False,color=0xFFFF00):
 def CC_playerMove(rugrat,iFR,pD):
   if pD['faceRight']:
     if pD['onTheMove']:
-      pD['onTheMove']=False; rugrat[0,0].x+=1
+      pD['onTheMove']=False; rugrat.x+=2
       rugrat[0,0]=pD['spriteBase']+iFR+4
     else:
       rugrat[0,0]=pD['spriteBase']+iFR
   else:
     if pD['onTheMove']:
-      pD['onTheMove']=False; rugrat[0,0].x-=1
+      pD['onTheMove']=False; rugrat.x-=2
       rugrat[0,0]=pD['spriteBase']+iFR+12
     else:
       rugrat[0,0]=pD['spriteBase']+iFR+8
