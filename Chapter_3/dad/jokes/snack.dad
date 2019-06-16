@@ -1,7 +1,6 @@
 
 
-^:Have a snack!
-
+YO:txtT:Have a snack!
 
 !0123456789
 /##########
@@ -10,4 +9,18 @@
 /#        #
 /#________#
 /##########
+
+YO:txtB:Delicious!
+
+SUP:playerPosition(DSP,rugrat1,32,68,#F)
+SUP:setTopText(DSP,textT,$txtT)
+SUP:playerPosition(DSP,snack1,96,56,#F)
+
+nom:playerMove(rugrat1,jokeRoom,@FR,##)
+NOM:playerMorph(@GP,##)
+
+Nom:randomap(jokeRoom,3,1,8,11)
+nOm:randomap(jokeRoom,6,1,8,13,6)
+NoM:randomap(jokeRoom,1,1,8,11,8)
+noM:randomap(jokeRoom,8,1,8,11,6)
 
