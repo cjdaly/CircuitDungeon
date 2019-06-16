@@ -149,11 +149,8 @@ def HH_playerMove(playerTG, mapTG, x, mapY=4):
   if x > 0: # moving right
     if mapXOff > 0:
       mapXNew+=1
-    if mapTG[mapXNew,mapY] > 3: # blocked, bounce
-      xNew = playerTG.x - x
-  else: # moving left
-    if mapTG[mapXNew,mapY] > 3: # blocked, bounce
-      xNew = playerTG.x + x
+  if mapTG[mapXNew,mapY] > 3: # blocked, bounce
+    xNew = playerTG.x - x
   playerTG.x = xNew
 
 ##
