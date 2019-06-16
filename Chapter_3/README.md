@@ -3,6 +3,7 @@
 
 ## prerequisites
 
+* Works with [PyBadge](https://www.adafruit.com/product/4200) or [PyBadge LC](https://www.adafruit.com/product/3939)
 * Update PyBadge to CircuitPython 4.0.1 or newer
 * Copy to `.../CIRCUITPY/lib`:
   * `adafruit_bitmap_font`, `adafruit_display_text`
