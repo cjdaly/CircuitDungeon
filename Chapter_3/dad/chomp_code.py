@@ -49,6 +49,7 @@ def init(game):
   OPS['playerMove']=CC_playerMove
   OPS['playerMorph']=CC_playerMorph
   OPS['randomap']=CC_randomap
+  OPS['levelExit']=CC_levelExit
   return CCPU
 
 def TM(game,c):
@@ -96,6 +97,8 @@ def decode_param(game, CCPU, pL, pD, param):
       return int(param)
   elif c.isalpha():
     return game[param]
+  elif c=='~':
+    return param[1:]
   elif c=='&':
     if param=="&&":
       return CCPU['REGS']
@@ -139,9 +142,13 @@ def eval_noms(phase, game, CCPU, pL, pD):
 
 ##
 
-def HH_setTextTG(DSP,tilegrid,text,color,x,y=-33):
+def HH_showTextTG(DSP,tilegrid,text,color,x,y):
   tilegrid.x=x ; tilegrid.y=y
   tilegrid.text=text ; tilegrid.color=color
+  DSP.wait_for_frame()
+
+def HH_hideTextTG(DSP,tilegrid, y=-33):
+  tilegrid.y = y
   DSP.wait_for_frame()
 
 def HH_playerMove(playerTG, mapTG, x, mapY=4):
@@ -157,34 +164,34 @@ def HH_playerMove(playerTG, mapTG, x, mapY=4):
 
 def CC_setTopText(DSP,tilegrid,text,hide=False,color=0xFF00FF):
   if hide:
-    HH_setTextTG(DSP,tilegrid,text,color,1)
+    HH_hideTextTG(DSP,tilegrid)
   else:
-    HH_setTextTG(DSP,tilegrid,text,color,1,7)
+    HH_showTextTG(DSP,tilegrid,text,color,1,7)
 
 def CC_setBottomText(DSP,tilegrid,text,hide=False,color=0x00FFFF):
   if hide:
-    HH_setTextTG(DSP,tilegrid,text,color,1)
+    HH_hideTextTG(DSP,tilegrid)
   else:
-    HH_setTextTG(DSP,tilegrid,text,color,1,119)
+    HH_showTextTG(DSP,tilegrid,text,color,1,119)
 
 def CC_setMiddleText(DSP,tilegrid,text,hide=False,color=0xFFFF00):
   if hide:
-    HH_setTextTG(DSP,tilegrid,text,color,8)
+    HH_hideTextTG(DSP,tilegrid)
   else:
-    HH_setTextTG(DSP,tilegrid,text,color,8,58)
+    HH_showTextTG(DSP,tilegrid,text,color,8,58)
 
 def CC_playerMove(rugrat,jokeRoom,iFR,pD):
   if pD['faceRight']:
     if pD['onTheMove']:
       pD['onTheMove']=False
-      HH_playerMove(rugrat,jokeRoom, 2)
+      HH_playerMove(rugrat,jokeRoom, 4)
       rugrat[0,0]=pD['spriteBase']+iFR+4
     else:
       rugrat[0,0]=pD['spriteBase']+iFR
   else:
     if pD['onTheMove']:
       pD['onTheMove']=False
-      HH_playerMove(rugrat,jokeRoom, -2)
+      HH_playerMove(rugrat,jokeRoom, -4)
       rugrat[0,0]=pD['spriteBase']+iFR+12
     else:
       rugrat[0,0]=pD['spriteBase']+iFR+8
@@ -210,4 +217,13 @@ def CC_randomap(mapTG,x,y,min,max,prob=4):
   if random.randint(1,prob)==1:
     mapTG[x,y]=random.randint(min,max)
 
+def CC_levelExit(game,rugrat,onMapX,nextJokeHint,mapXModMin=4,mapXModMax=11):
+  mapX = rugrat.x // 16 ; mapXMod = rugrat.x % 16
+  if mapX == onMapX:
+    if mapXMod>=mapXModMin and mapXMod<=mapXModMax:
+      CCPU=game['CCPU'] ; pL=game['pL'] ; pD=game['pD']
+      eval_noms('SDNs', game, CCPU, pL, PD)
+      load_joke(game, CCPU, nextJokeHint)
+      pL[1]=0 ; pL[2]+=1
+      eval_noms('SUPs', game, CCPU, pL, PD)
 
