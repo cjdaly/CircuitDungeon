@@ -13,3 +13,7 @@
     from dad import joke
     game=joke.play()
 
+## run on startup
+
+Copy the `main.py` file in the `dad` directory up to the top-level `CIRCUITPY` dir to make the game auto-start.
+
