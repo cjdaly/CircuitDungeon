@@ -137,12 +137,26 @@ def eval_noms(phase, game, CCPU, pL, pD):
   for nom in CCPU['NOMS'][phase]:
     decode_eval(game, CCPU, pL, pD, nom)
 
-#
+##
 
 def HH_setTextTG(DSP,tilegrid,text,color,x,y=-33):
   tilegrid.x=x ; tilegrid.y=y
   tilegrid.text=text ; tilegrid.color=color
   DSP.wait_for_frame()
+
+def HH_playerMove(playerTG, mapTG, x, mapY=4):
+  xNew=playerTG.x + x ; mapXNew = xNew // 16 ; mapXOff = xNew % 16
+  if x > 0: # moving right
+    if mapXOff > 0:
+      mapXNew+=1
+    if mapTG[mapXNew,mapY] > 3: # blocked, bounce
+      xNew = playerTG.x - x
+  else: # moving left
+    if mapTG[mapXNew,mapY] > 3: # blocked, bounce
+      xNew = playerTG.x + x
+  playerTG.x = xNew
+
+##
 
 def CC_setTopText(DSP,tilegrid,text,hide=False,color=0xFF00FF):
   if hide:
@@ -162,16 +176,18 @@ def CC_setMiddleText(DSP,tilegrid,text,hide=False,color=0xFFFF00):
   else:
     HH_setTextTG(DSP,tilegrid,text,color,8,58)
 
-def CC_playerMove(rugrat,iFR,pD):
+def CC_playerMove(rugrat,jokeRoom,iFR,pD):
   if pD['faceRight']:
     if pD['onTheMove']:
-      pD['onTheMove']=False; rugrat.x+=2
+      pD['onTheMove']=False
+      HH_playerMove(rugrat,jokeRoom, 2)
       rugrat[0,0]=pD['spriteBase']+iFR+4
     else:
       rugrat[0,0]=pD['spriteBase']+iFR
   else:
     if pD['onTheMove']:
-      pD['onTheMove']=False; rugrat.x-=2
+      pD['onTheMove']=False
+      HH_playerMove(rugrat,jokeRoom, -2)
       rugrat[0,0]=pD['spriteBase']+iFR+12
     else:
       rugrat[0,0]=pD['spriteBase']+iFR+8

@@ -6,8 +6,8 @@ YO:txtT:Welcome home...
 /##########
 /#R#G##B#Y#
 /#        #
-/#         
-/#_________
+/#      #  
+/#______#__
 /##########
 
 YO:txtB:...now go away!!!
@@ -16,7 +16,7 @@ SUP:setTopText(DSP,textT,$txtT)
 SUP:setBottomText(DSP,textB,$txtB)
 SUP:setMiddleText(DSP,textM,$txtM)
 
-nom:playerMove(rugrat1,@FR,##)
+nom:playerMove(rugrat1,jokeRoom,@FR,##)
 NOM:playerMorph(@GP,##)
 
 Nom:randomap(jokeRoom,3,1,8,11)

@@ -93,11 +93,18 @@ def play(game=None):
     pL[0]+=1
     if pL[0]>3:
       pL[0]=0 ; pL[1]+=1
+    #
+    pL[3]=gPad.get_pressed()
     chomp_code.eval_noms(nomKey[pL[0]], game, CCPU, pL, pD)
+    #
+    pL[3]=gPad.get_pressed()
     chomp_code.eval_noms('noms', game, CCPU, pL, pD)
+    #
     DSP.wait_for_frame()
+    #
     pL[3]=gPad.get_pressed()
     chomp_code.eval_noms('NOMs', game, CCPU, pL, pD)
+    #
     if pL[3] == 33:
       done=True
   return game
