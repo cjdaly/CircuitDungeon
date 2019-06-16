@@ -46,6 +46,7 @@ def init(game):
   OPS['setTopText']=CC_setTopText
   OPS['setBottomText']=CC_setBottomText
   OPS['setMiddleText']=CC_setMiddleText
+  OPS['hideText']=CC_hideText
   OPS['playerMove']=CC_playerMove
   OPS['playerMorph']=CC_playerMorph
   OPS['randomap']=CC_randomap
@@ -147,7 +148,7 @@ def HH_showTextTG(DSP,tilegrid,text,color,x,y):
   tilegrid.text=text ; tilegrid.color=color
   DSP.wait_for_frame()
 
-def HH_hideTextTG(DSP,tilegrid, y=-33):
+def HH_hideTextTG(DSP,tilegrid,y):
   tilegrid.y = y
   DSP.wait_for_frame()
 
@@ -162,23 +163,17 @@ def HH_playerMove(playerTG, mapTG, x, mapY=4):
 
 ##
 
-def CC_setTopText(DSP,tilegrid,text,hide=False,color=0xFF00FF):
-  if hide:
-    HH_hideTextTG(DSP,tilegrid)
-  else:
-    HH_showTextTG(DSP,tilegrid,text,color,1,7)
+def CC_setTopText(DSP,tilegrid,text,color=0xFF00FF):
+  HH_showTextTG(DSP,tilegrid,text,color,1,7)
 
 def CC_setBottomText(DSP,tilegrid,text,hide=False,color=0x00FFFF):
-  if hide:
-    HH_hideTextTG(DSP,tilegrid)
-  else:
-    HH_showTextTG(DSP,tilegrid,text,color,1,119)
+  HH_showTextTG(DSP,tilegrid,text,color,1,119)
 
 def CC_setMiddleText(DSP,tilegrid,text,hide=False,color=0xFFFF00):
-  if hide:
-    HH_hideTextTG(DSP,tilegrid)
-  else:
-    HH_showTextTG(DSP,tilegrid,text,color,8,58)
+  HH_showTextTG(DSP,tilegrid,text,color,8,58)
+
+def CC_hideText(DSP,tilegrid,y=-33):
+  HH_hideTextTG(DSP,tilegrid,y)
 
 def CC_playerMove(rugrat,jokeRoom,iFR,pD):
   if pD['faceRight']:

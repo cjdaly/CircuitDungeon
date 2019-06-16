@@ -26,7 +26,7 @@ nOm:randomap(jokeRoom,6,1,8,13,6)
 NoM:randomap(jokeRoom,1,1,8,11,8)
 noM:randomap(jokeRoom,8,1,8,11,6)
 
-SDN:setTopText(DSP,textT,$txtT,true)
-SDN:setBottomText(DSP,textB,$txtB,true)
-SDN:setMiddleText(DSP,textM,$txtM,true)
+SDN:hideText(DSP,textT)
+SDN:hideText(DSP,textB)
+SDN:hideText(DSP,textM)
 
