@@ -1,6 +1,8 @@
 
 # CircuitDungeon - Chapter 3 - The Dad Joke (for PyBadge)
 
+![DadJoke title screen](../pics/DadJoke.JPG)
+
 ## prerequisites
 
 * Works with [PyBadge](https://www.adafruit.com/product/4200) or [PyBadge LC](https://www.adafruit.com/product/3939)
