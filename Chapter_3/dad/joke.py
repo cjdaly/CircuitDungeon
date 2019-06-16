@@ -84,6 +84,7 @@ def play(game=None):
   nomKey=['Noms','nOms','NoMs','noMs']
   pL=[-1,0,0,0] # frame, turn, level, gamepad
   pD={'spriteBase':0, 'faceRight':True, 'onTheMove':False, 'GAME':game}
+  pD['T']=True ; pD['F']=False
   game['pL']=pL ; game['pD']=pD
   done=False
   #

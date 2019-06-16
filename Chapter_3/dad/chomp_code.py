@@ -47,6 +47,7 @@ def init(game):
   OPS['setBottomText']=CC_setBottomText
   OPS['setMiddleText']=CC_setMiddleText
   OPS['hideText']=CC_hideText
+  OPS['playerPosition']=CC_playerPosition
   OPS['playerMove']=CC_playerMove
   OPS['playerMorph']=CC_playerMorph
   OPS['randomap']=CC_randomap
@@ -91,7 +92,7 @@ def load_joke(game, CCPU, joke):
 
 def decode_param(game, CCPU, pL, pD, param):
   c=param[0]
-  if c.isdigit():
+  if c.isdigit() or c=='-':
     if '.' in param:
       return float(param)
     else:
@@ -174,6 +175,13 @@ def CC_setMiddleText(DSP,tilegrid,text,hide=False,color=0xFFFF00):
 
 def CC_hideText(DSP,tilegrid,y=-33):
   HH_hideTextTG(DSP,tilegrid,y)
+
+def CC_playerPosition(DSP,rugrat,x,y,isRel):
+  if isRel:
+    rugrat.x+=x ; rugrat.y+=y
+  else:
+    rugrat.x=x ; rugrat.y=y
+  DSP.wait_for_frame()
 
 def CC_playerMove(rugrat,jokeRoom,iFR,pD):
   if pD['faceRight']:

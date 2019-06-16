@@ -7,13 +7,12 @@ YO:txtT:How to say 'bye' in math?
 /#R#G##B#Y#
 /#        #
 /#        #
-/#________#
-/##########
+/#__  ____#
+/###  #####
 
 YO:txtB:Calc-U-later!
 
 SUP:setTopText(DSP,textT,$txtT)
-SUP:setBottomText(DSP,textB,$txtB)
 
 nom:playerMove(rugrat1,jokeRoom,@FR,##)
 NOM:playerMorph(@GP,##)
@@ -23,3 +22,11 @@ nOm:randomap(jokeRoom,6,1,8,13,6)
 NoM:randomap(jokeRoom,1,1,8,11,8)
 noM:randomap(jokeRoom,8,1,8,11,6)
 
+nom:levelExit(#GAME,rugrat1,4,~snack)
+
+SDN:setBottomText(DSP,textB,$txtB)
+SDN:playerPosition(DSP,rugrat,-2,3,#T)
+SDN:playerPosition(DSP,rugrat,-2,4,#T)
+SDN:playerPosition(DSP,rugrat,-2,5,#T)
+SDN:hideText(DSP,textT)
+SDN:hideText(DSP,textB)
