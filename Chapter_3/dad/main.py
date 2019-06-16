@@ -21,5 +21,6 @@
 # THE SOFTWARE.
 
 from dad import joke
-global game = joke.play()
+global game
+game = joke.play()
 
