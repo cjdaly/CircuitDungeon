@@ -222,8 +222,8 @@ def CC_levelExit(game,rugrat,onMapX,nextJokeHint,mapXModMin=4,mapXModMax=11):
   if mapX == onMapX:
     if mapXMod>=mapXModMin and mapXMod<=mapXModMax:
       CCPU=game['CCPU'] ; pL=game['pL'] ; pD=game['pD']
-      eval_noms('SDNs', game, CCPU, pL, PD)
+      eval_noms('SDNs', game, CCPU, pL, pD)
       load_joke(game, CCPU, nextJokeHint)
       pL[1]=0 ; pL[2]+=1
-      eval_noms('SUPs', game, CCPU, pL, PD)
+      eval_noms('SUPs', game, CCPU, pL, pD)
 

@@ -19,7 +19,7 @@ SUP:setMiddleText(DSP,textM,$txtM)
 nom:playerMove(rugrat1,jokeRoom,@FR,##)
 NOM:playerMorph(@GP,##)
 
-nom:levelExit(#GAME,rugrat1,9,~math)
+nom:levelExit(#GAME,rugrat1,8,~math)
 
 Nom:randomap(jokeRoom,3,1,8,11)
 nOm:randomap(jokeRoom,6,1,8,13,6)

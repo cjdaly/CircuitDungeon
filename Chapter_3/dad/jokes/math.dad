@@ -1,7 +1,6 @@
 ? adapted from: https://old.reddit.com/r/dadjokes/comments/bkhi4b/how_do_math_teachers_say_goodbye/
 
-^:Say 'bye' in math?
-_:Calc-U-later!
+YO:txtT:How to say 'bye' in math?
 
 !0123456789
 /##########
@@ -10,4 +9,17 @@ _:Calc-U-later!
 /#        #
 /#________#
 /##########
+
+YO:txtB:Calc-U-later!
+
+SUP:setTopText(DSP,textT,$txtT)
+SUP:setBottomText(DSP,textB,$txtB)
+
+nom:playerMove(rugrat1,jokeRoom,@FR,##)
+NOM:playerMorph(@GP,##)
+
+Nom:randomap(jokeRoom,3,1,8,11)
+nOm:randomap(jokeRoom,6,1,8,13,6)
+NoM:randomap(jokeRoom,1,1,8,11,8)
+noM:randomap(jokeRoom,8,1,8,11,6)
 
