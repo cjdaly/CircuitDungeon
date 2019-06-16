@@ -14,7 +14,13 @@
     from dad import joke
     game=joke.play()
 
-## run on startup
+## game controls
+
+* `LEFT` and `RIGHT` buttons to move
+* `B` button toggles armor
+* Press `DOWN` and `B` at the same time to exit to REPL
+
+## to run on startup
 
 Copy the `main.py` file in the `dad` directory up to the top-level `CIRCUITPY` dir to make the game auto-start.
 
