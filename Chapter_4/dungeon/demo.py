@@ -103,9 +103,9 @@ def sceneReset(data, phase, cFrame, cTurn, cScene):
     tg.y=-33
   #
   tgHero=data['tgHeroes'][0]
-  tgHero.x=DSP.width//2-8 ; tgHero.y=32
+  tgHero.x=DSP.width//2-8 ; tgHero.y=50
   #
-  data['elev']=3 ; data['velo']=-2 ; data['nextScene']=""
+  data['elev']=4 ; data['velo']=-2 ; data['nextScene']=""
   #
   DSP.wait_for_frame()
 
@@ -121,12 +121,11 @@ def sceneCycle(data, phase, cFrame, cTurn, cScene):
       tgMap.x+=v
     else:
       if tgMap.x%16==0:
-        mapX=(DSP.width-tgMap.x)//data['MAP_w']
+        mapX=(DSP.width-tgMap.x)//16
         mapY=data['MAP_h']
         elev=data['elev']
         while mapY>=1:
           mapY-=1
-          print('x:' + str(mapX) +', y:' + str(mapY))
           if elev==0:
             tgMap[mapX,mapY]=0
           elif elev==1:
@@ -134,6 +133,7 @@ def sceneCycle(data, phase, cFrame, cTurn, cScene):
           else:
             tgMap[mapX,mapY]=6 ; elev-=1
       tgMap.x+=v
+  DSP.wait_for_frame()
   #
   i=0
   for tgHero in data['tgHeroes']:
