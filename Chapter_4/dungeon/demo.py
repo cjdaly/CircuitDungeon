@@ -74,17 +74,17 @@ def init():
 # 2: 'r'=run ; 'w'=walk ; 'f'=fall/jump
 def creatureTile(attrs, cFrame):
   idx=0
-  if attrs[0]='2':
+  if attrs[0]=='2':
     idx=36
-  elif attrs[0]='1':
+  elif attrs[0]=='1':
     idx=18
   #
-  if attrs[1]='l':
+  if attrs[1]=='l':
     idx+=9
   #
-  if attrs[2]='w':
+  if attrs[2]=='w':
     idx+=cFrame
-  elif attrs[2]='r':
+  elif attrs[2]=='r':
     idx+=cFrame+4
   else:
     idx+=8
@@ -105,7 +105,7 @@ def sceneReset(data, phase, cFrame, cTurn, cScene):
   tgHero=data['tgHeroes'][0]
   tgHero.x=DSP.width//2-8 ; tgHero.y=32
   #
-  data['elev']=3 ; data['velo']=-2 ; data['leadMap']=0
+  data['elev']=3 ; data['velo']=-2 ; data['nextScene']=""
   #
   DSP.wait_for_frame()
 
@@ -114,6 +114,9 @@ def sceneCycle(data, phase, cFrame, cTurn, cScene):
   #
   v=data['velo']
   for tgMap in data['tgMaps']:
+    if tgMap.x<=-DSP.width:
+      tgMap.x=DSP.width
+    #
     if tgMap.x<=0 or tgMap.x>DSP.width:
       tgMap.x+=v
     else:
@@ -121,8 +124,9 @@ def sceneCycle(data, phase, cFrame, cTurn, cScene):
         mapX=(DSP.width-tgMap.x)//data['MAP_w']
         mapY=data['MAP_h']
         elev=data['elev']
-        while mapY>=0:
+        while mapY>=1:
           mapY-=1
+          print('x:' + str(mapX) +', y:' + str(mapY))
           if elev==0:
             tgMap[mapX,mapY]=0
           elif elev==1:
@@ -134,17 +138,18 @@ def sceneCycle(data, phase, cFrame, cTurn, cScene):
   i=0
   for tgHero in data['tgHeroes']:
     if tgHero.y!=-33:
-      tgHero[0,0]=creatureTile(data['tgHeroAttrs'][i])
+      tgHero[0,0]=creatureTile(data['tgHeroAttrs'][i], cFrame)
     i+=1
   i=0
   for tgNasty in data['tgNasties']:
     if tgNasty.y!=-33:
-      tgNasty[0,0]=creatureTile(data['tgNastyAttrs'][i])
+      tgNasty[0,0]=creatureTile(data['tgNastyAttrs'][i], cFrame)
     i+=1
   #
   DSP.wait_for_frame()
 
 def play(data=None):
+  phase=""
   if not data:
     data = init()
   cFrame = -1 ; cTurn = 0 ; cScene = 0 ; done = False
@@ -156,7 +161,7 @@ def play(data=None):
       cFrame=0 ; cTurn+=1
     #
     sceneCycle(data, phase, cFrame, cTurn, cScene)
-    if data['nextScene']:
+    if data['nextScene'] != "":
       cScene+=1 ; cTurn=0
       sceneReset(data, phase, cFrame, cTurn, cScene)
     #
