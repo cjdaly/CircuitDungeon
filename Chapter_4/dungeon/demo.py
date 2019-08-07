@@ -93,6 +93,12 @@ def creatureTile(attrs, cFrame):
   #
   return idx
 
+def showCreature(data, tg, xOffset):
+  DSP=board.DISPLAY
+  tg=data['tgHeroes'][0]
+  tg.x=DSP.width//4 - 16 + xOffset
+  tg.y=(DSP.height - data['elev']*16)//2 - 20
+
 def sceneReset(data, phase, cFrame, cTurn, cScene):
   DSP=board.DISPLAY
   #
@@ -106,9 +112,15 @@ def sceneReset(data, phase, cFrame, cTurn, cScene):
   #
   data['elev']=4 ; data['velo']=-2 ; data['nextScene']=""
   #
-  tgHero=data['tgHeroes'][0]
-  tgHero.x=DSP.width//4 - 16
-  tgHero.y=(DSP.height - data['elev']*16)//2 - 20
+  showCreature(data, data['tgHeroes'][0], 0)
+  #showCreature(data, data['tgHeroes'][1], 16)
+  #showCreature(data, data['tgHeroes'][2], -16)
+  #
+  #showCreature(data, data['tgNasties'][0], 0)
+  #showCreature(data, data['tgNasties'][1], 0)
+  #showCreature(data, data['tgNasties'][2], 0)
+  #
+  
   #
   DSP.wait_for_frame()
 
