@@ -120,8 +120,6 @@ def sceneReset(data, phase, cFrame, cTurn, cScene):
   #showCreature(data, data['tgNasties'][1], 0)
   #showCreature(data, data['tgNasties'][2], 0)
   #
-  
-  #
   DSP.wait_for_frame()
 
 def sceneCycle(data, phase, cFrame, cTurn, cScene):
