@@ -20,7 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import board, displayio, terminalio
+import board, neopixel
+import displayio, terminalio
 import random, time
 
 def load_tilegrid(flName,w,h,tw,th):
@@ -67,6 +68,8 @@ def init():
   #
   data['GRP'].append(data['GRP_CR'])
   DSP.show(data['GRP'])
+  #
+  data['NeoPix']=neopixel.NeoPixel(board.NEOPIXEL,1,brightness=0.5)
   #
   return data
 
@@ -143,9 +146,19 @@ def sceneCycle(data, phase, cFrame, cTurn, cScene):
           elif elev==1:
             tgMap[mapX,mapY]=2 ; elev-=1
           else:
-            tgMap[mapX,mapY]=6 ; elev-=1
+            r=random.randint(0,33)
+            if r==0:
+              tgMap[mapX,mapY]=4 ; elev-=1
+            elif r==1:
+              tgMap[mapX,mapY]=12 ; elev-=1
+            elif r==2:
+              tgMap[mapX,mapY]=13 ; elev-=1
+            else:
+              tgMap[mapX,mapY]=6 ; elev-=1
       tgMap.x+=v
   DSP.wait_for_frame()
+  #
+  data['NeoPix'][0]=(0,0,cFrame*3)
   #
   i=0
   for tgHero in data['tgHeroes']:
