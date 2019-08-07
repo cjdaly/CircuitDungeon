@@ -29,14 +29,14 @@ def load_tilegrid(flName,w,h,tw,th):
   tg=displayio.TileGrid(odb, pixel_shader=displayio.ColorConverter(), width=w, height=h, tile_width=tw, tile_height=th)
   return tg
 
-def init_tilegrid(data,flName,tgList, w,h,tw,th, x,y):
+def init_tilegrid(data,flName,tgList, w,h,tw,th, x,y, grp='GRP'):
   tg=load_tilegrid(flName, w,h,tw,th)
   tg.x=x ; tg.y=y
-  data['GRP'].append(tg) ; tgList.append(tg)
+  data[grp].append(tg) ; tgList.append(tg)
   return tg
 
-def init_creature(data,flName,tgList, w=1,h=1,tw=16,th=24,x=-33,y=-33):
-  tg=init_tilegrid(data,flName,tgList, w,h,tw,th,x,y)
+def init_creature(data,flName,tgList, w=1,h=1,tw=16,th=24,x=-99,y=-99):
+  tg=init_tilegrid(data,flName,tgList, w,h,tw,th,x,y, 'GRP_CR')
 
 def init():
   DSP=board.DISPLAY
@@ -44,7 +44,8 @@ def init():
   for c in ' (_)"[#]RGBYOoX^CDEF':
     data['terrainMap'][c]=i ; i+=1
   #
-  data['GRP']=displayio.Group(max_size=8)
+  data['GRP']=displayio.Group(max_size=4)
+  data['GRP_CR']=displayio.Group(max_size=6, scale=2)
   #
   tgMaps=[] ; data['tgMaps']=tgMaps
   w=DSP.width//16 ; data['MAP_w']=w
@@ -64,6 +65,7 @@ def init():
   init_creature(data,"nasties",tgNasties)
   data['tgNastyAttrs']=["0rr", "1rr", "2rr"]
   #
+  data['GRP'].append(data['GRP_CR'])
   DSP.show(data['GRP'])
   #
   return data
@@ -98,14 +100,15 @@ def sceneReset(data, phase, cFrame, cTurn, cScene):
   for tg in data['tgMaps']:
     tg.x=DSP.width*i ; i+=1
   for tg in data['tgHeroes']:
-    tg.y=-33
+    tg.y=-99
   for tg in data['tgNasties']:
-    tg.y=-33
-  #
-  tgHero=data['tgHeroes'][0]
-  tgHero.x=DSP.width//2-8 ; tgHero.y=50
+    tg.y=-99
   #
   data['elev']=4 ; data['velo']=-2 ; data['nextScene']=""
+  #
+  tgHero=data['tgHeroes'][0]
+  tgHero.x=DSP.width//4 - 16
+  tgHero.y=(DSP.height - data['elev']*16)//2 - 20
   #
   DSP.wait_for_frame()
 
@@ -137,12 +140,12 @@ def sceneCycle(data, phase, cFrame, cTurn, cScene):
   #
   i=0
   for tgHero in data['tgHeroes']:
-    if tgHero.y!=-33:
+    if tgHero.y!=-99:
       tgHero[0,0]=creatureTile(data['tgHeroAttrs'][i], cFrame)
     i+=1
   i=0
   for tgNasty in data['tgNasties']:
-    if tgNasty.y!=-33:
+    if tgNasty.y!=-99:
       tgNasty[0,0]=creatureTile(data['tgNastyAttrs'][i], cFrame)
     i+=1
   #
