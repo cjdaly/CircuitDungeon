@@ -74,21 +74,21 @@ def init():
 # 0: creature index digit: '0'-'2'
 # 1: 'r'=face right ; 'l'=face left
 # 2: 'r'=run ; 'w'=walk ; 'f'=fall/jump
-def creatureTile(attrs, cFrame):
+def creatureTile(attrs, cFrame, nTiles=9):
   idx=0
   if attrs[0]=='2':
-    idx=36
+    idx=nTiles*4
   elif attrs[0]=='1':
-    idx=18
+    idx=nTiles*2
   #
   if attrs[1]=='l':
-    idx+=9
+    idx+=nTiles
   #
   if attrs[2]=='w':
     idx+=cFrame
   elif attrs[2]=='r':
     idx+=cFrame+4
-  else:
+  elif nTiles==9:
     idx+=8
   #
   return idx
@@ -155,7 +155,7 @@ def sceneCycle(data, phase, cFrame, cTurn, cScene):
   i=0
   for tgNasty in data['tgNasties']:
     if tgNasty.y!=-99:
-      tgNasty[0,0]=creatureTile(data['tgNastyAttrs'][i], cFrame)
+      tgNasty[0,0]=creatureTile(data['tgNastyAttrs'][i], cFrame, 8)
     i+=1
   #
   DSP.wait_for_frame()
