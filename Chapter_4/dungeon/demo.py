@@ -112,7 +112,8 @@ def sceneReset(data, phase, cFrame, cTurn, cScene):
   for tg in data['tgNasties']:
     tg.y=-99
   #
-  data['elev']=4 ; data['velo']=-2 ; data['nextScene']=""
+  data['elev']=4 ; data['ceil']=9 ; data['velo']=-2 ; 
+  data['nextScene']=""
   #
   showCreature(data, data['tgHeroes'][0], 0)
   #showCreature(data, data['tgHeroes'][1], 20)
@@ -126,6 +127,7 @@ def sceneReset(data, phase, cFrame, cTurn, cScene):
 
 def sceneCycle(data, phase, cFrame, cTurn, cScene):
   DSP=board.DISPLAY
+  DSP.refresh_soon()
   #
   v=data['velo']
   for tgMap in data['tgMaps']:
@@ -138,25 +140,32 @@ def sceneCycle(data, phase, cFrame, cTurn, cScene):
       if tgMap.x%16==0:
         mapX=(DSP.width-tgMap.x)//16
         mapY=data['MAP_h']
-        elev=data['elev']
+        elev=data['elev'] ; ceil=data['ceil']
         while mapY>=1:
-          mapY-=1
+          mapY-=1 ; ceil-=1
           if elev==0:
-            tgMap[mapX,mapY]=0
+            if ceil==0:
+              tgMap[mapX,mapY]=6
+            elif ceil<0:
+              tgMap[mapX,mapY]=9
+            else:
+              tgMap[mapX,mapY]=0
           elif elev==1:
-            tgMap[mapX,mapY]=2 ; elev-=1
+            tgMap[mapX,mapY]=2
+          elif elev==2:
+            tgMap[mapX,mapY]=6
           else:
             r=random.randint(0,33)
             if r==0:
-              tgMap[mapX,mapY]=4 ; elev-=1
+              tgMap[mapX,mapY]=4
             elif r==1:
-              tgMap[mapX,mapY]=12 ; elev-=1
+              tgMap[mapX,mapY]=12
             elif r==2:
-              tgMap[mapX,mapY]=13 ; elev-=1
+              tgMap[mapX,mapY]=13
             else:
-              tgMap[mapX,mapY]=6 ; elev-=1
+              tgMap[mapX,mapY]=6
+          elev-=1
       tgMap.x+=v
-  DSP.wait_for_frame()
   #
   data['NeoPix'][0]=(0,0,cFrame*3)
   #
