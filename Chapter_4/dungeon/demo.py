@@ -167,7 +167,9 @@ def sceneCycle(data, phase, cFrame, cTurn, cScene):
           elev-=1
       tgMap.x+=v
   #
+  DSP.wait_for_frame()
   data['NeoPix'][0]=(0,0,cFrame*3)
+  DSP.refresh_soon()
   #
   i=0
   for tgHero in data['tgHeroes']:
