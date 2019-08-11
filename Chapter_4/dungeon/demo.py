@@ -168,7 +168,7 @@ def sceneCycle(data, phase, cFrame, cTurn, cScene):
       tgMap.x+=v
   #
   DSP.wait_for_frame()
-  data['NeoPix'][0]=(0,0,cFrame*3)
+  data['NeoPix'][0]=(0,0,cFrame*4)
   DSP.refresh_soon()
   #
   i=0
@@ -183,6 +183,7 @@ def sceneCycle(data, phase, cFrame, cTurn, cScene):
     i+=1
   #
   DSP.wait_for_frame()
+  data['NeoPix'][0]=(0,0,cFrame*4+2)
 
 def play(data=None):
   phase=""
