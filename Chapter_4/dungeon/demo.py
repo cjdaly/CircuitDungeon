@@ -112,7 +112,7 @@ def sceneReset(data, phase, cFrame, cTurn, cScene):
   for tg in data['tgNasties']:
     tg.y=-99
   #
-  data['elev']=4 ; data['ceil']=11 ; data['velo']=-2 ; 
+  data['elev']=4 ; data['ceil']=12 ; data['velo']=-2 ; 
   data['nextScene']=""
   #
   showCreature(data, data['tgHeroes'][0], 0)
@@ -145,7 +145,7 @@ def sceneCycle(data, phase, cFrame, cTurn, cScene):
           mapY-=1 ; ceil-=1
           if elev<=0:
             if ceil==-1 and cTurn%8==0:
-              tgMap[mapX,mapY]=random(8,12)
+              tgMap[mapX,mapY]=random.randint(8,11)
             elif ceil<=0:
               tgMap[mapX,mapY]=6
             else:
