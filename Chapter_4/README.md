@@ -1,6 +1,8 @@
 
 # CircuitDungeon - Chapter 4 - The Rabbit Hole
 
+![rabbit hole](../pics/RabbitHole.JPG)
+
 ## prerequisites
 
 * [CircuitPython](https://circuitpython.org/) 4.1.0 or greater
