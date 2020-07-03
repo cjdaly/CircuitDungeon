@@ -9,3 +9,4 @@ This is a series of experiments in making tile-based dungeon crawl type games fo
 * [Chapter 2 - Yet Another Game Concept....](Chapter_2)
 * [Chapter 3 - The Dad Joke - for PyBadge](Chapter_3)
 * [Chapter 4 - The Rabbit Hole](Chapter_4)
+* [Chapter 5 - Summer Camp](Chapter_5)
