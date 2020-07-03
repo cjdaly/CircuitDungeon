@@ -56,15 +56,16 @@ def init():
 
 def play():
   game = init()
-  util.load_map(game, 'default')
+  util.load_map(game, 'home')
   cycle=0
   while True:
     if game['face_right']:
         game['hero'][0,0]=game['hero_base'] + cycle
     else:
         game['hero'][0,0]=game['hero_base'] + 9 + cycle
-    util.button_stuff(game)
+    util.handle_buttons(game)
     util.update_label(game, 'label1')
+    util.check_exits(game)
     px.fill((0,3,5))
     time.sleep(0.1)
     cycle += 1

@@ -49,24 +49,24 @@ def TM(game,c):
 
 def load_map(game, name):
   game['mapText']=[]
-  game['mapExits']=[]
+  game['mapExits']={}
   with open("/game/maps/" + name + ".map") as f:
     for line in f:
       if line.startswith("/"):
         game['mapText'].append(line[1:11])
-      elif line.startswith("@"):
-        game['mapExits'].append(line[1:].rstrip())
+      elif line.startswith("@") and line[4]=='~':
+        game['mapExits'][line[1:4]] = line[5:].rstrip()
     # update tilegrid
     for y in range(8):
       for x in range(10):
           game['map'][x,y]=TM(game, game['mapText'][y][x])
 
-def button_stuff(game):
+def handle_buttons(game):
     buttons=game['gamepad'].get_pressed()
     if buttons == 0:
         pass
     elif buttons == 1:
-        load_map(game, 'default')
+        load_map(game, 'home')
     elif buttons == 2:
         pass
     elif buttons == 4:
@@ -90,7 +90,21 @@ def button_stuff(game):
         game['hero'].x -= 2
     else:
         print("button: " + str(buttons))
-        load_map(game, 'default')
+
+def check_exits(game):
+  x,y = getHeroXY(game)
+  xyKey = str(x) + ',' + str(y)
+  if xyKey in game['mapExits']:
+    newMap=game['mapExits'][xyKey]
+    mapName, nXY = newMap.split('@')
+    load_map(game, mapName)
+    nX,nY=nXY.split(',')
+    setHeroXY(game, int(nX), int(nY))
+
+def setHeroXY(game, x, y):
+  hero=game['hero']
+  hero.x = x*16
+  hero.y = y*16 - 8
 
 def getHeroXY(game):
   return (game['hero'].x + 8) // 16, (game['hero'].y + 16) // 16
@@ -100,4 +114,3 @@ def update_label(game, name):
   x,y = getHeroXY(game)
   t += " // " + str(x) + "," + str(y)
   game[name].text=t
-
