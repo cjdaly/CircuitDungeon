@@ -50,12 +50,15 @@ def TM(game,c):
 def load_map(game, name):
   game['mapText']=[]
   game['mapExits']={}
+  game['mapExps']={}
   with open("/game/maps/" + name + ".map") as f:
     for line in f:
       if line.startswith("/"):
         game['mapText'].append(line[1:11])
       elif line.startswith("@") and line[4]=='~':
         game['mapExits'][line[1:4]] = line[5:].rstrip()
+      elif line.startswith("@") and line[4]=='*':
+        game['mapExps'][line[1:4]] = line[5:].rstrip()
     # update tilegrid
     for y in range(8):
       for x in range(10):
@@ -90,6 +93,23 @@ def handle_buttons(game):
         game['hero'].x -= 2
     else:
         print("button: " + str(buttons))
+
+def check_exps(game):
+  x,y = getHeroXY(game)
+  xyKey = str(x) + ',' + str(y)
+  if xyKey in game['mapExps']:
+    expName, expXY=game['mapExps'][xyKey].split('@')
+    eX,eY=expXY.split(',')
+    setExpXY(game, int(eX), int(eY))
+    game['expName'] = expName
+  else:
+    setExpXY(game, -2,-2)
+
+def setExpXY(game, x, y):
+  exp=game['exp']
+  exp.x = x*16
+  exp.y = y*16 - 8
+
 
 def check_exits(game):
   x,y = getHeroXY(game)
