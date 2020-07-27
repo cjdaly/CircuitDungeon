@@ -48,7 +48,7 @@ def init():
   #
   util.init_tilegrid(game, "terrain","map", 10,8,16,16, 0,0)
   util.init_label(game, "label1", terminalio.FONT, 26, 0x0000FF, 0, 0, "")
-  util.init_tilegrid(game, "heroes","hero", 1,1,16,24, 32,68)
+  util.init_sprite(game, "heroes","hero", 1,1,16,24, 32,68)
   util.init_tilegrid(game, "explosions","exp", 1,1,32,32, -32,-32)
   #
   DSP.show(game['group'])

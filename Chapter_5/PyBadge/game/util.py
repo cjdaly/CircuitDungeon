@@ -21,6 +21,7 @@
 # THE SOFTWARE.
 
 import displayio
+import adafruit_imageload
 from adafruit_display_text import label
 
 def load_tilegrid(filename,w,h,tw,th):
@@ -34,12 +35,23 @@ def init_tilegrid(game, filename,name, w,h,tw,th, x,y):
   tg.x=x ; tg.y=y
   game['group'].append(tg)
   game[name]=tg
+  return tg
+
+def init_sprite(game, filename,name, w,h,tw,th, x,y):
+  bmp, pal = adafruit_imageload.load("/game/tiles/" + filename + ".bmp", bitmap=displayio.Bitmap, palette=displayio.Palette)
+  pal.make_transparent(0)
+  tg=displayio.TileGrid(bmp, pixel_shader=pal, width=w, height=h, tile_width=tw, tile_height=th)
+  tg.x=x ; tg.y=y
+  game['group'].append(tg)
+  game[name]=tg
+  return tg
 
 def init_label(game, name, font, len, color, x,y, text):
   lbl=label.Label(font, max_glyphs=len, color=color)
   lbl.x=x ; lbl.y=y; lbl.text=text
   game['group'].append(lbl)
   game[name]=lbl
+  return lbl
 
 def TM(game,c):
   if c in game['terrMap']:
