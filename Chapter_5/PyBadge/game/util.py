@@ -63,6 +63,7 @@ def load_map(game, name):
   game['mapText']=[]
   game['mapExits']={}
   game['mapExps']={}
+  game['mapWalls']='"[#]RGBYOoX^CDEF'
   with open("/game/maps/" + name + ".map") as f:
     for line in f:
       if line.startswith("/"):
@@ -71,10 +72,17 @@ def load_map(game, name):
         game['mapExits'][line[1:4]] = line[5:].rstrip()
       elif line.startswith("@") and line[4]=='*':
         game['mapExps'][line[1:4]] = line[5:].rstrip()
+      elif line.startswith("||"):
+        game['mapWalls'] = line[2:].rstrip()
     # update tilegrid
     for y in range(8):
       for x in range(10):
           game['map'][x,y]=TM(game, game['mapText'][y][x])
+
+def in_wall(game):
+  x,y = getHeroXY(game)
+  c = game['mapText'][y][x]
+  return c in game['mapWalls']
 
 def handle_buttons(game):
     buttons=game['gamepad'].get_pressed()
@@ -94,15 +102,23 @@ def handle_buttons(game):
         else:
             game['hero_base'] = 0
     elif buttons == 16:
-        game['hero'].x += 2
         game['face_right']=True
+        game['hero'].x += 2
+        if in_wall(game):
+          game['hero'].x -= 4
     elif buttons == 32:
         game['hero'].y += 2
+        if in_wall(game):
+          game['hero'].y -= 4
     elif buttons == 64:
         game['hero'].y -= 2
+        if in_wall(game):
+          game['hero'].y += 4
     elif buttons == 128:
         game['face_right']=False
         game['hero'].x -= 2
+        if in_wall(game):
+          game['hero'].x += 4
     else:
         print("button: " + str(buttons))
 
