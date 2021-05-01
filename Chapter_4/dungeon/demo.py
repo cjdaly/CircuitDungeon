@@ -122,12 +122,9 @@ def sceneReset(data, phase, cFrame, cTurn, cScene):
   #showCreature(data, data['tgNasties'][0], 0)
   #showCreature(data, data['tgNasties'][1], 0)
   #showCreature(data, data['tgNasties'][2], 0)
-  #
-  DSP.wait_for_frame()
 
 def sceneCycle(data, phase, cFrame, cTurn, cScene):
   DSP=board.DISPLAY
-  DSP.refresh_soon()
   #
   v=data['velo']
   for tgMap in data['tgMaps']:
@@ -167,9 +164,7 @@ def sceneCycle(data, phase, cFrame, cTurn, cScene):
           elev-=1
       tgMap.x+=v
   #
-  DSP.wait_for_frame()
   data['NeoPix'][0]=(0,0,cFrame*4)
-  DSP.refresh_soon()
   #
   i=0
   for tgHero in data['tgHeroes']:
@@ -182,7 +177,6 @@ def sceneCycle(data, phase, cFrame, cTurn, cScene):
       tgNasty[0,0]=creatureTile(data['tgNastyAttrs'][i], cFrame, 8)
     i+=1
   #
-  DSP.wait_for_frame()
   data['NeoPix'][0]=(0,0,cFrame*4+2)
 
 def play(data=None):
