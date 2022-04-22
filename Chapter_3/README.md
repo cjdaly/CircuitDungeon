@@ -26,3 +26,7 @@
 
 Copy the `main.py` file in the `dad` directory up to the top-level `CIRCUITPY` dir to make the game auto-start.
 
+## Reference material
+
+- https://daily.jstor.org/the-dubious-art-of-the-dad-joke/
+  - via HN: https://news.ycombinator.com/item?id=31112179
