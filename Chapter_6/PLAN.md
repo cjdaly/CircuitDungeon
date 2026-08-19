@@ -12,6 +12,8 @@
 ## New Map/Level Format — `.level`
 
 Replace both the `.dad` and `.map` formats with a single INI-style file.
+- pushback: I like `.map` or `.lvl` (level) file extension.
+  - is there some technical reason to use `.ini`? can we use the INI format with a different extension
 
 ### Design principles
 - `[section]` headers to separate concerns — no line-prefix sigils.
@@ -82,6 +84,10 @@ Events are one-shot by default; prefix `*` to make them repeatable (`2,6 *! expl
 | `.map` `\|\|walls` override line | `[terrain] walls:` key |
 | `.dad` `randomap` op | Handled in engine via a `[events]` `tile` trigger + engine RNG |
 | ChompCode frame-phase scheduling | Not carried forward — event triggers are position-based, not time-based |
+
+- pushback on frame-phase scheduling: we should try to keep this in some form
+  - it's good for animations (with 'sprite' tiles) and can add spice to the game
+
 
 ---
 
@@ -227,9 +233,23 @@ Artwork: reuse Chapter 5/PyBadge tile sheets (`terrain.bmp`, `heroes.bmp`, `expl
 
 ---
 
-## What We Are Not Building
+## What We Are Not Building (_au contraire_)
 
 - A ChompCode-style scripting interpreter or per-frame phase scheduler.
+  - pushback: see above, we should have a pulse / heartbeat with steps to hook into
 - Desktop map-generation tools (mapgen.py / ImageMagick pipeline) — tile sheets are managed offline.
+  - pushback: look into running those as builds (when needed) in a more pythonic way
 - The dual-buffer infinite scroll from Chapter 4 — rooms are fixed-size for the example game.
+  - pushback: we should allow for both fixed size and variable (scrolling) games (levels?)
+    - scrolling will be better for large levels on small (pixel count) displays
 - OOP class hierarchy — the `game` dict + module functions pattern is kept, just better organized.
+  - pushback: investigate an OOP rewrite
+    - will it use significantly more resources (memory) on these microcontroller systems
+    - don't forget to research circuit python docs (especially for latest stable versions)
+    - what makes sense as a class?
+      - Game (heartbeat/clockwork rhythm counters, world level - contains maps, ...)
+      - GameDisplay (hardware abstraction, screen buffering, NeoPixels, sound, ...)
+      - Level/Map start with format above
+      - Player
+      - NPCs / Monsters (this would be largely new I think)
+      - ???
