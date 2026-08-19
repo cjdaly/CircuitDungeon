@@ -4,16 +4,14 @@
 
 1. A reusable game engine (`engine.py`) with a clean example game on top.
 2. Idiomatic CircuitPython — modern API, no deprecated patterns.
-3. A new `.level` map/script format that is readable, general-purpose, and not clever.
+3. A new `.lvl` map/script format that is readable, general-purpose, and not clever.
 4. Hardware abstraction so the same engine runs on PyBadge, Clue, HalloWing, and PyPortal.
 
 ---
 
-## New Map/Level Format — `.level`
+## New Map/Level Format — `.lvl`
 
-Replace both the `.dad` and `.map` formats with a single INI-style file.
-- pushback: I like `.map` or `.lvl` (level) file extension.
-  - is there some technical reason to use `.ini`? can we use the INI format with a different extension
+Replace both the `.dad` and `.map` formats with a single INI-style file, using the `.lvl` extension. The file extension carries no technical weight — `level_loader.py` hand-rolls its own parser (we need `[grid]` blocks and typed sections `configparser` doesn't give for free), and no parser, hand-rolled or otherwise, inspects the extension of the file it's handed. `.lvl` is chosen over reusing `.map` because Chapter 5/PyBadge still ships `.map` files in the old, incompatible format; a shared extension across two structurally different formats would invite mixing them up during the migration. `.lvl` also matches the vocabulary used everywhere else in this doc (`level_loader.py`, `levels/`, `game.level`, `load_level`).
 
 ### Design principles
 - `[section]` headers to separate concerns — no line-prefix sigils.
@@ -65,12 +63,13 @@ walls: [#RGBY
 
 **`[grid]`** — rows of plain characters, no prefix. Row count and column count are read from the data; no header line needed. Trailing whitespace in a row is trimmed to a configurable fill character (default: first char in `chars`).
 
-**`[exits]`** — each line is `col,row -> mapname @ dest_col,dest_row`. When the hero occupies `col,row`, load `mapname.level` and place the hero at `dest_col,dest_row`.
+**`[exits]`** — each line is `col,row -> mapname @ dest_col,dest_row`. When the hero occupies `col,row`, load `mapname.lvl` and place the hero at `dest_col,dest_row`.
 
 **`[events]`** — each line is `col,row ! event_type [args]`. Supported event types:
 - `explosion name` — play the named explosion animation at that tile position.
 - `text message` — display a message (uses the HUD text label).
 - `tile index` — replace that tile with a different index (for switches, doors, etc.).
+- `anim name` — loop that grid cell's tile through the named frame-index array, driven by the engine pulse (see [Pulse / heartbeat](#pulse--heartbeat)). Always repeating — ambient animation (torches, water) has no "done" state, so the `*` prefix is a no-op here.
 
 Events are one-shot by default; prefix `*` to make them repeatable (`2,6 *! explosion exp1`).
 
@@ -83,11 +82,7 @@ Events are one-shot by default; prefix `*` to make them repeatable (`2,6 *! expl
 | `.map` `@col,row*eventname@expx,expy` | `[events]` section |
 | `.map` `\|\|walls` override line | `[terrain] walls:` key |
 | `.dad` `randomap` op | Handled in engine via a `[events]` `tile` trigger + engine RNG |
-| ChompCode frame-phase scheduling | Not carried forward — event triggers are position-based, not time-based |
-
-- pushback on frame-phase scheduling: we should try to keep this in some form
-  - it's good for animations (with 'sprite' tiles) and can add spice to the game
-
+| ChompCode frame-phase scheduling (`SUP:`/`SDN:`/`nom:` opcode lists) | Replaced by a plain pulse counter + hook list — see [Pulse / heartbeat](#pulse--heartbeat) |
 
 ---
 
@@ -97,56 +92,89 @@ Events are one-shot by default; prefix `*` to make them repeatable (`2,6 *! expl
 
 ```
 Chapter_6/
-  main.py          # board detection, call engine.init() + engine.play()
-  engine.py        # init(), play(), game loop
-  level_loader.py  # parse .level files → level dict
-  hardware.py      # HAL: buttons, display handle, optional NeoPixel
+  main.py          # board detection, construct Game, call game.play()
+  engine.py        # Game class: __init__(), play(), game loop
+  level_loader.py  # Level class: parse .lvl files → Level instance
+  hardware.py      # GameDisplay class + detect(): buttons, display handle, optional NeoPixel
   util.py          # displayio helpers (load_tilegrid, load_sprite, etc.)
-  levels/          # .level files
+  levels/          # .lvl files
   tiles/           # terrain.bmp, heroes.bmp, explosions.bmp, etc.
+  tools/
+    build_tiles.py # offline, Pillow-based tile sheet builder (desktop only, not deployed to CIRCUITPY)
 ```
 
-### State dict structure
+### State — composed objects
 
-Keep the `game` dict but give it named sub-dicts instead of a flat namespace:
+State is a small set of classes, composed rather than inherited: `Game` holds a `GameDisplay`, a `Level`, and a `Player`. Each of these has exactly one live instance during play, so the class boundary buys organization — methods instead of `func(game, ...)` threading, clear ownership of what belongs to hardware vs. level vs. hero — at no memory cost over a flat dict: neither CircuitPython nor MicroPython support `__slots__` ([adafruit/circuitpython#10517](https://github.com/adafruit/circuitpython/issues/10517) is open, unresolved), so every instance carries a full `__dict__` regardless; for a singleton, that's the same one dict either way.
+
+That trade-off inverts for objects that can multiply. A future chapter's NPCs or monsters — several per room — stay as plain dicts in a list (`game.npcs = [{...}, {...}]`), not class instances: the missing `__slots__` support makes each additional dict-carrying instance strictly more expensive than an entry in a shared dict, and this example game has no NPCs to need the ergonomics yet.
 
 ```python
-game = {
-  'display': ...,        # displayio display handle
-  'hw':      ...,        # hardware config (from hardware.py)
-  'level':   ...,        # current parsed level dict
-  'groups':  {...},      # named displayio Groups
-  'grids':   {...},      # named TileGrids
-  'sprites': {...},      # named sprite TileGrids
-  'hero':    {...},      # hero state: tile_x, tile_y, facing, anim_frame
-  'cycle':   0,          # frame counter
-}
+class Game:
+    def __init__(self):
+        self.display = None    # a GameDisplay
+        self.level   = None    # a Level
+        self.hero    = None    # a Player
+        self.cycle   = 0       # frame counter (the pulse)
+        self.anims   = {}      # active `anim` triggers: (col,row) -> {'name', 'frames'}
+        self.camera  = None    # {'x': 0, 'y': 0} when level.scroll, else None
+
+class GameDisplay:              # from hardware.py detect()
+    def __init__(self):
+        self.screen     = None  # board.DISPLAY
+        self.groups     = {}    # named displayio Groups
+        self.grids      = {}    # named TileGrids
+        self.sprites    = {}    # named sprite TileGrids
+        self.neopixel   = None
+        self.read_buttons = None  # callable → dict with keys 'up','down','left','right','a','b'
+
+class Level:                    # from level_loader.py
+    def __init__(self):
+        self.name, self.title, self.subtitle = None, None, None
+        self.chars, self.walls = None, None
+        self.grid, self.exits, self.events = None, None, None
+        self.scroll = False
+
+class Player:
+    def __init__(self):
+        self.tile_x, self.tile_y = 0, 0
+        self.facing, self.anim_frame = 'right', 0
 ```
 
 ### Game loop
 
 ```python
-def play(game):
-    while True:
-        buttons = game['hw']['read_buttons']()
-        handle_input(game, buttons)
-        check_triggers(game)          # exits + events
-        update_sprites(game)          # hero animation frame
-        board.DISPLAY.refresh()       # or wait_for_frame() if supported
-        game['cycle'] += 1
+class Game:
+    def play(self):
+        while True:
+            buttons = self.display.read_buttons()
+            self.handle_input(buttons)
+            self.check_triggers()         # exits + events
+            self.update_sprites()         # hero animation frame + `anim` events
+            self.update_camera()          # no-op unless the level scrolls
+            self.display.screen.refresh()   # or wait_for_frame() if supported
+            self.cycle += 1
 ```
 
-No sub-frame phase scheduling (ChompCode-style). A single pass per frame is sufficient for the targeted hardware speed.
+No opcode-list scripting (ChompCode's `SUP:`/`SDN:`/`nom:` lines). A single pass per frame, driven by the plain `cycle` counter, is sufficient — see [Pulse / heartbeat](#pulse--heartbeat).
 
 ### Collision
 
-Directly from Chapter 5/PyBadge — `in_wall(game)` checks the terrain char at the hero's tile position against `level['walls']`. Movement is applied then bounced back if a wall is hit. `getHeroXY` / `setHeroXY` tile↔pixel math is preserved.
+Directly from Chapter 5/PyBadge — `Game.in_wall()` checks the terrain char at the hero's tile position against `level.walls`. Movement is applied then bounced back if a wall is hit. `getHeroXY` / `setHeroXY` tile↔pixel math is preserved.
 
 ### Animation
 
-Hero animation: `cycle % 4` selects walk frame. Direction tracked in `hero['facing']` (`'right'` or `'left'`). Tile index = `hero_base + frame` (right) or `hero_base + 9 + frame` (left), matching the existing sprite sheet convention.
+Hero animation: `cycle % 4` selects walk frame. Direction tracked in `hero.facing` (`'right'` or `'left'`). Tile index = `hero_base + frame` (right) or `hero_base + 9 + frame` (left), matching the existing sprite sheet convention.
 
 Explosion animation: frame index array (`[0,1,2,...,N]`) from Chapter 5/PyBadge, driven by `cycle % len(frames)`.
+
+### Pulse / heartbeat
+
+`Game.cycle` is the shared clock for all cycle-driven behavior — not just hero/explosion animation, but ambient tile life (torches, water, switches) generally. There is no opcode-list scheduler behind it (ChompCode's `SUP:`/`SDN:`/`nom:` lines and 8-way phase dispatch): everything reads `self.cycle` directly, in plain methods.
+
+- `Game.update_sprites()` walks `self.anims` (populated by `[events] anim` triggers, see [`[events]`](#section-details)) each frame and sets `grid[col,row] = frames[cycle % len(frames)]` — the same frame-index-array approach already used for explosions, generalized to arbitrary terrain tiles.
+- `update_sprites` is the single place all cycle-driven visuals are computed. No lifecycle hooks, no per-phase opcode lists — one method, not a dispatch table.
+- A future event type that needs to *act* on a timer rather than animate (e.g. a monster that moves every N frames) reads `self.cycle % N` inside `check_triggers` or `update_sprites`. No separate scheduler is needed for that case either.
 
 ### Sprite transparency
 
@@ -154,7 +182,17 @@ Explosion animation: frame index array (`[0,1,2,...,N]`) from Chapter 5/PyBadge,
 
 ### Resolution independence
 
-Map grid fills the display: `cols = display.width // tile_w`, `rows = display.height // tile_h`. Same approach as Chapter 4. The `.level` format does not encode display dimensions.
+Map grid fills the display: `cols = display.width // tile_w`, `rows = display.height // tile_h`. Same approach as Chapter 4. The `.lvl` format does not encode display dimensions.
+
+### Camera / scrolling
+
+Rooms are fixed-size and match the viewport by default. A room may instead be larger than the display and camera-scrolled to follow the hero — set with `[meta] scroll: yes` (default `no`), read into `Level.scroll`. Same `.lvl` syntax either way: `[grid]`, `[exits]`, and `[events]` don't change shape. Scrolling is a display concern, not a format concern.
+
+The mechanism is a plain offset, not Chapter 4's dual-buffer wraparound (`sceneCycle`'s two side-by-side `TileGrid`s, procedurally regenerated per column for an endless runner — not applicable to a finite, authored room). `displayio` positions a `TileGrid`'s `x`/`y` relative to its `Group`'s root and accepts negative values, so a `TileGrid` larger than the display can be panned by setting `terrain_grid.x = -camera_x * tile_w` — no wraparound bookkeeping, no procedural regeneration.
+
+`Game.load_level()` sets `self.camera = {'x': 0, 'y': 0}` when `level.scroll` is true, else `None`. `Game.update_camera()`, called once per frame from the game loop, clamps the camera to `[0, grid_cols - viewport_cols]` / `[0, grid_rows - viewport_rows]` as the hero moves and repositions the terrain/sprite groups; it's a no-op when `self.camera is None`, so fixed rooms pay nothing for the feature.
+
+A `TileGrid` costs roughly 1–2 bytes per cell regardless of viewport size, so a scrolled level's RAM cost scales with `total_cols * total_rows`, not the viewport. Trivial for anything room-sized — tens of thousands of cells before it registers against a PyBadge's ~32KB free RAM — confirmed on-hardware in Phase 4 rather than assumed.
 
 ---
 
@@ -162,7 +200,7 @@ Map grid fills the display: `cols = display.width // tile_w`, `rows = display.he
 
 ```python
 def detect():
-    """Return a hw dict for the current board."""
+    """Return a populated GameDisplay for the current board."""
     import board
     if hasattr(board, 'BUTTON_CLOCK'):      # PyBadge / PyGamer
         return _pybadge()
@@ -174,17 +212,9 @@ def detect():
         return _generic()
 ```
 
-Each `_board()` function returns:
+Each `_board()` function returns a `GameDisplay` (see [State — composed objects](#state--composed-objects)) with `.read_buttons` set to a callable → dict with keys `'up'`,`'down'`,`'left'`,`'right'`,`'a'`,`'b'`, `.neopixel` set to a NeoPixel object or `None`, and `.screen` set to `board.DISPLAY`.
 
-```python
-{
-  'read_buttons': callable → dict with keys 'up','down','left','right','a','b',
-  'neopixel':     NeoPixel object or None,
-  'display':      board.DISPLAY,
-}
-```
-
-Callers use `buttons['left']` — boolean — instead of bitmask arithmetic. The bitmask decoding lives inside `_pybadge()['read_buttons']`, invisible to the engine.
+Callers use `buttons['left']` — boolean — instead of bitmask arithmetic. The bitmask decoding lives inside `_pybadge()`'s `read_buttons`, invisible to the engine.
 
 ---
 
@@ -207,49 +237,37 @@ Artwork: reuse Chapter 5/PyBadge tile sheets (`terrain.bmp`, `heroes.bmp`, `expl
 ### Phase 1 — Foundation
 
 1. **`util.py`** — copy and clean up Chapter 5/PyBadge `util.py`. Replace `OnDiskBitmap` paths with `adafruit_imageload`. Remove game-specific code; keep only `load_tilegrid`, `load_sprite`, `init_label`.
-2. **`hardware.py`** — write `detect()` with PyBadge and Clue implementations. Stub HalloWing and generic. Test button reads independently.
-3. **`level_loader.py`** — write parser for the `.level` format. Input: file path. Output: `{'name', 'title', 'subtitle', 'chars', 'walls', 'grid', 'exits', 'events'}`. Write unit-testable pure functions (no hardware dependency).
+2. **`hardware.py`** — `GameDisplay` class + `detect()` with PyBadge and Clue implementations. Stub HalloWing and generic. Test button reads independently.
+3. **`level_loader.py`** — `Level` class + parser for the `.lvl` format. Input: file path. Output: a `Level` with `.name`, `.title`, `.subtitle`, `.chars`, `.walls`, `.grid`, `.exits`, `.events`, `.scroll`. Write unit-testable pure functions/methods (no hardware dependency).
 
 ### Phase 2 — Engine core
 
-4. **`engine.py` `init()`** — set up display groups, terrain TileGrid, hero sprite, explosion sprite, HUD label. Use `display.width`/`display.height` for all sizing.
-5. **`engine.py` `load_level(game, name)`** — parse `.level` file, populate terrain TileGrid, store parsed level in `game['level']`.
+4. **`engine.py` `Game.__init__`** — set up display groups, terrain TileGrid, hero sprite, explosion sprite, HUD label. Use `display.width`/`display.height` for all sizing.
+5. **`engine.py` `Game.load_level(name)`** — parse `.lvl` file, populate terrain TileGrid, store the `Level` in `self.level`.
 6. **`engine.py` movement + collision** — `handle_input`, `in_wall`, `getHeroXY`/`setHeroXY`, bounce-back. Verify on PyBadge first.
-7. **`engine.py` triggers** — `check_triggers`: iterate `level['exits']` and `level['events']` against hero tile position each frame.
-8. **`engine.py` animation** — hero walk cycle, explosion frame array, `cycle` counter.
+7. **`engine.py` triggers** — `check_triggers`: iterate `level.exits` and `level.events` against hero tile position each frame.
+8. **`engine.py` animation + pulse** — hero walk cycle, explosion frame array, `anim` events, `cycle` counter.
+9. **`engine.py` camera** — `update_camera`: no-op when `level.scroll` is false; otherwise clamp and reposition per [Camera / scrolling](#camera--scrolling).
 
 ### Phase 3 — Example game content
 
-9. **Tile assets** — copy Chapter 5/PyBadge `terrain.bmp`, `heroes.bmp`, `explosions.bmp` into `Chapter_6/tiles/`. Verify palette index 0 is the transparency color.
-10. **`.level` files** — write 4–5 rooms: `home.level`, `cave.level`, `vault.level`, `garden.level`. Wire up exits so all rooms are reachable and the player can navigate back.
-11. **`main.py`** — `hardware.detect()`, `engine.init()`, `engine.play()`. Board-specific startup (NeoPixel color, backlight).
+10. **Tile assets** — copy Chapter 5/PyBadge `terrain.bmp`, `heroes.bmp`, `explosions.bmp` into `Chapter_6/tiles/`. Verify palette index 0 is the transparency color. `tools/build_tiles.py` (see [What We Are Not Building](#what-we-are-not-building)) is not on the critical path here — it's for whenever a later chapter needs a new tile sheet.
+11. **`.lvl` files** — write 4–5 rooms: `home.lvl`, `cave.lvl`, `vault.lvl`, `garden.lvl`. Wire up exits so all rooms are reachable and the player can navigate back. At least one room uses an `anim` event (e.g. a flickering torch) to exercise the pulse hook; at least one room is larger than the viewport with `scroll: yes` to exercise the camera.
+12. **`main.py`** — `hardware.detect()`, `Game()`, `game.play()`. Board-specific startup (NeoPixel color, backlight).
 
 ### Phase 4 — Polish + portability
 
-12. Verify on Clue (240×240) — grid should scale to 15×15 tiles automatically.
-13. Verify on HalloWing (128×128, no buttons) — stub input or use capacitive pads if available.
-14. Add `[meta] title` display on map enter — brief text overlay that fades (or just hides after N frames).
-15. NeoPixel per-room ambient color: add optional `color: R,G,B` key to `[meta]`.
+13. Verify on Clue (240×240) — grid should scale to 15×15 tiles automatically.
+14. Verify on HalloWing (128×128, no buttons) — stub input or use capacitive pads if available.
+15. Add `[meta] title` display on map enter — brief text overlay that fades (or just hides after N frames).
+16. NeoPixel per-room ambient color: add optional `color: R,G,B` key to `[meta]`.
+17. Verify the scrolling room on-hardware: camera clamps correctly at level edges, `anim` tiles keep animating while scrolled, no visible RAM pressure from the larger `TileGrid` on PyBadge.
 
 ---
 
-## What We Are Not Building (_au contraire_)
+## What We Are Not Building
 
-- A ChompCode-style scripting interpreter or per-frame phase scheduler.
-  - pushback: see above, we should have a pulse / heartbeat with steps to hook into
-- Desktop map-generation tools (mapgen.py / ImageMagick pipeline) — tile sheets are managed offline.
-  - pushback: look into running those as builds (when needed) in a more pythonic way
-- The dual-buffer infinite scroll from Chapter 4 — rooms are fixed-size for the example game.
-  - pushback: we should allow for both fixed size and variable (scrolling) games (levels?)
-    - scrolling will be better for large levels on small (pixel count) displays
-- OOP class hierarchy — the `game` dict + module functions pattern is kept, just better organized.
-  - pushback: investigate an OOP rewrite
-    - will it use significantly more resources (memory) on these microcontroller systems
-    - don't forget to research circuit python docs (especially for latest stable versions)
-    - what makes sense as a class?
-      - Game (heartbeat/clockwork rhythm counters, world level - contains maps, ...)
-      - GameDisplay (hardware abstraction, screen buffering, NeoPixels, sound, ...)
-      - Level/Map start with format above
-      - Player
-      - NPCs / Monsters (this would be largely new I think)
-      - ???
+- A ChompCode-style scripting interpreter — string-decoded opcodes (`nom:`, `SUP:`, `SDN:`) and an 8-way phase dispatch table. Cycle-driven behavior runs through `Game.cycle` and plain methods instead; see [Pulse / heartbeat](#pulse--heartbeat).
+- A desktop art pipeline coupled to ImageMagick and bash. Tile sheets are still built offline, from source art, as a manual step run only when assets change — just from a Python script, `tools/build_tiles.py` ([Pillow](https://pillow.readthedocs.io/): `Image.crop().paste()` over a source-rect table), rather than `Chapter_5/PyBadge/tools/extract-tilesets.sh`'s `convert` invocations. Same offline workflow and committed `.bmp` output; one dependency and one language instead of two.
+- Chapter 4's dual-buffer infinite scroll — wrapping `TileGrid`s procedurally regenerated per column, built for an endless runner. Large, authored rooms scroll by camera offset instead; see [Camera / scrolling](#camera--scrolling).
+- A class for every kind of game object. The singleton concepts (`Game`, `GameDisplay`, `Level`, `Player`) are classes; objects that can multiply (NPCs, monsters, in a future chapter) are plain dicts in a list — see [State — composed objects](#state--composed-objects).
