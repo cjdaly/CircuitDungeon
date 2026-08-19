@@ -66,12 +66,12 @@ walls: [#RGBY
 **`[exits]`** — each line is `col,row -> mapname @ dest_col,dest_row`. When the hero occupies `col,row`, load `mapname.lvl` and place the hero at `dest_col,dest_row`.
 
 **`[events]`** — each line is `col,row ! event_type [args]`. Supported event types:
-- `explosion name` — play the named explosion animation at that tile position.
+- `explosion name [scale]` — play the named explosion animation at that tile position, optionally scaled up (`explosion exp1 3`). Explosions are pooled (several can be on screen at once, oldest evicted past the pool size) and chain-react: detonating one also queues any orthogonally adjacent one-shot `explosion` events to go off a beat later.
 - `text message` — display a message (uses the HUD text label).
 - `tile index` — replace that tile with a different index (for switches, doors, etc.).
-- `anim name` — loop that grid cell's tile through the named frame-index array, driven by the engine pulse (see [Pulse / heartbeat](#pulse--heartbeat)). Always repeating — ambient animation (torches, water) has no "done" state, so the `*` prefix is a no-op here.
+- `anim name` — loop that grid cell's tile through the named frame-index array, driven by the engine pulse (see [Pulse / heartbeat](#pulse--heartbeat)). Fires the same way as any other event — the hero stepping onto a torch or trap tile lights it — after which it keeps animating.
 
-Events are one-shot by default; prefix `*` to make them repeatable (`2,6 *! explosion exp1`).
+Events are one-shot by default; prefix `*` to make them repeatable (`2,6 *! explosion exp1`) — a repeatable event won't refire on every single frame the hero stands on it, only after a short per-tile cooldown, so a "trap" can be stepped off and back onto rather than firing continuously.
 
 ### What this replaces
 
@@ -166,13 +166,14 @@ Directly from Chapter 5/PyBadge — `Game.in_wall()` checks the terrain char at 
 
 Hero animation: `cycle % 4` selects walk frame. Direction tracked in `hero.facing` (`'right'` or `'left'`). Tile index = `hero_base + frame` (right) or `hero_base + 9 + frame` (left), matching the existing sprite sheet convention.
 
-Explosion animation: frame index array (`[0,1,2,...,N]`) from Chapter 5/PyBadge, driven by `cycle % len(frames)`.
+Explosion animation: frame index array (`[0,1,2,...,N]`) from Chapter 5/PyBadge, driven by `cycle % len(frames)`. Unlike Chapter 5, more than one can be running at once — a small pool of explosion sprites (default 4) lets a trap detonate its neighbors without cutting off the first blast — and a triggered explosion can chain into orthogonally adjacent tiles that also carry an `explosion` event, each going off a few cycles after the last.
 
 ### Pulse / heartbeat
 
-`Game.cycle` is the shared clock for all cycle-driven behavior — not just hero/explosion animation, but ambient tile life (torches, water, switches) generally. There is no opcode-list scheduler behind it (ChompCode's `SUP:`/`SDN:`/`nom:` lines and 8-way phase dispatch): everything reads `self.cycle` directly, in plain methods.
+`Game.cycle` is the shared clock for all cycle-driven behavior, hero/explosion animation included. There is no opcode-list scheduler behind it (ChompCode's `SUP:`/`SDN:`/`nom:` lines and 8-way phase dispatch): everything reads `self.cycle` directly, in plain methods.
 
-- `Game.update_sprites()` walks `self.anims` (populated by `[events] anim` triggers, see [`[events]`](#section-details)) each frame and sets `grid[col,row] = frames[cycle % len(frames)]` — the same frame-index-array approach already used for explosions, generalized to arbitrary terrain tiles.
+- `[events] anim` triggers fire like any other event — the hero has to step onto the tile — and once fired, register into `self.anims`. There's no load-time, walk-past-nothing "ambient" registration: a torch on a wall the hero can never stand on wouldn't be reachable this way, so `anim` tiles are placed on tiles the hero actually crosses (a lit floor rune, a switch that starts sparking), same as `explosion` or `tile`.
+- `Game.update_sprites()` walks `self.anims` each frame and sets `grid[col,row] = frames[cycle % len(frames)]` — the same frame-index-array approach already used for explosions, generalized to arbitrary terrain tiles.
 - `update_sprites` is the single place all cycle-driven visuals are computed. No lifecycle hooks, no per-phase opcode lists — one method, not a dispatch table.
 - A future event type that needs to *act* on a timer rather than animate (e.g. a monster that moves every N frames) reads `self.cycle % N` inside `check_triggers` or `update_sprites`. No separate scheduler is needed for that case either.
 
