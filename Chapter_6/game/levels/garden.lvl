@@ -1,0 +1,24 @@
+[meta]
+name: garden
+title: A quiet garden
+
+[terrain]
+chars: (_)"[#]RGBYOoX^CDEF
+walls: "[#]RGBYX^CDEF
+
+[grid]
+##########
+#((((((((#
+#((((((((#
+#(o((((((#
+(((((((((#
+#((((((((#
+#((((((((#
+##########
+
+[exits]
+0,4 -> vault @ 18,4
+
+[events]
+2,2 ! text An old switch. Something creaks...
+2,3 ! tile 11

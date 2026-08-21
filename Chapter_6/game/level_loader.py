@@ -23,8 +23,8 @@
 # Parser for the `.lvl` format (see Chapter_6/PLAN.md). Pure text handling —
 # no displayio, no board — so it runs and is testable off-device.
 
-DEFAULT_CHARS = "(_)[#]RGBYOoX^CDEF"
-DEFAULT_WALLS = "[#RGBY"
+DEFAULT_CHARS = '(_)"[#]RGBYOoX^CDEF'
+DEFAULT_WALLS = '"[#]RGBYOoX^CDEF'
 
 _SECTIONS = ("meta", "terrain", "grid", "exits", "events")
 

@@ -1,0 +1,24 @@
+[meta]
+name: cave
+title: A damp cave
+
+[grid]
+##########
+#((((((((#
+#((((((((#
+#((((((((#
+((((((((((
+#((((((((#
+#((((((((#
+##########
+
+[exits]
+0,4 -> home @ 8,4
+9,4 -> vault @ 1,4
+
+[events]
+2,1 ! text Watch out! Bombs ahead.
+3,2 ! explosion exp1
+4,2 ! explosion exp1
+5,2 ! explosion exp1
+7,5 *! explosion exp2

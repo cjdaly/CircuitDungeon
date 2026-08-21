@@ -1,0 +1,24 @@
+[meta]
+name: home
+title: Welcome home...
+subtitle: ...now go away!
+
+[terrain]
+chars: (_)"[#]RGBYOoX^CDEF
+walls: "[#]RGBYOoX^CDEF
+
+[grid]
+##########
+#(R((((G(#
+#(((CD(((#
+#((((((((#
+#(((((((((
+#((((((((#
+#((((((((#
+##########
+
+[exits]
+9,4 -> cave @ 1,4
+
+[events]
+4,1 ! anim rune

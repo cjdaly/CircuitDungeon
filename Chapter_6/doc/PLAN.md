@@ -30,8 +30,8 @@ title: Welcome home...
 subtitle: ...now go away!
 
 [terrain]
-chars: (_)[#]RGBYOoX^CDEF
-walls: [#RGBY
+chars: (_)"[#]RGBYOoX^CDEF
+walls: "[#]RGBYOoX^CDEF
 
 [grid]
 ##########
@@ -59,7 +59,7 @@ walls: [#RGBY
 
 **`[meta]`** — optional. `name` is the map identifier used in exit targets. `title` / `subtitle` are displayed as overlaid text on map enter; omit either to suppress it.
 
-**`[terrain]`** — `chars` is the ordered string mapping characters to tile indices (position 0 = tile 0, etc.), matching the sprite sheet. `walls` lists the subset of chars that block movement. Both inherit sensible defaults if the section is absent (useful for trivial test maps).
+**`[terrain]`** — `chars` is the ordered string mapping characters to tile indices (position 0 = tile 0, etc.), matching the sprite sheet. `walls` lists the subset of chars that block movement. Both inherit sensible defaults if the section is absent (useful for trivial test maps). The defaults reuse Chapter 5/PyBadge's `terrain.bmp` order verbatim, minus its leading space char — a literal space can't survive `key: value`'s trailing/leading strip, so tile 0 (a blank-floor variant, visually interchangeable with tile 1) goes unused by the defaults; every other tile keeps Chapter 5's original index.
 
 **`[grid]`** — rows of plain characters, no prefix. Row count and column count are read from the data; no header line needed. Trailing whitespace in a row is trimmed to a configurable fill character (default: first char in `chars`).
 

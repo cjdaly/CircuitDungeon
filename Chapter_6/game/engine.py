@@ -29,20 +29,23 @@ import level_loader
 TERRAIN_TILE = 16
 HERO_TILE_W, HERO_TILE_H = 16, 24
 EXPLOSION_TILE = 32
-HERO_BASE = 0  # single hero sprite variant for now — Phase 3 adds A-button cycling
+HERO_BASES = (0, 18, 36)  # hero.bmp holds 3 character variants, 18 tile indices apart
 OFFSCREEN = -1000
 
 EXPLOSION_POOL_SIZE = 4  # concurrent blasts on screen at once; oldest is reused past this
 CHAIN_DELAY = 4          # cycles between a chain-reaction link and the neighbor it detonates
 TRIGGER_COOLDOWN = 30    # cycles before a repeatable (`*`) event can refire at the same tile
 
-# Named frame-index arrays, ported from Chapter 5/PyBadge. Phase 3 adds
-# ambient (`anim`) entries alongside the tile art that needs them.
+# Named frame-index arrays, ported from Chapter 5/PyBadge.
 EXPLOSION_FRAMES = {
     "exp1": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
     "exp2": [1, 2, 3],
 }
-ANIM_FRAMES = {}
+# terrain.bmp has no dedicated torch-flicker art, so `rune` reuses the two
+# ring tiles (big/small, tile indices 11/12 — chars 'O'/'o') as a pulse.
+ANIM_FRAMES = {
+    "rune": [11, 12],
+}
 
 
 def _clamp(value, lo, hi):
@@ -53,6 +56,7 @@ class Player:
     def __init__(self):
         self.tile_x, self.tile_y = 0, 0
         self.facing, self.anim_frame = "right", 0
+        self.base = HERO_BASES[0]
 
 
 class Game:
@@ -66,6 +70,7 @@ class Game:
         self.active_explosions = []    # list of {'pos','frames','started_at','slot'}
         self._pending = []             # chain-reaction queue: (fire_at_cycle, pos, event)
         self._last_fired = {}          # (col,row) -> cycle, for repeatable-event cooldown
+        self._prev_a = False           # edge-detect for A-button hero cycling
         self._terrain_cols = display.screen.width // TERRAIN_TILE
         self._terrain_rows = display.screen.height // TERRAIN_TILE
         self.viewport_cols = self._terrain_cols
@@ -167,6 +172,11 @@ class Game:
         return grid[row][col] in self.level.walls
 
     def handle_input(self, buttons):
+        if buttons["a"] and not self._prev_a:
+            next_index = (HERO_BASES.index(self.hero.base) + 1) % len(HERO_BASES)
+            self.hero.base = HERO_BASES[next_index]
+        self._prev_a = buttons["a"]
+
         sprite = self.display.sprites["hero"]
         if buttons["right"]:
             self.hero.facing = "right"
@@ -291,9 +301,9 @@ class Game:
         hero_sprite = self.display.sprites["hero"]
         frame = self.cycle % 4
         if self.hero.facing == "right":
-            hero_sprite[0, 0] = HERO_BASE + frame
+            hero_sprite[0, 0] = self.hero.base + frame
         else:
-            hero_sprite[0, 0] = HERO_BASE + 9 + frame
+            hero_sprite[0, 0] = self.hero.base + 9 + frame
         self.hero.anim_frame = frame
 
         if self.active_explosions:
