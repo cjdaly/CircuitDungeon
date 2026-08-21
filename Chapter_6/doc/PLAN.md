@@ -92,16 +92,20 @@ Events are one-shot by default; prefix `*` to make them repeatable (`2,6 *! expl
 
 ```
 Chapter_6/
-  main.py          # board detection, construct Game, call game.play()
-  engine.py        # Game class: __init__(), play(), game loop
-  level_loader.py  # Level class: parse .lvl files → Level instance
-  hardware.py      # GameDisplay class + detect(): buttons, display handle, optional NeoPixel
-  util.py          # displayio helpers (load_tilegrid, load_sprite, etc.)
-  levels/          # .lvl files
-  tiles/           # terrain.bmp, heroes.bmp, explosions.bmp, etc.
+  doc/             # design docs — not deployed to CIRCUITPY
+  game/
+    main.py          # board detection, construct Game, call game.play()
+    engine.py        # Game class: __init__(), play(), game loop
+    level_loader.py  # Level class: parse .lvl files → Level instance
+    hardware.py      # GameDisplay class + detect(): buttons, display handle, optional NeoPixel
+    util.py          # displayio helpers (load_tilegrid, load_sprite, etc.)
+    levels/          # .lvl files
+    tiles/           # terrain.bmp, heroes.bmp, explosions.bmp, etc.
   tools/
     build_tiles.py # offline, Pillow-based tile sheet builder (desktop only, not deployed to CIRCUITPY)
 ```
+
+`game/` is everything that gets copied to `CIRCUITPY` — same split Chapter 5/PyBadge and Chapter 5/Clue use. `doc/` and `tools/` stay on the desktop side.
 
 ### State — composed objects
 
@@ -258,11 +262,19 @@ Artwork: reuse Chapter 5/PyBadge tile sheets (`terrain.bmp`, `heroes.bmp`, `expl
 
 ### Phase 4 — Polish + portability
 
-13. Verify on Clue (240×240) — grid should scale to 15×15 tiles automatically.
-14. Verify on HalloWing (128×128, no buttons) — stub input or use capacitive pads if available.
-15. Add `[meta] title` display on map enter — brief text overlay that fades (or just hides after N frames).
-16. NeoPixel per-room ambient color: add optional `color: R,G,B` key to `[meta]`.
-17. Verify the scrolling room on-hardware: camera clamps correctly at level edges, `anim` tiles keep animating while scrolled, no visible RAM pressure from the larger `TileGrid` on PyBadge.
+On-hardware verification runs against the physical boards catalogued in
+[`doc/SYSTEMS.md`](SYSTEMS.md), in this order:
+
+13. **PyBadge** — first and primary target; `TERRAIN_TILE=16` against 160×128 gives the 10×8 grid the engine and example levels were built around. Verify movement/collision, all four `[events]` types, the scrolling room (camera clamps at level edges, `anim` tiles keep animating while scrolled, no visible RAM pressure from the larger `TileGrid`), and NeoPixel per-room color.
+14. **PyBadge LC** — same screen and button layout as PyBadge, so `_pybadge()` should need no changes; confirm it runs within the LC's tighter RAM/flash and that skipping the (absent) accelerometer and extra NeoPixels degrades gracefully.
+15. **EdgeBadge** — same SAMD51 core, screen, and buttons as PyBadge; expect a clean run with zero code changes, confirming `_pybadge()` isn't accidentally PyBadge-specific.
+16. **PyGamer** — same screen as PyBadge but an analog thumbstick + 4 buttons instead of a d-pad; add a `_pygamer()` path to `hardware.py` that thresholds thumbstick X/Y into `up`/`down`/`left`/`right`, and confirm there's no Select/Start-bound functionality to lose.
+17. **Clue** — 240×240 screen (grid should scale to 15×15 tiles automatically via the resolution-independence math) and only A/B buttons, no d-pad. Movement needs a fallback input scheme (e.g. driven by the built-in accelerometer/gyro) since `_clue()` currently only reads A/B; scope this down to a non-movement demo if a full control scheme isn't worth building for this chapter.
+
+Also in this phase:
+
+18. Add `[meta] title` display on map enter — brief text overlay that fades (or just hides after N frames).
+19. NeoPixel per-room ambient color: add optional `color: R,G,B` key to `[meta]`.
 
 ---
 
