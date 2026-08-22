@@ -207,9 +207,10 @@ A `TileGrid` costs roughly 1–2 bytes per cell regardless of viewport size, so 
 def detect():
     """Return a populated GameDisplay for the current board."""
     import board
-    if hasattr(board, 'BUTTON_CLOCK'):      # PyBadge / PyGamer
+    board_id = getattr(board, 'board_id', '')
+    if board_id in _PYBADGE_FAMILY:          # pybadge, edgebadge
         return _pybadge()
-    elif hasattr(board, 'BUTTON_A'):        # Clue
+    elif board_id in _CLUE_FAMILY:           # clue_nrf52840_express
         return _clue()
     elif hasattr(board, 'NEOPIXEL') and not hasattr(board, 'BUTTON_A'):
         return _hallowing()
@@ -220,6 +221,8 @@ def detect():
 Each `_board()` function returns a `GameDisplay` (see [State — composed objects](#state--composed-objects)) with `.read_buttons` set to a callable → dict with keys `'up'`,`'down'`,`'left'`,`'right'`,`'a'`,`'b'`, `.neopixel` set to a NeoPixel object or `None`, and `.screen` set to `board.DISPLAY`.
 
 Callers use `buttons['left']` — boolean — instead of bitmask arithmetic. The bitmask decoding lives inside `_pybadge()`'s `read_buttons`, invisible to the engine.
+
+Board detection keys off `board.board_id` — CircuitPython's documented identifier string, matching the slug in each board's `circuitpython.org/board/<id>/` URL (see `doc/SYSTEMS.md`) — rather than `hasattr` duck-typing, for the boards where that id is confirmed. This matters because `hasattr(board, 'BUTTON_CLOCK')` alone doesn't distinguish PyBadge from PyGamer: PyGamer also has a `BUTTON_CLOCK`/`BUTTON_OUT`/`BUTTON_LATCH` shift register (for its 4 face buttons), but reads direction from separate analog `JOYSTICK_X`/`JOYSTICK_Y` pins, not the register — matching it into `_pybadge()` would build a `ShiftRegisterKeys(key_count=8)` expecting PyBadge's d-pad-in-the-register layout and never read the joystick at all. `_PYBADGE_FAMILY`/`_CLUE_FAMILY` are explicit id sets so boards without a dedicated handler yet (PyGamer, PicoSystem, PewPew M4, T-Deck) fall through to `_generic()`'s safe no-op stub instead of silently misreading another board's controls. HalloWing keeps the `hasattr`-based fallback until a unit is on hand to confirm its `board_id`.
 
 ---
 
@@ -266,15 +269,18 @@ On-hardware verification runs against the physical boards catalogued in
 [`doc/SYSTEMS.md`](SYSTEMS.md), in this order:
 
 13. **PyBadge** — first and primary target; `TERRAIN_TILE=16` against 160×128 gives the 10×8 grid the engine and example levels were built around. Verify movement/collision, all four `[events]` types, the scrolling room (camera clamps at level edges, `anim` tiles keep animating while scrolled, no visible RAM pressure from the larger `TileGrid`), and NeoPixel per-room color.
-14. **PyBadge LC** — same screen and button layout as PyBadge, so `_pybadge()` should need no changes; confirm it runs within the LC's tighter RAM/flash and that skipping the (absent) accelerometer and extra NeoPixels degrades gracefully.
-15. **EdgeBadge** — same SAMD51 core, screen, and buttons as PyBadge; expect a clean run with zero code changes, confirming `_pybadge()` isn't accidentally PyBadge-specific.
-16. **PyGamer** — same screen as PyBadge but an analog thumbstick + 4 buttons instead of a d-pad; add a `_pygamer()` path to `hardware.py` that thresholds thumbstick X/Y into `up`/`down`/`left`/`right`, and confirm there's no Select/Start-bound functionality to lose.
-17. **Clue** — 240×240 screen (grid should scale to 15×15 tiles automatically via the resolution-independence math) and only A/B buttons, no d-pad. Movement needs a fallback input scheme (e.g. driven by the built-in accelerometer/gyro) since `_clue()` currently only reads A/B; scope this down to a non-movement demo if a full control scheme isn't worth building for this chapter.
+14. **PicoSystem** — bumped ahead of the rest of the PyBadge family; different SoC entirely (RP2040, not SAMD51) so it's the first real test of hardware abstraction beyond `_pybadge()`/`_clue()`. `detect()` needs a new branch — RP2040 boards don't set `BUTTON_CLOCK`/`BUTTON_A`/`NEOPIXEL`, so route on a board-id check (e.g. `board.board_id`) instead — and a `_picosystem()` reading its direct-wired D-pad + A/B/X/Y. 240×240 exercises the same resolution-independence path as Clue (15×15 tiles). Before wiring buttons, check whether the board's frozen `stage`/`ugame` modules need to be avoided/uninstalled to leave `displayio` free, per `doc/SYSTEMS.md`.
+15. **PyBadge LC** — same screen and button layout as PyBadge, so `_pybadge()` should need no changes; confirm it runs within the LC's tighter RAM/flash and that skipping the (absent) accelerometer and extra NeoPixels degrades gracefully.
+16. **EdgeBadge** — same SAMD51 core, screen, and buttons as PyBadge; expect a clean run with zero code changes, confirming `_pybadge()` isn't accidentally PyBadge-specific.
+17. **PyGamer** — same screen as PyBadge but an analog thumbstick + 4 buttons instead of a d-pad; add a `_pygamer()` path to `hardware.py` that thresholds thumbstick X/Y into `up`/`down`/`left`/`right`, and confirm there's no Select/Start-bound functionality to lose.
+18. **Clue** — 240×240 screen (grid should scale to 15×15 tiles automatically via the resolution-independence math) and only A/B buttons, no d-pad. Movement needs a fallback input scheme (e.g. driven by the built-in accelerometer/gyro) since `_clue()` currently only reads A/B; scope this down to a non-movement demo if a full control scheme isn't worth building for this chapter.
 
 Also in this phase:
 
-18. Add `[meta] title` display on map enter — brief text overlay that fades (or just hides after N frames).
-19. NeoPixel per-room ambient color: add optional `color: R,G,B` key to `[meta]`.
+19. Add `[meta] title` display on map enter — brief text overlay that fades (or just hides after N frames).
+20. NeoPixel per-room ambient color: add optional `color: R,G,B` key to `[meta]`.
+
+Not yet scheduled into the order above: PewPew M4 (own SAMD51 board, non-d-pad button wiring — see `doc/SYSTEMS.md`) and T-Deck (no d-pad/face buttons, but its keyboard could approximate `up`/`down`/`left`/`right`/`a`/`b` via key mapping — worth a `_tdeck()` pass once the boards above are working).
 
 ---
 

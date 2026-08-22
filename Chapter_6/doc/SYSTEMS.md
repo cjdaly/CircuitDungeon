@@ -12,6 +12,32 @@ to get into the Pyton REPL.
   - more info: https://learn.adafruit.com/welcome-to-circuitpython/the-repl
   - to detach from screen use `Ctrl-a`, then `d`
 
+## Libraries (all boards)
+
+`game/`'s imports (`adafruit_imageload` in `util.py`, `adafruit_display_text.label` in
+`engine.py`, `neopixel` in `hardware.py`) need three folders/files dropped into
+`/Volumes/CIRCUITPY/lib`:
+- `adafruit_display_text/` (folder — provides `label`)
+- `adafruit_imageload/` (folder)
+- `neopixel.mpy`
+
+Everything else `game/` imports (`board`, `displayio`, `terminalio`, `digitalio`,
+`keypad`) is built into the CircuitPython firmware itself, not a bundle library —
+nothing to copy for those.
+
+To install: grab the [Adafruit CircuitPython
+Bundle](https://circuitpython.org/libraries) build that matches the *major*
+version of CircuitPython installed on the board (check with `import sys;
+print(sys.implementation.version)` in the REPL, or read the first line CIRCUITPY
+prints as a comment in `boot_out.txt`), then copy those three items from the
+bundle's `lib/` into `CIRCUITPY/lib`. `circup` (`pip install circup`, then
+`circup install adafruit_display_text adafruit_imageload neopixel`) does the same
+lookup/copy automatically and is less error-prone once it's set up.
+
+This library set is identical across every board below — `hardware.py`'s
+per-board branches only change which *built-in* modules they import
+(`keypad` for PyBadge-family, `digitalio` for Clue), not the bundle libraries.
+
 ## Adafruit PyBadge
 
 The primary target. 160×128 matches the `TERRAIN_TILE=16` grid math the
@@ -41,8 +67,7 @@ the least new code.
 - to enter bootloader (for CircuitPython version update):
   - double-click RESET button on back of board near USB connector
   - look for mounted drive `/Volumes/BADGEBOOT`
-- libraries to load (put in `/Volumes/CIRCUITPY/lib`):
-  - ??? adafruit_display_text, adafruit_imageload, neopixel.mpy
+- libraries to load: see [Libraries (all boards)](#libraries-all-boards) above
 
 ## Adafruit PyBadge LC
 
@@ -136,30 +161,107 @@ non-movement demo on this board for now).
 
 ## Pimoroni PicoSystem
 
+Different SoC family entirely (RP2040, not SAMD51) and a real D-pad + 4 face
+buttons wired directly (no shift register), so `hardware.py`'s
+`detect()` won't route to it via any existing `hasattr(board, ...)` branch —
+it needs its own `_picosystem()` case and board-id check. 240×240 matches
+Clue's resolution math, not PyBadge's. The CircuitPython build for this board
+also ships frozen `stage`/`ugame` modules aimed at game dev directly on this
+hardware; worth checking whether they conflict with or duplicate
+`displayio`/`adafruit_imageload` before assuming a drop-in port. Second in
+the Phase 4 order (see `doc/PLAN.md`) — right after PyBadge, ahead of the
+rest of the PyBadge family.
+
+**Bootloader mode**: the official sequence is "hold `X` and toggle the
+power." The power control is labeled "Power Toggle" on the packaging, but
+it's a clicky physical button, not a slide switch — press and release it
+(while holding `X`) rather than looking for something to flip. Also:
+bootloader mode runs the RP2040's tiny UF2 bootloader, not CircuitPython —
+**the screen stays blank/off**, which looks identical to "didn't start up"
+but usually isn't a failure. The real signal is whether an `RPI-RP2` drive
+mounts (check `ls /Volumes/` in Terminal, not just Finder). Confirmed on
+this unit: the actual blocker was the USB hub — RP2040 BOOTSEL/DFU
+enumeration is finicky through hubs (power-delivery/timing) — connecting
+straight to the Mac's USB port fixed it.
+
 ### docs
 - https://circuitpython.org/board/pimoroni_picosystem/
+- https://shop.pimoroni.com/products/picosystem
+- https://learn.pimoroni.com/article/getting-started-with-picosystem
+- https://github.com/pimoroni/picosystem
 
 ### specs
-
-## LilyGo T-Deck
-
-### docs
-note: system I found has "T-Deck" but not "(Plus)", this doc has the "Plus":
-- https://circuitpython.org/board/lilygo_tdeck/
-  - but it also says: "CircuitPython now also supports the “Plus” variant", so that download should work.
-- note these LilyGo pages:
-  - https://lilygo.cc/products/t-deck
-  - https://lilygo.cc/products/t-deck-plus-1
-do some more research and fill out the specs after this and clean up this part as the docs section
-
-### specs
+- microprocessor: RP2040, dual-core Cortex-M0+ @ up to 133MHz
+- ram: 264KB SRAM
+- flash: 16MB QSPI
+- screen: 1.54" color IPS LCD, 240×240 px
+- buttons: D-pad + A/B/X/Y face buttons, power button (bootloader entry: hold X while powering on → mounts as `RPI-RP2`)
+- sensors: none
+- audio: piezo buzzer/speaker
+- neopixels: 1 RGB LED (status indicator, not addressable strip like PyBadge's)
+- connectors: USB-C (charge + program), 525mAh LiPo (~6h on-time), debug pins under the case
+- case: CNC-milled aluminium, wrist strap included
 
 ## PewPew M4 (Radomir Dopieralski)
+
+Same SAMD51 chip family as PyBadge/PyGamer/EdgeBadge, but a different, smaller
+board (`160×128` display, 7 buttons in a non-d-pad layout, AAA-battery
+powered) built for the `pewpew` teaching library rather than general
+`displayio` apps. Buttons aren't behind a `BUTTON_CLOCK` shift register like
+PyBadge's, so it likely needs its own `hardware.py` branch too — exact button
+pin/matrix layout not yet confirmed here, check the schematic before wiring
+`_pewpew()`. Not in the current Phase 4 order; same "candidate, not yet
+scoped in" status as PicoSystem above.
 
 ### docs
 - https://circuitpython.org/board/pewpew_m4/
 - https://www.makerfabs.com/circuitpython-pewpew-m4.html
 - https://pewpew.readthedocs.io/en/latest/pewpew-m4/overview.html
+- https://pewpew.readthedocs.io/en/latest/pewpew-m4/hardware.html
+- schematic: https://github.com/pypewpew/pewpew-m4-v8/blob/master/pewpew-m4-v8-schematic.pdf
 
 ### specs
+- microprocessor: SAMD51, Cortex-M4 (same family as PyBadge; exact clock/variant not confirmed — check schematic or on-device `sys.implementation`)
+- ram / flash: not confirmed from docs (likely close to PyBadge's 192KB/512KB given the shared chip family — verify on-device before relying on this)
+- screen: 160×128 color TFT (same panel as PyBadge)
+- buttons: 7 total, non-d-pad layout (exact mapping not yet documented here)
+- sensors: none noted
+- audio: 7mm buzzer
+- neopixels: none noted
+- connectors: micro USB; powered by 2×AAA batteries (sold separately)
+
+## LilyGo T-Deck (Plus)
+
+The odd one out: ESP32-S3 (not SAMD51/RP2040/nRF52), a 320×240 screen (not
+matching any existing `TERRAIN_TILE` grid math without recomputing), and no
+d-pad or face buttons at all — input is a mini QWERTY keyboard plus a
+trackball. `hardware.py`'s `detect()` has no branch that would ever match it
+(no `BUTTON_CLOCK`, no `BUTTON_A`, no plain `NEOPIXEL`), so it'll need its own
+board-id check. The keyboard is the plan for input here — map WASD (or
+arrows, if the keyboard has them) + two more keys to `up`/`down`/`left`/
+`right`/`a`/`b` in a `_tdeck()` `read_buttons()`, same shape as every other
+board's dict. Not literal buttons, but a real approximation, not a dead end.
+Later work, though — after the boards in `doc/PLAN.md` Phase 4's current
+order (PyBadge, PicoSystem, PyBadge LC, EdgeBadge, PyGamer, Clue).
+
+Two device variants exist: the original T-Deck and the newer T-Deck Plus
+(adds GPS and a larger 2000mAh built-in battery). The CircuitPython
+`lilygo_tdeck` board build's page notes it now covers the Plus variant too,
+so the same download should work for either.
+
+### docs
+- https://circuitpython.org/board/lilygo_tdeck/
+- https://lilygo.cc/products/t-deck
+- https://lilygo.cc/products/t-deck-plus-1
+
+### specs
+- microprocessor: ESP32-S3FN16R8, dual-core LX7
+- ram: 8MB PSRAM
+- flash: 16MB
+- screen: 2.8" ST7789 SPI IPS LCD, 320×240 px
+- controls: mini QWERTY keyboard + trackball (no d-pad, no A/B/X/Y face buttons)
+- sensors: none beyond battery-voltage ADC (IO04)
+- audio: onboard microphone + speaker
+- connectivity: Wi-Fi + Bluetooth 5 LE, optional SX1262 LoRa (433/868/915MHz, +22dBm); T-Deck Plus adds GPS
+- connectors: USB-C; battery — T-Deck Plus has a built-in 2000mAh cell (original T-Deck's battery situation not confirmed here)
 

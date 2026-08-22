@@ -33,13 +33,31 @@ class GameDisplay:
         self.read_buttons = None  # callable → dict with keys 'up','down','left','right','a','b'
 
 
+# board.board_id is CircuitPython's documented board identifier — matches the
+# slug in each board's circuitpython.org/board/<id>/ URL (see doc/SYSTEMS.md).
+# Boards sharing an entry here share a button layout: PyBadge and EdgeBadge
+# are both plain d-pad-on-shift-register. PyGamer is deliberately *not*
+# listed — it also exposes BUTTON_CLOCK/BUTTON_OUT/BUTTON_LATCH (a
+# shift-register for its 4 face buttons), which used to make it match the
+# PyBadge branch below by accident, but its directional input is a separate
+# analog thumbstick (JOYSTICK_X/JOYSTICK_Y) that _pybadge()'s
+# ShiftRegisterKeys(key_count=8) can't read. Same for PicoSystem/PewPew
+# M4/T-Deck: no dedicated handler yet, so they fall through to _generic()
+# rather than silently misreading the wrong board's controls.
+_PYBADGE_FAMILY = {"pybadge", "edgebadge"}
+_CLUE_FAMILY = {"clue_nrf52840_express"}
+
+
 def detect():
     """Return a populated GameDisplay for the current board."""
-    if hasattr(board, "BUTTON_CLOCK"):  # PyBadge / PyGamer
+    board_id = getattr(board, "board_id", "")
+    if board_id in _PYBADGE_FAMILY:
         return _pybadge()
-    elif hasattr(board, "BUTTON_A"):  # Clue
+    elif board_id in _CLUE_FAMILY:
         return _clue()
     elif hasattr(board, "NEOPIXEL") and not hasattr(board, "BUTTON_A"):  # HalloWing
+        # HalloWing's board_id isn't confirmed yet (no unit on hand — see
+        # doc/SYSTEMS.md); this heuristic fallback stays until it is.
         return _hallowing()
     else:
         return _generic()
