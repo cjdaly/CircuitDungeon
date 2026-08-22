@@ -3,7 +3,16 @@
 Physical boards on hand for testing `Chapter_6/game/`. Listed in the order
 they'll be brought up — see `doc/PLAN.md` Phase 4.
 
-## PyBadge
+When connecting the device to a Mac via USB we can use the `screen` command
+to get into the Pyton REPL.
+- PyBadge example: `screen /dev/tty.usbmodem313401`
+  - if program running use `Ctrl-c` to exit to REPL
+  - use `Ctrl-d` to restart program
+  - try `help()` and `help('modules')` in REPL
+  - more info: https://learn.adafruit.com/welcome-to-circuitpython/the-repl
+  - to detach from screen use `Ctrl-a`, then `d`
+
+## Adafruit PyBadge
 
 The primary target. 160×128 matches the `TERRAIN_TILE=16` grid math the
 engine was built against (10×8 tiles), and its d-pad is the closest match to
@@ -26,7 +35,16 @@ the least new code.
 - neopixels: 5
 - connectors: 2× Feather headers, 3× STEMMA (2×3-pin ADC/PWM, 1×4-pin I2C), micro USB, LiPoly + charging
 
-## PyBadge LC
+### setup
+
+- shows up as `/dev/tty.usbmodem313401` on Mac
+- to enter bootloader (for CircuitPython version update):
+  - double-click RESET button on back of board near USB connector
+  - look for mounted drive `/Volumes/BADGEBOOT`
+- libraries to load (put in `/Volumes/CIRCUITPY/lib`):
+  - ??? adafruit_display_text, adafruit_imageload, neopixel.mpy
+
+## Adafruit PyBadge LC
 
 Cost-reduced PyBadge variant — same screen and button layout, so the same
 `_pybadge()` code path should work unmodified, but with less headroom and no
@@ -47,7 +65,7 @@ accelerometer.
 - neopixels: 1 (vs. 5 on the full PyBadge)
 - differences from PyBadge: no Feather headers, no STEMMA/JST connectors, no accelerometer
 
-## EdgeBadge
+## Adafruit EdgeBadge
 
 Same core hardware as PyBadge (SAMD51, 192KB RAM, 512KB flash) plus a PDM
 microphone for on-device TensorFlow Lite ML — not relevant to this game, but
@@ -67,7 +85,7 @@ run `game/` with zero changes once PyBadge works.
 - extra: PDM microphone (front-facing, for ML/speech recognition — unused here)
 - form factor: credit-card sized, Feather-compatible
 
-## PyGamer
+## Adafruit PyGamer
 
 Same SAMD51/192KB/160×128 core as PyBadge, but the d-pad is replaced by an
 analog thumbstick and there are only 4 face buttons (no Select/Start).
@@ -91,7 +109,7 @@ reading a `ShiftRegisterKeys` d-pad directly.
 - neopixels: 5
 - connectors: Feather headers, 3× STEMMA, micro SD slot, micro USB, LiPoly
 
-## Clue
+## Adafruit Clue
 
 Different screen size (240×240, not 160×128) and only two buttons — no d-pad
 at all. Exercises the engine's resolution-independence (`cols = width //
@@ -115,3 +133,33 @@ non-movement demo on this board for now).
 - audio: buzzer/speaker
 - neopixel: 1
 - connectivity: Bluetooth LE (nRF52840), STEMMA QT/Qwiic I2C
+
+## Pimoroni PicoSystem
+
+### docs
+- https://circuitpython.org/board/pimoroni_picosystem/
+
+### specs
+
+## LilyGo T-Deck
+
+### docs
+note: system I found has "T-Deck" but not "(Plus)", this doc has the "Plus":
+- https://circuitpython.org/board/lilygo_tdeck/
+  - but it also says: "CircuitPython now also supports the “Plus” variant", so that download should work.
+- note these LilyGo pages:
+  - https://lilygo.cc/products/t-deck
+  - https://lilygo.cc/products/t-deck-plus-1
+do some more research and fill out the specs after this and clean up this part as the docs section
+
+### specs
+
+## PewPew M4 (Radomir Dopieralski)
+
+### docs
+- https://circuitpython.org/board/pewpew_m4/
+- https://www.makerfabs.com/circuitpython-pewpew-m4.html
+- https://pewpew.readthedocs.io/en/latest/pewpew-m4/overview.html
+
+### specs
+
