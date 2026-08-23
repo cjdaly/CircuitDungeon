@@ -18,4 +18,7 @@ scroll: yes
 19,4 -> garden @ 1,4
 
 [events]
-10,2 ! text You found the vault!
+1,4 ! text You found the vault!
+2,4 ! text You found the vault!
+17,4 ! text You found the vault!
+18,4 ! text You found the vault!

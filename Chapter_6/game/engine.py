@@ -20,6 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+import time
+
 import displayio
 import terminalio
 
@@ -35,6 +37,17 @@ OFFSCREEN = -1000
 EXPLOSION_POOL_SIZE = 4  # concurrent blasts on screen at once; oldest is reused past this
 CHAIN_DELAY = 4          # cycles between a chain-reaction link and the neighbor it detonates
 TRIGGER_COOLDOWN = 30    # cycles before a repeatable (`*`) event can refire at the same tile
+
+# Caps the game loop to one tick per this many seconds. Without it, a cycle's
+# real-world duration is whatever screen.refresh() + logic happen to take on
+# a given board — different per screen size/SPI speed — so movement (2px per
+# held-button tick) and every self.cycle-based timer above sped up or slowed
+# down depending on the board. This is an upper bound, not a guarantee: a
+# board whose refresh() alone is slower than this just runs at its own pace.
+TARGET_TICK_SECONDS = 1 / 20
+
+HUD_SCROLL_TICKS_PER_STEP = 3  # game ticks between each 1-character scroll step
+HUD_SCROLL_PAUSE_TICKS = 40    # ticks to hold at the end of a scrolled message before resetting
 
 # Named frame-index arrays, ported from Chapter 5/PyBadge.
 EXPLOSION_FRAMES = {
@@ -79,7 +92,10 @@ class Game:
         display.groups["world"] = displayio.Group()
         display.groups["root"] = displayio.Group()
 
-        terrain = util.load_tilegrid("terrain", self._terrain_cols, self._terrain_rows, TERRAIN_TILE, TERRAIN_TILE)
+        self._terrain_bmp, self._terrain_pal = util.load_bitmap("terrain")
+        terrain = util.tilegrid(
+            self._terrain_bmp, self._terrain_pal, self._terrain_cols, self._terrain_rows, TERRAIN_TILE, TERRAIN_TILE
+        )
         display.grids["terrain"] = terrain
         display.groups["world"].append(terrain)
 
@@ -88,17 +104,25 @@ class Game:
         display.groups["world"].append(hero_sprite)
 
         self._explosion_pool = []
+        exp_bmp, exp_pal = util.load_bitmap("explosions")
         for _ in range(EXPLOSION_POOL_SIZE):
             exp_group = displayio.Group(scale=1)
             exp_group.x, exp_group.y = OFFSCREEN, OFFSCREEN
-            exp_sprite = util.load_sprite("explosions", 1, 1, EXPLOSION_TILE, EXPLOSION_TILE)
+            exp_sprite = util.tilegrid(exp_bmp, exp_pal, 1, 1, EXPLOSION_TILE, EXPLOSION_TILE, transparent=0)
             exp_group.append(exp_sprite)
             display.groups["world"].append(exp_group)
             self._explosion_pool.append({"group": exp_group, "sprite": exp_sprite})
         display.sprites["explosions"] = [slot["sprite"] for slot in self._explosion_pool]
 
-        hud = util.init_label(terminalio.FONT, 40, 0x00FFFF, x=1, y=display.screen.height - 9, text="")
+        hud = util.init_label(terminalio.FONT, 0x00FFFF, x=1, y=display.screen.height - 9, text="")
         display.groups["hud"] = hud
+        # HUD messages are authored without a screen size in mind (see the
+        # `[events] ! text` lines in doc/PLAN.md's level format) — clip to
+        # whatever actually fits this board's screen instead of letting a
+        # long message silently run off the edge.
+        char_w = terminalio.FONT.get_bounding_box()[0]
+        self._hud_max_chars = max(1, (display.screen.width - hud.x) // char_w)
+        self._hud_scroll_text = None  # 'message + gap' loop buffer while too long to fit; else None
 
         display.groups["root"].append(display.groups["world"])
         display.groups["root"].append(hud)
@@ -115,6 +139,8 @@ class Game:
         self.active_explosions = []
         self._pending = []
         self._last_fired = {}
+        self._hud_scroll_text = None
+        self.display.groups["hud"].text = ""
         for slot in self._explosion_pool:
             slot["group"].x, slot["group"].y = OFFSCREEN, OFFSCREEN
 
@@ -140,7 +166,7 @@ class Game:
         world = self.display.groups["world"]
         old = self.display.grids["terrain"]
         world.remove(old)
-        terrain = util.load_tilegrid("terrain", cols, rows, TERRAIN_TILE, TERRAIN_TILE)
+        terrain = util.tilegrid(self._terrain_bmp, self._terrain_pal, cols, rows, TERRAIN_TILE, TERRAIN_TILE)
         self.display.grids["terrain"] = terrain
         world.insert(0, terrain)
         self._terrain_cols, self._terrain_rows = cols, rows
@@ -239,7 +265,7 @@ class Game:
         elif ev["type"] == "anim":
             self.anims[pos] = ANIM_FRAMES.get(ev["args"], [0])
         elif ev["type"] == "text":
-            self.display.groups["hud"].text = ev["args"]
+            self._set_hud_text(ev["args"])
         elif ev["type"] == "tile":
             self._apply_tile_event(pos, int(ev["args"]))
 
@@ -287,6 +313,19 @@ class Game:
         for _, pos, ev in ready:
             self._queue_explosion(pos, ev["args"])
 
+    def _set_hud_text(self, text):
+        """Show `text` in the HUD, scrolling it (see update_sprites) if it's
+        wider than the screen instead of letting it run off the edge."""
+        if len(text) <= self._hud_max_chars:
+            self._hud_scroll_text = None
+            self.display.groups["hud"].text = text
+        else:
+            self._hud_scroll_text = text
+            self._hud_scroll_max_offset = len(text) - self._hud_max_chars
+            scroll_ticks = self._hud_scroll_max_offset * HUD_SCROLL_TICKS_PER_STEP
+            self._hud_scroll_period = 2 * HUD_SCROLL_PAUSE_TICKS + scroll_ticks
+            self._hud_scroll_started_at = self.cycle
+
     def _apply_tile_event(self, pos, index):
         col, row = pos
         chars = self.level.chars
@@ -312,6 +351,19 @@ class Game:
         terrain = self.display.grids["terrain"]
         for (col, row), frames in self.anims.items():
             terrain[col, row] = frames[self.cycle % len(frames)]
+
+        if self._hud_scroll_text is not None:
+            elapsed = (self.cycle - self._hud_scroll_started_at) % self._hud_scroll_period
+            scroll_ticks = self._hud_scroll_max_offset * HUD_SCROLL_TICKS_PER_STEP
+            scroll_start = HUD_SCROLL_PAUSE_TICKS       # hold on the first window this long before creeping
+            scroll_end = scroll_start + scroll_ticks    # then hold on the last window until the period wraps
+            if elapsed < scroll_start:
+                offset = 0
+            elif elapsed < scroll_end:
+                offset = (elapsed - scroll_start) // HUD_SCROLL_TICKS_PER_STEP
+            else:
+                offset = self._hud_scroll_max_offset
+            self.display.groups["hud"].text = self._hud_scroll_text[offset : offset + self._hud_max_chars]
 
     def _update_explosions(self):
         still_active = []
@@ -349,6 +401,7 @@ class Game:
 
     def play(self):
         while True:
+            tick_start = time.monotonic()
             buttons = self.display.read_buttons()
             self.handle_input(buttons)
             self.check_triggers()
@@ -356,3 +409,6 @@ class Game:
             self.update_camera()
             self.display.screen.refresh()
             self.cycle += 1
+            remaining = TARGET_TICK_SECONDS - (time.monotonic() - tick_start)
+            if remaining > 0:
+                time.sleep(remaining)

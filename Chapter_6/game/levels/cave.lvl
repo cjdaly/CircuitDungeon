@@ -17,7 +17,10 @@ title: A damp cave
 9,4 -> vault @ 1,4
 
 [events]
-2,1 ! text Watch out! Bombs ahead.
+1,4 ! text Watch out! Bombs ahead.
+2,4 ! text Watch out! Bombs ahead.
+7,4 ! text Watch out! Bombs ahead.
+8,4 ! text Watch out! Bombs ahead.
 3,2 ! explosion exp1
 4,2 ! explosion exp1
 5,2 ! explosion exp1
