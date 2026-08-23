@@ -41,11 +41,13 @@ class GameDisplay:
 # shift-register for its 4 face buttons), which used to make it match the
 # PyBadge branch below by accident, but its directional input is a separate
 # analog thumbstick (JOYSTICK_X/JOYSTICK_Y) that _pybadge()'s
-# ShiftRegisterKeys(key_count=8) can't read. Same for PicoSystem/PewPew
-# M4/T-Deck: no dedicated handler yet, so they fall through to _generic()
-# rather than silently misreading the wrong board's controls.
+# ShiftRegisterKeys(key_count=8) can't read. Same story for PewPew M4/T-Deck:
+# no dedicated handler yet, so they fall through to _generic() rather than
+# silently misreading the wrong board's controls. PicoSystem has its own
+# entry (_PICOSYSTEM_FAMILY below) — direct-wired GPIOs, not a shift register.
 _PYBADGE_FAMILY = {"pybadge", "edgebadge"}
 _CLUE_FAMILY = {"clue_nrf52840_express"}
+_PICOSYSTEM_FAMILY = {"pimoroni_picosystem"}
 
 
 def detect():
@@ -55,6 +57,8 @@ def detect():
         return _pybadge()
     elif board_id in _CLUE_FAMILY:
         return _clue()
+    elif board_id in _PICOSYSTEM_FAMILY:
+        return _picosystem()
     elif hasattr(board, "NEOPIXEL") and not hasattr(board, "BUTTON_A"):  # HalloWing
         # HalloWing's board_id isn't confirmed yet (no unit on hand — see
         # doc/SYSTEMS.md); this heuristic fallback stays until it is.
@@ -119,6 +123,41 @@ def _clue():
         buttons["a"] = btn_a.value
         buttons["b"] = btn_b.value
         return buttons
+
+    gd.read_buttons = read_buttons
+    return gd
+
+
+def _picosystem():
+    import digitalio
+
+    gd = GameDisplay()
+    gd.screen = board.DISPLAY
+    # The status LED is 3 discrete PWM-driven pins (LED_R/LED_G/LED_B), not an
+    # addressable strip like PyBadge's — no NeoPixel-compatible object to hand back.
+    gd.neopixel = None
+
+    # RP2040 GPIOs wired directly to the D-pad/A/B (no shift register like
+    # PyBadge's). Each has an internal pull-up and reads low when pressed —
+    # confirmed against Pimoroni's own C++ SDK, which does the same:
+    # `button(b) { return !(_io & (1U << b)); }` (pimoroni/picosystem hardware.cpp).
+    # X/Y exist on the board but the engine's button dict has no slot for them.
+    pin_names = {
+        "up": board.SW_UP,
+        "down": board.SW_DOWN,
+        "left": board.SW_LEFT,
+        "right": board.SW_RIGHT,
+        "a": board.SW_A,
+        "b": board.SW_B,
+    }
+    switches = {}
+    for name, pin in pin_names.items():
+        sw = digitalio.DigitalInOut(pin)
+        sw.switch_to_input(pull=digitalio.Pull.UP)
+        switches[name] = sw
+
+    def read_buttons():
+        return {name: not sw.value for name, sw in switches.items()}
 
     gd.read_buttons = read_buttons
     return gd
