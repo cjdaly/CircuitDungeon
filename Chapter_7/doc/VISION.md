@@ -3,9 +3,10 @@ In Chapter 7 we will design and implement a roguelike game for the PicoSystem
 
 - using beads (https://github.com/gastownhall/beads) to track the work
 - randomly generated levels
-- new bitmaps / sprites - larger than CH 6 (16x16?)
-  - players / monsters / objects should be view from above (not side)
-  - may use imagemagick (convert command)
+- new bitmaps / sprites - top-down / overhead view, not side
+  - 16x16 uniform grid for terrain, objects, creatures, heroes (see doc/ART.md)
+  - original art, hand-authored + procedural, grounded in the CC0 reference
+    sets in sourceArt/ (0x72 tilesets, Project Utumno)
 - more complex screen layout
   - text line at top and bottom (status / message ?)
   - map (about 2/3 of remainder)
