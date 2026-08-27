@@ -11,3 +11,5 @@ This is a series of experiments in making tile-based dungeon crawl type games fo
 * [Chapter 4 - The Rabbit Hole](Chapter_4)
 * [Chapter 5 - Summer Camp](Chapter_5)
 * [Chapter 6 - Chit-chat with Claude](Chapter_6)
+* [Chapter 7 - Always a Rogue](Chapter_7)
+
