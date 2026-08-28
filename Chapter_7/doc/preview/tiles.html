@@ -1,0 +1,60 @@
+<!doctype html><meta charset="utf-8">
+<title>Ch7 tiles - preview</title>
+<style>
+  :root { --z: 8; --tile: 16px; }
+  body { background:#181820; color:#ddd; font:13px/1.4 system-ui,sans-serif;
+         margin:0; padding:24px; }
+  header { position:sticky; top:0; background:#181820; padding:8px 0 14px;
+           display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+  h1 { font-size:15px; margin:0; }
+  button { background:#2a2a36; color:#ddd; border:1px solid #444;
+           border-radius:6px; padding:5px 12px; cursor:pointer; font:inherit; }
+  button.on { background:#4a6; border-color:#6c8; color:#062; font-weight:700; }
+  label.bg { margin-left:auto; }
+  section { margin:22px 0; }
+  h2 { font-size:14px; border-bottom:1px solid #333; padding-bottom:4px; }
+  h2 small { color:#888; font-weight:400; }
+  .grid { display:flex; flex-wrap:wrap; gap:16px; }
+  figure { margin:0; text-align:center; }
+  .tile {
+     display:block;
+     width:calc(var(--tile) * var(--z));
+     height:calc(var(--tile) * var(--z));
+     background-repeat:no-repeat;
+     background-color:var(--cell-bg,#3a3a42);
+     background-size:calc(var(--sw) * 1px * var(--z)) calc(var(--sh) * 1px * var(--z));
+     background-position:calc(var(--bx) * -1px * var(--z)) calc(var(--by) * -1px * var(--z));
+     image-rendering:pixelated;
+     outline:1px solid #111;
+  }
+  figcaption { color:#aaa; margin-top:4px; font-size:11px;
+               max-width:calc(var(--tile) * var(--z)); overflow-wrap:anywhere; }
+  body.light { background:#d9d9d4; color:#222; --cell-bg:#c4c4bd; }
+  body.light header { background:#d9d9d4; }
+  .s-terrain { background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAAAQCAYAAADeWHeIAAAC/ElEQVR4nO2ZT2sTQRTAX5cllVIhGKOlrO1ehIZASC7BS2ChVxEroQePfoLgBwl+gh56EUqhIoGeCisVkSCkBmIqHtzUWFrSlIihqCB60LfMn52dmWwXY5sfhOzbeW934P2bmZ16uJz/BQzd3sC/ttJJdpjCyD3g7rUbdaG+lfXgamLVl3PpG6HPl1H7MkfJKys52Npqqj9guxLp/VF50fw49S/fb8oUdIJBBdL5AACu60ptOp0P3L3FxdsAAOANTbBL5cjzuqz4AZBfmoe9/UPo9ga+o0nno3weQaALOlsFWfZ7u5uUbP/9739Pac0pNd2n5I3nz7TsV+/d19KPC4N1MungUZwdVv5VxkeBdapIR0XvsuFXgL39w0AFK53kKgHS7Q1ggZCDnGtlPei2bOpeu1GHTKGoPdk4SU33YXbujrL+8IiuAOuup2xbq1aUdeMmcA2ADscKoFIJRJnNOp/U1wkCx3H8a5V1A8kk88VwAUBme1DPx7UCEqWktxt1uJmY1bZzHIcLAm93M/JicHj0GhaWHynrkjTfqu08DnbWtOcVJ1wAsAtAthqQzrfSSXj/M9b5CcGK8Gb9KVy5dkvZ7tvpJ/pG4hwn9R8i3AayvZ+sBvmleQAIXjcE9fww0JG6ZT0uDnbW4O7jJwp6tHzaeie1YavGOGAA8Ns9EagnWjACiHu+DMdxqD7PMi4BctHwKwDb79mgOBmcwfXkjC+zQaCb+SJ9NghIx7uuy43rlP9A/WGH06lVK9J9fa1Ky0GHVSTsucG4YLBOxx8LOp8dyxSKI23pui17JDtRJZicBo6GCUD3e8x0dg2A8sngzJcBAL7+2AAAPOJV3xHInB9W8nEsrGWQ2KWy9lZQ96RuXDNchglAZ7Uo01Em2wCC5/uZQlFpW0g6P0pv/2Mr/ZwxIQSDzXLRoQ9mPiJqFaLMtrJe6LgKoj6rUv7tUnnSJgIwVc/7ycwnbYwE/zk4CNECsf7qpZI9cvz5mJJncg4lyz4Hc0Gwrff+i8ZvuvFFGoBJksoAAAAASUVORK5CYII=); --sw:128; --sh:16; }
+  .s-creatures { background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAAAQCAYAAADeWHeIAAADE0lEQVR4nO1Yv2vbQBh9Mh1FCCLnBIKSQECTHJMugRg6lJDJe5dACh2ydAqU/BGBTFk6FGro0l1Thg4lNngKrm8yBGy01FEwxnjudTAnn6Q76Vy3cSz6QNj33Uk63XvfjzuDgeE5gph2ZGLB2DcWNZc848WiJyADMW1GqRe1uTZ7KhEQM/kumS0PKDz1C4lps7h3x0GpB9ethm3XrSIuiFmfOet4sX+WZy8bDFkKKB1uJ4ztRm9u9RPTZscHawCAm+ajMqz3uy3pgq/vlBPjiWmzouUAAB4GncxUkTWemDarnK5K763XhrlLRZEUwInf3V9JDCxh0qcSAvcS1QKJ5GdB5vGuW0UAP/W+ouWAQB2qRfJV/SryAaByugpSy1cqCFNA6XCb7e6vSMkHpqKQRQdO7vHBmjRczkI+MBFRPAXoLnrRchIhnrfTyBfx8cMXABOPr9eGEVvekKgBDipW+J9/PLerxCGCi0C84uSnhX9i2qzfbUWKQEo99Lst7TzPiRaFECc/LV2cXZ6gXhvi9mgLt0dbqNeGOLs80Xn10iEhgGZ9AGBCPqVeKAJu1wGPBvwSkUU+pZ4016/vlA1KPen28GHQSTyLUg9Fy0HRchLpRKdWEFNBWlpYdhSAafgXUTldhetWtT4+GPvGTfMxc1wa+SJUaSTt/TIRPAw6+Pb9KrKjSEMw9g0x6l1sjnCxOQrbeSwCU7eBf6L8q0+ftWwqyLwfmNYFwdg3ZGKIi+D1q3MULSf85UjzfmLabGOvgPu7UcR+fzdK2PKCv34OcP7uLYCJt/OowG1Z4MTI9vz9biusvlUEchGoooEO+e1Gz/j541ekb3d/Be1Gz9jYK+TuTCA8B5ClARnu70apW0FVta8b/oHpOQCPBvG2DuY5So5vabO2uMuMSATICnNZ/bwWEOsB3tZdPL7Y8W2g2KeDYOwb4qV7HzFtdu1YuHasiP3asfD1ZTlX3g8IB0HtRs8oHW6zeXNd6DXN5fWa951BZN7B2DdIZ/I9bxY3rX8C6VHwIqEKt3kOw4vEsxPAfzwtfgOaOtIIlxaCGAAAAABJRU5ErkJggg==); --sw:128; --sh:16; }
+  .s-heroes { background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAAAQCAYAAADeWHeIAAACdElEQVR4nO2ZQUgbQRSG/wk9lT1IyUKFLCyCKRhY7Emk1UrxFEMKodCbvZvFmxICPQZsL0UIAUWF0FwEyUly6C3UFKHQQMCDnoI55BAJIjkK00M6606STWbippfON5fZ92beg7y3b95sCAVFL7pmcMJWp0H6Fo2A2ZDd64dvhThPegW6ZtDtbJaX2QaVCYSuGTRqpbrzmvheXTPoq49TvCwv51shR8BLsb5iYn3FlDboDj4ARK1U31s9ir2tAva2CtK+FfL0VQBGvXTUnTx9K2ysN/iMqJWSqgSOb8XEGZgAU7+OgIj5MBek1WkQvdZ920+/JAAAse2ioxOxsYYZbl7Bb2H/Cnm4I4CV6nT+4Udnc9EyPijQIsH3w7dCHsJuAbpm0Gz4GQDg9M17Z0GsfAIAsK/awoGMWim8fvkdVsRErhBGqbYzci9rACPN/qJ0MX2PSv5W3QgmQF8T6A7+oOdhuHsA6+8RAozXCCr+DQEAuDxeEgrOsHVeDSBjWBKIJodKIv/hKoB91XZKPiNWPoF91RY2mP+ZJACQK4SRK4Q5mRdzySxanQap5G9xMX3P6dzlfy6Z9bCgGBcnAdj5erdowp69wbevn4g9e4O7RZPTDyP0/GAsnZs1zCC+uoxMsUriq8vcrUDhPwEAePHhh1Bz5bXu8niJnh2ayBSrBABKtR1Hx+aZYpWcHZoDj5Hy53dC/kXXKSSgrhHUQjSdmKduWToxT4NaiJMNG0EtRPeTcXqe26QUFOe5TbqfjAvZ8MO/GnLD81PwY6g3r7GwsUsAYGFjl9Sb15Nwo/AB7jsAMPisF/1n7zE2/PCvkMdJAMX/yR+IXvbY7SX9wwAAAABJRU5ErkJggg==); --sw:128; --sh:16; }
+  .s-objects { background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAAAQCAYAAADeWHeIAAADQklEQVR4nO2ZP0gbURzHv1c6HpJCH97Qk9B2jDqpi2QK7SJClhaXIAgOImolm7NbKEbEoSBIlpAuQpCCJVPIYjvZZizlMB0iKfQI2V+H8K735713f2Mi9AOBu/fu93t3+f7e7/3unUJBwYOouqOjN+go3AsFxLUfFUTVabt9CQDIZFYm5r7GxWNZp/2PikJc+6Qhqk4PGk1Uu8Ca1hdeI/PhFzB3xo3Ufjo9P1EBJw2AcSESIc5sZeIDQ/F5s5+oOt18Lf9LyJVORfdxZ9zQ4/117Lw/59oe769jxzinkxQE3KflCUBU8YMnZc/sfnwp8PsXh/1RlqPA4tOU1Nfma1MaBA8NTwCwNdLc24K5twUAaOVmkDo6BckEE7HdvkS1O4Vqd9h20GhiTetL7YmqUyZ893uT65v1k8VwwegnvpuvP/8AABaeP+GeB8G97LHlMAhsGbFnCl5bEjgCwC6+G3NvC+32pa+ITHw31e6Urz3gFD+1dDIc+3rb6tNms4EejN1PWPEBr9BhhGeEEdzOnXFDi+U6AKBkgE6n5xVeWyTnHDwZgCd+kD4GT/wgfW5SSyeW8PbjoEQVH4ppHRbePAMAVD7+CjU2EC8DMIrlOvCuTlEObRqYkRWBFxffHOf5/NyohvIQWXzAUwNos1kU0ESlNrDagtQBUQR3zPTdVU9/sVxHsVxPNAs8SsKJG7f4orZREEv8BMlkVhy/MJR2Vx029uPS7mqidYAwA6SOTh3nQdL/uElKfFb0oQag9snTvvDC32XUGgAYznS7vf046QwgDIA4gufzc7GXAPN621MEyiCqTltnaaS0vlVrtM7SIBvhX9lERd+/dtPXR5QaYDo9r5QMUJbqeYw8Ayw3btHKzXAvXm7c+jo8zGVx0GhyBT/M+Vfw2mzWehNwCy96A2DiM9a0fuii0cJWBMYhagZgQQDAEQSsJhjpa2Bv0FGIqlOZ0LLZxOxlQovse4OOwjZ6RBtBLxcrXB+9QUchG0Pb1tk2KrUBCm9VLG8Ywvvgjn8l3wZ2Xx/YeUiYyCwQ7G1Jo4g+Bo2TOFvBRNXp5qunAIAPn3/fewH4/1tAAjzkbdZJE9iPicwAcWEZ5CEH0n3xFzBl6pTCfGpHAAAAAElFTkSuQmCC); --sw:128; --sh:16; }
+</style>
+<header>
+  <h1>Ch7 tiles &mdash; preview <small>(cd-e17.12)</small></h1>
+  <span>zoom <button data-z="2">2&times;</button><button data-z="4">4&times;</button><button data-z="8">8&times;</button><button data-z="12">12&times;</button></span>
+  <label class="bg"><input type="checkbox" id="lt"> light background</label>
+</header>
+<section><h2>terrain.bmp <small>6 tiles &middot; 16px &middot; 8&times;1</small></h2><div class="grid"><figure><span class="tile s-terrain" style="--bx:0;--by:0"></span><figcaption>0 floor_dirt</figcaption></figure><figure><span class="tile s-terrain" style="--bx:16;--by:0"></span><figcaption>1 floor_flagstone</figcaption></figure><figure><span class="tile s-terrain" style="--bx:32;--by:0"></span><figcaption>2 wall_top</figcaption></figure><figure><span class="tile s-terrain" style="--bx:48;--by:0"></span><figcaption>3 water</figcaption></figure><figure><span class="tile s-terrain" style="--bx:64;--by:0"></span><figcaption>4 stairs_down</figcaption></figure><figure><span class="tile s-terrain" style="--bx:80;--by:0"></span><figcaption>5 stairs_up</figcaption></figure></div></section>
+<section><h2>creatures.bmp <small>5 tiles &middot; 16px &middot; 8&times;1</small></h2><div class="grid"><figure><span class="tile s-creatures" style="--bx:0;--by:0"></span><figcaption>0 slime</figcaption></figure><figure><span class="tile s-creatures" style="--bx:16;--by:0"></span><figcaption>1 rat</figcaption></figure><figure><span class="tile s-creatures" style="--bx:32;--by:0"></span><figcaption>2 skeleton</figcaption></figure><figure><span class="tile s-creatures" style="--bx:48;--by:0"></span><figcaption>3 bat</figcaption></figure><figure><span class="tile s-creatures" style="--bx:64;--by:0"></span><figcaption>4 goblin</figcaption></figure></div></section>
+<section><h2>heroes.bmp <small>3 tiles &middot; 16px &middot; 8&times;1</small></h2><div class="grid"><figure><span class="tile s-heroes" style="--bx:0;--by:0"></span><figcaption>0 warrior</figcaption></figure><figure><span class="tile s-heroes" style="--bx:16;--by:0"></span><figcaption>1 mage</figcaption></figure><figure><span class="tile s-heroes" style="--bx:32;--by:0"></span><figcaption>2 rogue</figcaption></figure></div></section>
+<section><h2>objects.bmp <small>7 tiles &middot; 16px &middot; 8&times;1</small></h2><div class="grid"><figure><span class="tile s-objects" style="--bx:0;--by:0"></span><figcaption>0 potion_red</figcaption></figure><figure><span class="tile s-objects" style="--bx:16;--by:0"></span><figcaption>1 potion_blue</figcaption></figure><figure><span class="tile s-objects" style="--bx:32;--by:0"></span><figcaption>2 coin</figcaption></figure><figure><span class="tile s-objects" style="--bx:48;--by:0"></span><figcaption>3 sword</figcaption></figure><figure><span class="tile s-objects" style="--bx:64;--by:0"></span><figcaption>4 chest</figcaption></figure><figure><span class="tile s-objects" style="--bx:80;--by:0"></span><figcaption>5 scroll</figcaption></figure><figure><span class="tile s-objects" style="--bx:96;--by:0"></span><figcaption>6 corpse</figcaption></figure></div></section>
+<script>
+  const root = document.documentElement;
+  function setZoom(z) {
+    root.style.setProperty('--z', z);
+    document.querySelectorAll('[data-z]').forEach(b =>
+      b.classList.toggle('on', +b.dataset.z === +z));
+  }
+  document.querySelectorAll('[data-z]').forEach(b =>
+    b.onclick = () => setZoom(b.dataset.z));
+  document.getElementById('lt').onchange = e =>
+    document.body.classList.toggle('light', e.target.checked);
+  setZoom(8);
+</script>

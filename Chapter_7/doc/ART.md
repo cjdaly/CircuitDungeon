@@ -60,13 +60,27 @@ A roguelike is turn-based, so animation is deliberately minimal.
 - **One shared master palette** across all four sheets. Finalized in `cd-e17.3`.
 - **Index 0 = transparent** — reserved, never drawn. Loaded with
   `adafruit_imageload.load()` + `palette.make_transparent(0)`, exactly as Ch6.
-- **Target 32 colors** (index 0 transparent + 31 ink). Keeps BMPs small,
-  forces coherence, comfortable in RP2040 RAM. Bump to 64 only if the terrain
-  candidates clearly need it — *(open)*, revisit after `cd-e17.5`.
+- **64-slot capacity, ~40 populated to start** (`cd-e17.3`). 32 vs 64 costs
+  nothing on-device — indexed sheets are 8 bpp for any count in 17–256; the
+  only saving is at ≤16 colors (4 bpp), which this palette can't hit anyway.
+  So we take the headroom: unused slots are free and avoid re-quantising every
+  sheet in the polish pass.
+- **Indices 0–15 are the frozen core** — transparent, outline, and the
+  neutral / stone / dirt / wood ramps every sheet leans on. Hand-authored
+  sprites pixel against these slot numbers, so 0–15 are never renumbered or
+  deleted (RGB values may still be nudged). Indices 16–39 are append-only
+  while art is in flight; 40–63 are reserved for the polish pass (venom,
+  frost, corpse-grey, crystal, lava, cloth dyes).
+- **Ramps, not free colors.** Every material is a dark→highlight ramp (3–5
+  steps) sharing a hue; `off_white` doubles as the shared brightest step.
+  Coherence comes from the ramp structure, not a low count.
 - Authoring convention: index 0 maps to bright magenta (`0xFF00FF`) so any
   unpainted pixel is obvious before it's made transparent.
 - Character: muted dungeon earth and stone, a small set of saturated accents
   for magic / potions / blood / gold.
+- Built + validated by `tools/build_palette.py` → `game/tiles/palette.{json,py}`
+  and `doc/preview/palette.png`. Every color is checked against Utumno + 0x72
+  v4; worst drift in v1 is d≈10 RGB (all colors real in the source sets).
 
 ## 6. Reference art
 
@@ -83,19 +97,38 @@ attribution; we credit them in the chapter README anyway.
 
 ## 7. Build pipeline
 
-- `Chapter_7/tools/build_tiles.py` (`cd-e17.4`) emits the four BMPs:
-  procedural generators for terrain textures + hand-authored pixel grids for
-  entities. Output is palette-indexed, index-0 transparent, tight-packed.
-- The committed `.bmp` files are the deployed artifact. The generators and
-  pixel-grid sources live in `tools/` and are desktop-only (Pillow) — not
-  copied to `CIRCUITPY`.
+`Chapter_7/tools/` (desktop-only, Pillow + numpy; nothing here is copied to
+`CIRCUITPY`):
+
+| File | Role |
+|---|---|
+| `build_palette.py` | master palette → `game/tiles/palette.{json,py}` + swatch preview (`cd-e17.3`) |
+| `tilelib.py` | shared: ASCII-grid → indices, sheet packing, 8-bit BMP writer, rgba render |
+| `art/terrain.py` | procedural tile generators (`cd-e17.5`) |
+| `art/{creatures,heroes,objects}.py` | hand-authored pixel grids — ASCII art + per-file legend of palette colour names (`cd-e17.7/.6/.8`) |
+| `build_tiles.py` | assembles the four sheets → BMPs + `tiles.json` manifest; `--preview` emits the review artifacts (`cd-e17.4`, `cd-e17.12`) |
+
+- Each `art/*.py` exposes `build(pal) -> list[Tile]`. Hand-authored tiles are
+  16×16 ASCII grids; `.`/space → transparent index 0, every other char maps to
+  a master-palette colour *name*. Procedural tiles hand back a 16×16 index array.
+- Sheets pack row-major, tight (no margins). `tile index = row-major position`,
+  index 0 = top-left (ART.md §3).
+- Output BMPs are 8-bit palette-indexed, 256-entry table, `BITMAPINFOHEADER` —
+  loaded on device exactly as Ch6: `adafruit_imageload.load()` +
+  `palette.make_transparent(0)`.
+- `game/tiles/tiles.json` is the tile-index ↔ name manifest for the engine.
+- The committed `.bmp` files + `tiles.json` are the deployed artifact.
+- Deterministic and re-runnable: `python3 Chapter_7/tools/build_tiles.py`.
 
 ## 8. Open sub-decisions
 
 - Tile count per sheet — waits on the monster/item rosters.
-- 32 vs 64 palette colors — revisit after the first terrain candidates.
+- ~~32 vs 64 palette colors~~ — resolved: 64-slot capacity, ~40 populated,
+  core 0–15 frozen (see §5).
 - Whether `heroes.bmp` needs a "dead" tile, or the engine just drops a corpse
   tile from `objects.bmp`.
+- Which slots fill 40–63, and final RGB tuning of the v1 ramps — after the
+  first terrain + sprite candidates.
 
 ## 9. Flagged for deliberate revisit (`cd-e17.11`)
 
@@ -109,3 +142,18 @@ and will be reconsidered once first art candidates and the engine roster exist:
 
 Changing either means reworking `creatures.bmp` / `heroes.bmp`, so the revisit
 is scheduled before those sheets are considered final, not after.
+
+## 10. Review workflow (`cd-e17.12`)
+
+Every candidate/review/refine round is reviewed on-screen *before* anything is
+loaded onto the PicoSystem. `build_tiles.py --preview` emits:
+
+- **8× contact-sheet PNGs** per sheet into `Chapter_7/doc/preview/` (committed,
+  diffable), with tile-index labels and the master palette strip.
+- an **HTML review artifact** with a zoom toggle (2× / 4× / 8× / 12×),
+  `image-rendering: pixelated`, each sheet shown on both dark and light grounds.
+
+Scale reference on a ~109 ppi monitor: 2× ≈ actual PicoSystem physical size,
+8× is the working size for judging a single tile, 10–16× for pixel-level
+dithering inspection. This is the off-device counterpart to `cd-e17.10`
+(on-device verification).

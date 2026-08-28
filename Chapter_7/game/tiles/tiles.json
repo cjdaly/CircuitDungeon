@@ -1,0 +1,160 @@
+{
+  "terrain": {
+    "tile": 16,
+    "cols": 8,
+    "rows": 1,
+    "count": 6,
+    "tiles": [
+      {
+        "index": 0,
+        "name": "floor_dirt",
+        "col": 0,
+        "row": 0
+      },
+      {
+        "index": 1,
+        "name": "floor_flagstone",
+        "col": 1,
+        "row": 0
+      },
+      {
+        "index": 2,
+        "name": "wall_top",
+        "col": 2,
+        "row": 0
+      },
+      {
+        "index": 3,
+        "name": "water",
+        "col": 3,
+        "row": 0
+      },
+      {
+        "index": 4,
+        "name": "stairs_down",
+        "col": 4,
+        "row": 0
+      },
+      {
+        "index": 5,
+        "name": "stairs_up",
+        "col": 5,
+        "row": 0
+      }
+    ]
+  },
+  "creatures": {
+    "tile": 16,
+    "cols": 8,
+    "rows": 1,
+    "count": 5,
+    "tiles": [
+      {
+        "index": 0,
+        "name": "slime",
+        "col": 0,
+        "row": 0
+      },
+      {
+        "index": 1,
+        "name": "rat",
+        "col": 1,
+        "row": 0
+      },
+      {
+        "index": 2,
+        "name": "skeleton",
+        "col": 2,
+        "row": 0
+      },
+      {
+        "index": 3,
+        "name": "bat",
+        "col": 3,
+        "row": 0
+      },
+      {
+        "index": 4,
+        "name": "goblin",
+        "col": 4,
+        "row": 0
+      }
+    ]
+  },
+  "heroes": {
+    "tile": 16,
+    "cols": 8,
+    "rows": 1,
+    "count": 3,
+    "tiles": [
+      {
+        "index": 0,
+        "name": "warrior",
+        "col": 0,
+        "row": 0
+      },
+      {
+        "index": 1,
+        "name": "mage",
+        "col": 1,
+        "row": 0
+      },
+      {
+        "index": 2,
+        "name": "rogue",
+        "col": 2,
+        "row": 0
+      }
+    ]
+  },
+  "objects": {
+    "tile": 16,
+    "cols": 8,
+    "rows": 1,
+    "count": 7,
+    "tiles": [
+      {
+        "index": 0,
+        "name": "potion_red",
+        "col": 0,
+        "row": 0
+      },
+      {
+        "index": 1,
+        "name": "potion_blue",
+        "col": 1,
+        "row": 0
+      },
+      {
+        "index": 2,
+        "name": "coin",
+        "col": 2,
+        "row": 0
+      },
+      {
+        "index": 3,
+        "name": "sword",
+        "col": 3,
+        "row": 0
+      },
+      {
+        "index": 4,
+        "name": "chest",
+        "col": 4,
+        "row": 0
+      },
+      {
+        "index": 5,
+        "name": "scroll",
+        "col": 5,
+        "row": 0
+      },
+      {
+        "index": 6,
+        "name": "corpse",
+        "col": 6,
+        "row": 0
+      }
+    ]
+  }
+}
