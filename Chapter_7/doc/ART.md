@@ -84,8 +84,16 @@ A roguelike is turn-based, so animation is deliberately minimal.
 
 ## 6. Reference art
 
-All three sources are CC0 (`sourceArt/*/README.md`) — derivatives need no
-attribution; we credit them in the chapter README anyway.
+The three **primary** sources — Project Utumno, 0x72 DungeonTileset v4, 0x72
+DungeonTileset II — are all CC0; derivatives need no attribution and we credit
+them in the chapter README anyway.
+
+The broader reference set added under `cd-e17.13` (`sourceArt/*/README.md`,
+catalogued in [`REFERENCES.md`](REFERENCES.md) → *Extended survey*) is mixed:
+most is CC0, but **DawnLike is CC-BY 4.0** (credit DawnBringer + DragonDePlatino)
+and **`sourceArt/TopDownDungeon/` is CC-BY 3.0** (credit Buch + sponsor Abram
+Connelly). If any pixels derived from those two reach a shipped sheet, the
+chapter README must carry the attribution — tracked in `cd-e17.14`.
 
 | Need | Primary reference | Note |
 |---|---|---|
@@ -94,6 +102,7 @@ attribution; we credit them in the chapter README anyway.
 | Item silhouettes | 0x72 v4 | potions, swords, keys, chests, books — already 16×16 |
 | Monster style | Utumno overhead monsters + 0x72 II | small, front-facing |
 | Hero style | 0x72 v4 characters | front-facing, ~12 px tall inside the 16 px cell |
+| Overhead wall-tops + stairs at 16×16 | `sourceArt/TopDownDungeon/` (Buch), DawnLike | fills the `cd-e17.2` gap; CC-BY — see above |
 
 ## 7. Build pipeline
 
