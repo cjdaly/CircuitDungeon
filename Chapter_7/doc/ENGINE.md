@@ -129,8 +129,10 @@ Resolves bead `cd-e3p.2`. Forked from
 ```
 Chapter_7/game/
   main.py          # board detect -> build a World -> Game(display, world).run()
-  engine.py        # Game: the displayio scene + the non-blocking main loop
-  world.py         # NEW. Pure core: grid, actors, movement, scheduler. No
+  engine.py        # Game: owns the InputModel + ModeStack; the ~20fps loop
+  modes.py         # ModeStack + PlayMode / MenuMode / DiagMode  (§4; cd-e3p.12)
+  input.py         # InputModel: raw buttons -> named events  (§3; cd-e3p.11)
+  world.py         # Pure core: grid, actors, movement, scheduler. No
                    #   displayio/board/time — runs and is tested off-device.
   hardware.py      # forked verbatim + X/Y face buttons wired for PicoSystem
   util.py          # forked verbatim (displayio helpers)
@@ -138,14 +140,15 @@ Chapter_7/game/
                    #   for the generator (cd-dsc) but nothing calls it yet
   tiles/           # terrain/creatures/heroes/objects .bmp + palette + tiles.json
 Chapter_7/tests/
-  test_world.py    # off-device: `python3 Chapter_7/tests/test_world.py`
+  test_world.py test_input.py test_modes.py   # off-device: python3 <file>
 ```
 
-The **`world.py` / `engine.py` split is the fork's main structural move** and
-it is what makes ENGINE.md §1.4 ("logical move separate from presentation")
-real: `world.move_actor()` changes state and returns a result; `engine`'s
-`_render_actors()` reflects state onto sprites. It also keeps the turn model
-testable without a display.
+The **`world.py` / presentation split is the fork's main structural move** and
+it is what makes §1.4 ("logical move separate from presentation") real:
+`world.move_actor()` changes state and returns a result; `PlayMode.render()`
+reflects state onto sprites. It also keeps the turn model testable without a
+display. (The scene itself moved from `engine.Game` into `modes.PlayMode` when
+mode dispatch landed — §4.)
 
 ### 2.2 What was stripped from the Ch6 engine
 
@@ -153,24 +156,26 @@ testable without a display.
 movement speed · explosion pool + chain reactions · HUD scroll animation ·
 the `.lvl` exit/event trigger system · pixel-scroll camera.
 
-### 2.3 What the fork leaves for later beads
+### 2.3 What is still left for later beads
 
-- `Game._resolve_turn()` — raises `NotImplementedError`; the turn loop body
-  is **`cd-e3p.3`**, which also needs `cd-e3p.11` to make an `action` from a
-  button event. `run()` currently renders a static world and pulses only.
-- Screen is one full-bleed world group. Status / map-viewport / inventory
+- `PlayMode._resolve_turn()` — raises `NotImplementedError`; the turn loop
+  body is **`cd-e3p.3`**. `PlayMode.tick()` currently ignores movement events
+  and just advances the pulse; the world is static.
+- `PlayMode` is one full-bleed world group. Status / map-viewport / inventory
   bands are **`cd-oht.2`** (geometry from `cd-oht.1`).
 - The hardcoded `_test_room()` in `main.py` is a placeholder until the
   generator (**`cd-dsc`**) hands back a `World`.
-- `_pulse()` is a stub — the placeholder tile sheets are one frame each;
-  idle animation lands with the art (`cd-e17.*`) and the polish pass.
+- No idle animation yet — the placeholder tile sheets are one frame each;
+  it lands with the art (`cd-e17.*`) and the polish pass.
+- `MenuMode` / `DiagMode` are stub overlays — real screens are `cd-e3p.13`
+  and `cd-89o.6`.
 
 ### 2.4 Actor representation
 
 Actors are **plain dicts in `world.actors`**, not classes (CircuitPython has
 no `__slots__`; Ch6 `PLAN.md` "State"). `actors[0]` is the hero. Shape:
 `{"x", "y", "sheet", "tile", "blocks", ...}` — `make_actor()` builds one.
-Sprites are a parallel list in `engine`, re-synced by `_sync_actor_sprites()`
+Sprites are a parallel list in `PlayMode`, re-synced by `_sync_actor_sprites()`
 when the roster changes.
 
 ## 3. Button input model
@@ -188,7 +193,54 @@ Resolves bead `cd-e3p.11`. Full spec in [`INPUT.md`](INPUT.md); in brief:
   by the engine per §1.3. Output queue bounded at 4, drop-oldest.
 - `trace()` / `snapshot()` expose input timing for the `cd-89o.6` diag page.
 
-## 4. Screen / mode dispatch  *(cd-e3p.12 — open)*
+## 4. Screen / mode dispatch
+
+Resolves bead `cd-e3p.12`. `Chapter_7/game/modes.py`.
+
+### 4.1 Modes
+
+A **mode** is an object with `tick(events, now)`, `render()`, and a `.group`
+(its displayio scene). v1 modes:
+
+| Mode | Class | Scene |
+|---|---|---|
+| play | `PlayMode` | terrain grid + actor sprites (moved here from the `cd-e3p.2` `Game`) |
+| menu | `MenuMode` → `_StubOverlay` | centred label; real screen is `cd-e3p.13` |
+| diag | `DiagMode` → `_StubOverlay` | centred label; real screen is `cd-89o.6` |
+
+`tick()` returns `"exit"` to ask the stack to drop back to play (the stubs do
+this on `CANCEL`); anything else returns `None`.
+
+### 4.2 ModeStack
+
+`ModeStack(base, {"menu": …, "diag": …})` — `base` (play) is always at the
+bottom; at most one overlay sits on top (never two).
+
+- `handle(events, now)` — the `"menu"` / `"diag"` **chord events are consumed
+  here** and toggle their overlay (same chord again, or a `tick()` `"exit"`,
+  returns to play). Every other event is passed to `top.tick()`.
+- Because the toggle event never reaches `PlayMode.tick()` and play isn't
+  ticked while an overlay is up, **entering/leaving menu or diag passes no
+  game turn** (§1.1).
+- `render(screen)` — calls `top.render()` and points `screen.root_group` at
+  `top.group`, only reassigning when the top actually changed.
+
+`ModeStack` imports nothing hardware-side (the mode classes lazy-import
+`displayio`/`util` in `__init__`), so its routing is unit-tested off-device
+(`tests/test_modes.py`).
+
+### 4.3 The loop (`engine.Game`)
+
+`Game` shrank to: own the `InputModel` + the `ModeStack`, and run
+
+```
+each ~20fps tick:
+    events = input.tick(read_buttons(), now)
+    stack.handle(events, now)
+    input.repeat_paused = stack.overlay_active()   # no d-pad repeat in a menu
+    stack.render(screen); screen.refresh()
+```
+
 ## 5. Turn loop implementation  *(cd-e3p.3 — open)*
 ## 6. Monsters + AI  *(cd-e3p.4 — open)*
 ## 7. Combat  *(cd-e3p.5 — open)*
