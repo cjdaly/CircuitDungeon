@@ -31,3 +31,21 @@ if command -v bd >/dev/null 2>&1; then
   if [ $_bd_exit -ne 0 ]; then exit $_bd_exit; fi
 fi
 # --- END BEADS INTEGRATION v1.2.2 ---
+
+# --- BEGIN LOCAL: stage the fresh .beads/issues.jsonl into this commit ---
+# The beads block above re-exports issues.jsonl from the DB on every commit,
+# but does NOT `git add` it — and the background daemon only refreshes it on
+# a ~60s timer. So a commit right after a `bd` write would otherwise capture a
+# stale file that goes dirty again seconds later. Re-export (cheap, silent,
+# byte-identical to the daemon's output) and stage it.
+#
+# Skipped on a scoped commit (`git commit -- <path>`, `git commit -p`): git
+# points GIT_INDEX_FILE at a temp index whose basename isn't "index", and
+# sprouting .beads files into a deliberately narrow commit is surprising.
+_bd_idx="${GIT_INDEX_FILE:-index}"
+if [ "${_bd_idx##*/}" = "index" ] && command -v bd >/dev/null 2>&1; then
+  bd export -q -o .beads/issues.jsonl >/dev/null 2>&1 || true
+  git add .beads/issues.jsonl 2>/dev/null || true
+fi
+unset _bd_idx
+# --- END LOCAL ---

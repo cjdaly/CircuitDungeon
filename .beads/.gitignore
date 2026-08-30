@@ -78,3 +78,8 @@ bd.db
 
 # Auto-import state cache (per-machine)
 .auto-import-issues.jsonl
+
+# Interaction audit log — rewritten by bd on every read/write, so it churns
+# constantly and conflicts on merge. Regenerated locally; not worth versioning.
+# (issues.jsonl stays tracked — the pre-commit hook keeps it synced to the DB.)
+interactions.jsonl
