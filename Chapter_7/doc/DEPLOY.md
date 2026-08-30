@@ -20,33 +20,37 @@ CIRCUITPY/
 
 `doc/`, `tools/`, and `tests/` stay on the desktop.
 
-## One-time device setup
+## Current device state (2026-08-30)
 
-1. **CircuitPython.** Flash the PicoSystem build from
-   <https://circuitpython.org/board/pimoroni_picosystem/>.
+The unit already runs **Chapter 6** with its libs installed, so device setup
+is **done** for the first Ch7 test — you just swap the code (see *Deploy*).
+
+Known-good baseline (`downloads/`, gitignored):
+
+| | version |
+|---|---|
+| CircuitPython (`pimoroni_picosystem`) | **10.2.1** |
+| bundle | `adafruit-circuitpython-bundle-10.x-mpy-20260820` |
+| `adafruit_display_text` | 5.0.5 |
+| `adafruit_imageload` | 1.24.8 |
+| `neopixel` | 6.4.2 (unused on the PicoSystem path) |
+
+CP 10.x has every displayio API Ch7 uses (`TileGrid.hidden`,
+`Group(x=,y=)`, `Label.anchor_point`/`anchored_position` — all 7.x-era), and
+Ch6 running proves `displayio` + `adafruit_imageload` + `adafruit_display_text`
+coexist fine with the board's frozen `stage`/`ugame`. So the smoke test is
+really just: does the Ch7 code run, and what's the RAM headroom.
+
+## One-time device setup *(already done — reference only)*
+
+1. **CircuitPython.** `downloads/adafruit-circuitpython-pimoroni_picosystem-en_US-10.2.1.uf2`,
+   or a fresh build from <https://circuitpython.org/board/pimoroni_picosystem/>.
    Bootloader entry: **hold `X` while pressing the power button** → an
-   `RPI-RP2` drive mounts (the screen stays blank — that's normal). Drop the
-   `.uf2` on it. Connect straight to the Mac, not through a hub (RP2040
-   BOOTSEL enumeration is flaky through hubs).
-2. **Bundle libraries.** Check the CP version first (REPL:
-   `import sys; sys.implementation.version`), grab the matching
-   [Adafruit bundle](https://circuitpython.org/libraries), and copy into
-   `CIRCUITPY/lib/`:
-   - `adafruit_display_text/` (folder)
-   - `adafruit_imageload/` (folder)
-   - `neopixel.mpy` (not used on PicoSystem's code path, but harmless and
-     keeps `hardware.py` importable if the board is misdetected)
-
-   Or: `pip install circup && circup install adafruit_display_text adafruit_imageload neopixel`.
-3. **Sanity-check the frozen modules.** The PicoSystem CP build ships frozen
-   `stage` / `ugame`. In the REPL, confirm the standard display stack is
-   intact and nothing auto-grabbed the screen:
-   ```python
-   import board, displayio
-   board.DISPLAY            # -> a Display object, not None
-   board.DISPLAY.root_group # fine if None
-   import adafruit_imageload  # imports without error
-   ```
+   `RPI-RP2` drive mounts (screen stays blank — normal). Drop the `.uf2` on
+   it. Connect straight to the Mac, not through a hub.
+2. **Bundle libraries** into `CIRCUITPY/lib/` (from the matching bundle):
+   `adafruit_display_text/`, `adafruit_imageload/`, `neopixel.mpy`. Or
+   `circup install adafruit_display_text adafruit_imageload neopixel`.
 
 ## Deploy
 
@@ -55,8 +59,12 @@ Chapter_7/tools/deploy.sh            # to /Volumes/CIRCUITPY
 Chapter_7/tools/deploy.sh /Volumes/CIRCUITPY   # explicit target
 ```
 
-It rsyncs `game/`'s contents to the drive (dropping `__pycache__`/`*.pyc`) and
-warns if any of the three libs are missing from `lib/`.
+`rsync -rt --delete` of `game/`'s contents to the drive root. `--delete`
+**removes the Chapter 6 files** (`levels/`, `explosions.bmp`, etc.) that
+aren't in Ch7's `game/` — that's the Ch6→Ch7 swap. Anchored excludes protect
+everything CircuitPython owns (`lib/`, `boot_out.txt`, `settings.toml`) and
+the macOS FAT dotfiles. First run: eject and reconnect afterwards, or `sync`,
+so the writes flush.
 
 ## Watch it boot
 
