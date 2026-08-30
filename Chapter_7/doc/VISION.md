@@ -11,4 +11,6 @@ In Chapter 7 we will design and implement a roguelike game for the PicoSystem
   - text line at top and bottom (status / message ?)
   - map (about 2/3 of remainder)
   - inventory / stats (about 1/3)
+  - resolved in doc/LAYOUT.md (Option G): 13×13 map viewport + a thin 32 px
+    icon rail; full inventory/stats deferred to an optional toggle screen
 

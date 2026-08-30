@@ -22,8 +22,9 @@ tables exist; everything else is settled.
 - Ch6 used 16×24 for heroes; Ch7 goes uniform 16×16 so a hero, a monster,
   and an item each occupy exactly one map cell. Simplifies collision, camera,
   and sprite handling.
-- ~14×9 tiles visible in the map region of a 240×240 screen (exact figure
-  set by `cd-oht.1`).
+- **13×13 tiles visible** in the map viewport (`cd-oht.1` / [`LAYOUT.md`](LAYOUT.md)):
+  a 208×208 px viewport, 16 px status line above, 16 px message line below,
+  32 px icon rail on the right.
 - Rationale: matches the native size of the 0x72 reference sets; proven in Ch6.
 
 ## 3. Sheet files
