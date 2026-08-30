@@ -11,7 +11,8 @@ drive (not into a `game/` subdir — `util.py` loads tiles from `/tiles/`):
 
 ```
 CIRCUITPY/
-  main.py  engine.py  modes.py  input.py  world.py  hardware.py
+  boot.py                       # turns auto-reload OFF (see "Deploy" below)
+  main.py  engine.py  modes.py  input.py  world.py  ai.py  hardware.py
   util.py  level_loader.py
   tiles/  terrain.bmp creatures.bmp heroes.bmp objects.bmp
           (palette.* / tiles.json copied too; not imported yet)
@@ -56,23 +57,51 @@ really just: does the Ch7 code run, and what's the RAM headroom.
    Bootloader entry: **hold `X` while pressing the power button** → an
    `RPI-RP2` drive mounts (screen stays blank — normal). Drop the `.uf2` on
    it. Connect straight to the Mac, not through a hub.
-2. **Bundle libraries** into `CIRCUITPY/lib/` (from the matching bundle):
-   `adafruit_display_text/`, `adafruit_imageload/`. (`neopixel.mpy` is not
-   used on this board — see above.)
+2. **Bundle libraries** into `CIRCUITPY/lib/` — `circup` matches the bundle
+   version automatically:
+   ```
+   pip install circup
+   circup --path /Volumes/CIRCUITPY install adafruit_display_text adafruit_imageload
+   ```
+   (or hand-copy those two folders from the matching bundle's `lib/`.
+   `neopixel.mpy` is not used on this board — see above.)
+
+## Why deploying isn't just "copy the files"
+
+CircuitPython **soft-reboots on every filesystem write**. `rsync` writes a
+dozen files, so the board reboots partway and tries to run a half-copied
+codebase (`ImportError`, a truncated module, …). And on macOS the FAT write
+cache isn't reliably flushed by `sync` alone (worse since the Sonoma
+small-drive bug) — resetting before it flushes can corrupt the drive.
+
+Two guards, both handled for you:
+
+- **`game/boot.py`** turns auto-reload **off**. `boot.py` runs once at hard
+  reset, before the USB workflow — so once it's on the device, no file write
+  ever reboots the board. You deploy the whole project, *then* reset it.
+- **`deploy.sh` ejects the drive** at the end, forcing the flush. Re-mount by
+  resetting / power-cycling — the board then runs the new code.
 
 ## Deploy
 
 ```
-Chapter_7/tools/deploy.sh            # to /Volumes/CIRCUITPY
-Chapter_7/tools/deploy.sh /Volumes/CIRCUITPY   # explicit target
+Chapter_7/tools/deploy.sh                     # -> /Volumes/CIRCUITPY, ejects when done
+Chapter_7/tools/deploy.sh --no-eject          # skip the eject
+Chapter_7/tools/deploy.sh /Volumes/CIRCUITPY  # explicit target
 ```
 
 `rsync -rt --delete` of `game/`'s contents to the drive root. `--delete`
-**removes the Chapter 6 files** (`levels/`, `explosions.bmp`, etc.) that
-aren't in Ch7's `game/` — that's the Ch6→Ch7 swap. Anchored excludes protect
-everything CircuitPython owns (`lib/`, `boot_out.txt`, `settings.toml`) and
-the macOS FAT dotfiles. First run: eject and reconnect afterwards, or `sync`,
-so the writes flush.
+**removes the Chapter 6 files** (`levels/`, `explosions.bmp`, …) not in Ch7's
+`game/` — that's the Ch6→Ch7 swap. Anchored excludes protect `lib/`,
+`boot_out.txt`, `settings.toml`, and the macOS FAT dotfiles.
+
+**First Ch7 deploy** (before `boot.py` is on the device, auto-reload is still
+on): connect serial first and `Ctrl-C` to the REPL — that pauses the running
+code *and* auto-reload — then run `deploy.sh` from another shell.
+
+**Every deploy after:** `deploy.sh` → **reset the board** (the power button, or
+`Ctrl-C` then `Ctrl-D` in serial) → it re-mounts `CIRCUITPY` and runs the new
+code.
 
 ## Watch it boot
 
@@ -80,12 +109,12 @@ so the writes flush.
 screen /dev/tty.usbmodem*        # find the exact name with: ls /dev/tty.usbmodem*
 ```
 
-- `Ctrl-C` → REPL, `Ctrl-D` → restart `main.py`
-- Detach: `Ctrl-A` then `d`
+- `Ctrl-C` → REPL, `Ctrl-D` → restart · Detach: `Ctrl-A` then `d`
 
-`main.py` prints a smoke-test banner:
+`boot.py` then `main.py` print:
 
 ```
+boot.py: autoreload OFF — deploy fully, then reset to run
 Ch7 boot   board=pimoroni_picosystem  free=NNNNNN
 Ch7 ready  free=NNNNNN  X+Y=diag  A+B=menu
 ```
@@ -149,10 +178,17 @@ and each logged a miss. Confirms Chris's hunch — narrow to `Down + B` in
 
 - **Blank screen, no serial** — likely still in the UF2 bootloader (check for
   `RPI-RP2` in `ls /Volumes/`), or a hub problem. Reconnect directly.
+- **`ImportError` / traceback right after "Ch7 boot"**, or the board rebooted
+  mid-`deploy.sh` — a partial copy. Re-run `deploy.sh` (it ejects), then reset.
+  If `CIRCUITPY` looks corrupt (missing files, weird names), reformat it from
+  the CircuitPython REPL: `import storage; storage.erase_filesystem()` and
+  re-deploy (libs too).
 - **`ImportError: no module named 'adafruit_...'`** — lib missing or wrong
-  bundle major version.
+  bundle major version. `circup --path /Volumes/CIRCUITPY install …`.
 - **Traceback on screen** — read it over serial; `Ctrl-C` then
   `import gc; gc.mem_free()` to check for OOM.
 - **Buttons do nothing** — board misdetected (see the banner) or a frozen
   `stage`/`ugame` conflict; check `import hardware; hardware.detect().read_buttons()`
   in the REPL while pressing a button.
+- **Want live-reload back** (single-file tweaking) — delete `boot.py` from
+  `CIRCUITPY`, or in the REPL: `import supervisor; supervisor.runtime.autoreload = True`.

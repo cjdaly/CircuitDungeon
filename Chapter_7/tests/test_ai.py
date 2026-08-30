@@ -151,5 +151,35 @@ class Hunt(unittest.TestCase):
         self.assertEqual((m["x"], m["y"]), (6, 6))   # stepped north instead
 
 
+class CircuitPythonRandom(unittest.TestCase):
+    """CircuitPython's `random` is a subset of CPython's — no shuffle/sample.
+    Exercise every RNG path in ai.py against a stub with only the CP surface,
+    so a `random.shuffle` (or similar) can't sneak back in."""
+
+    def test_rng_paths_use_only_the_circuitpython_surface(self):
+        import random as _real
+
+        class _CPRandom:
+            random = staticmethod(_real.random)
+            randint = staticmethod(_real.randint)
+            randrange = staticmethod(_real.randrange)
+            uniform = staticmethod(_real.uniform)
+            choice = staticmethod(_real.choice)
+            getrandbits = staticmethod(_real.getrandbits)
+            seed = staticmethod(_real.seed)
+
+        saved_rng, saved_chance = ai.random, ai.WANDER_CHANCE
+        ai.random = _CPRandom
+        ai.WANDER_CHANCE = 1.0     # -> _wander runs every idle turn
+        try:
+            w = room(16, 16)
+            w.add_actor(world_mod.make_actor(1, 1, "heroes", 0))     # far, no LoS
+            mob = w.add_actor(world_mod.make_actor(9, 9, "creatures", 1, ai="sleep"))
+            for _ in range(30):
+                ai.take_turn(w, mob)
+        finally:
+            ai.random, ai.WANDER_CHANCE = saved_rng, saved_chance
+
+
 if __name__ == "__main__":
     unittest.main()

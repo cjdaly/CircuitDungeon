@@ -109,9 +109,17 @@ def _step_toward(world, actor, gx, gy):
         # "blocked" or bumped another actor -> try the other axis
 
 
+def _shuffled(seq):
+    """Fisher-Yates. CircuitPython's `random` has no shuffle()/sample() —
+    only random / randint / randrange / uniform / choice / getrandbits / seed."""
+    out = list(seq)
+    for i in range(len(out) - 1, 0, -1):
+        j = random.randint(0, i)
+        out[i], out[j] = out[j], out[i]
+    return out
+
+
 def _wander(world, actor):
-    order = list(_STEPS)
-    random.shuffle(order)
-    for dx, dy in order:
+    for dx, dy in _shuffled(_STEPS):
         if world.move_actor(actor, dx, dy) == "moved":
             return

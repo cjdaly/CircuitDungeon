@@ -3,11 +3,21 @@
 # The CONTENTS of game/ go to the drive root — util.py loads tiles from /tiles/.
 # See Chapter_7/doc/DEPLOY.md.
 #
-#   Chapter_7/tools/deploy.sh [CIRCUITPY_PATH]
+#   Chapter_7/tools/deploy.sh [--no-eject] [CIRCUITPY_PATH]
 #
 # Default target: /Volumes/CIRCUITPY
+#
+# CircuitPython soft-reboots on every filesystem write, so a multi-file copy
+# would reboot the board mid-deploy into a half-written codebase. Two guards:
+#   1. game/boot.py turns auto-reload OFF (deployed with everything else).
+#   2. this script ejects the drive at the end, which forces the macOS FAT
+#      write cache to flush. Re-mount by resetting / power-cycling the board;
+#      it then runs the freshly-written code. Pass --no-eject to skip.
 
 set -euo pipefail
+
+EJECT=1
+if [ "${1:-}" = "--no-eject" ]; then EJECT=0; shift; fi
 
 TARGET="${1:-/Volumes/CIRCUITPY}"
 HERE="$(cd "$(dirname "$0")/.." && pwd)"   # Chapter_7/
@@ -45,4 +55,13 @@ if [ ${#missing[@]} -ne 0 ]; then
 fi
 
 sync
-echo "deploy: done. watch it:  screen /dev/tty.usbmodem*   (Ctrl-D restarts)"
+if [ "$EJECT" = 1 ] && command -v diskutil >/dev/null 2>&1; then
+  echo "deploy: ejecting $TARGET (flushes the write cache)…"
+  diskutil eject "$TARGET" >/dev/null
+  echo "deploy: done. RESET / power-cycle the board to run the new code."
+  echo "        (boot.py keeps auto-reload off; the drive re-mounts on reset.)"
+else
+  sync
+  echo "deploy: done (no eject). If the board didn't reboot cleanly, eject"
+  echo "        $TARGET in Finder before resetting.  watch:  screen /dev/tty.usbmodem*"
+fi
