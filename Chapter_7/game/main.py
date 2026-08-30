@@ -20,12 +20,15 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+import gc
+
+import board
 import hardware
 import engine
 import world as world_mod
 
 # Terrain tile indices — see game/tiles/tiles.json.
-FLOOR, FLAGSTONE, WALL = 0, 1, 2
+FLOOR, FLAGSTONE, WALL, WATER, STAIRS_DOWN, STAIRS_UP = 0, 1, 2, 3, 4, 5
 
 # TODO(cd-dsc): the procedural generator replaces this. Until it exists, a
 # walled room bigger than the 13×13 viewport so the camera actually scrolls,
@@ -45,6 +48,10 @@ def _test_room():
             if edge or cross:
                 row[x] = WALL
         grid.append(row)
+    grid[_H // 2 - 3][_W // 2 - 3] = STAIRS_UP     # under the hero's start
+    grid[3][_W - 4] = STAIRS_DOWN
+    grid[_H - 4][3] = WATER
+
     world = world_mod.World(grid, wall_tiles=(WALL,))
     world.add_actor(world_mod.make_actor(_W // 2 - 3, _H // 2 - 3, "heroes", 0))
     world.add_actor(world_mod.make_actor(3, 3, "creatures", 1))          # in view
@@ -52,9 +59,15 @@ def _test_room():
     return world
 
 
+# --- smoke-test boot log (cd-89o.8): watch over serial `screen /dev/tty.usbmodem*`
+gc.collect()
+print("Ch7 boot   board=%s  free=%d" % (getattr(board, "board_id", "?"), gc.mem_free()))
+
 display = hardware.detect()
 if display.neopixel is not None:
     display.neopixel.fill((0, 3, 5))
 
 game = engine.Game(display, _test_room())
+gc.collect()
+print("Ch7 ready  free=%d  X+Y=diag  A+B=menu" % gc.mem_free())
 game.run()
