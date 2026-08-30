@@ -1,24 +1,6 @@
-# The MIT License (MIT)
+# SPDX-FileCopyrightText: 2026 Chris J Daly (github user cjdaly)
 #
-# Copyright (c) 2026 Chris J Daly (github user cjdaly)
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
+# SPDX-License-Identifier: MIT
 
 # Screen/mode dispatch (bead cd-e3p.12). The main loop owns one ModeStack; the
 # stack decides which mode is on top, routes per-tick input events to it, and
@@ -85,6 +67,13 @@ class ModeStack:
         if self.top is mode:
             self._stack = [self._base]
         else:
+            self._stack = [self._base, mode]
+
+    def show(self, mode):
+        """Force `mode` over base — for game-over and other non-chord overlays.
+        Not dismissed by chords or a tick() "exit"; the mode itself decides
+        when to leave (e.g. calling a restart)."""
+        if self.top is not mode:
             self._stack = [self._base, mode]
 
     def handle(self, events, now):
@@ -171,10 +160,12 @@ class PlayMode:
         display.groups["root"] = self.group
         display.grids["terrain"] = self._terrain
         self._rail_w = rail_w
+        self._msg_seq = -1          # last world.log.seq shown on the message line
 
         self._recenter()
         self._sync_actor_sprites()
         self._paint_terrain()
+        self._paint_message()
         self._render()
 
     # -- camera + terrain viewport (LAYOUT.md §3) ------------------
@@ -219,6 +210,7 @@ class PlayMode:
             self._map_group.append(spr)
             self._actor_sprites.append(spr)
         self.display.sprites["actors"] = self._actor_sprites
+        self._synced_roster = self.world.roster_version
 
     def _render(self):
         for actor, spr in zip(self.world.actors, self._actor_sprites):
@@ -232,6 +224,15 @@ class PlayMode:
             else:
                 spr.hidden = True
 
+    # -- message line (cd-e3p.9; cd-oht.4 adds scroll / a longer history) --
+
+    _MSG_CHARS = 39   # ~ (240 - 4) / 6 for terminalio
+
+    def _paint_message(self):
+        if self.world.log.seq != self._msg_seq:
+            self._message_label.text = self.world.log.latest()[: self._MSG_CHARS]
+            self._msg_seq = self.world.log.seq
+
     # -- mode interface -------------------------------------------
 
     def tick(self, events, now):
@@ -244,6 +245,9 @@ class PlayMode:
             world_mod.resolve_turn(
                 self.world, self.scheduler, action, self._monster_turn
             )
+            if self.world.roster_version != self._synced_roster:
+                self._sync_actor_sprites()     # a monster died / spawned (cd-e3p.5)
+            self._paint_message()              # combat / event text (cd-e3p.9)
         cam = (self.cam_x, self.cam_y)
         self._recenter()
         if (self.cam_x, self.cam_y) != cam:
@@ -287,6 +291,35 @@ class _StubOverlay:
 
 def MenuMode(display):
     return _StubOverlay(display, "MENU")   # cd-e3p.13
+
+
+class GameOverMode:
+    """Shown by ModeStack.show() when the hero dies (ENGINE.md §9). CONFIRM
+    calls `restart` — `supervisor.reload()` on device, a test hook off it."""
+
+    def __init__(self, display, restart):
+        import displayio
+        import terminalio
+        import util
+
+        self.display = display
+        self._restart = restart
+        self.group = displayio.Group()
+        screen = display.screen
+        lbl = util.init_label(
+            terminalio.FONT, 0xFF5555, text="YOU DIED\n\npress A to try again"
+        )
+        lbl.anchor_point = (0.5, 0.5)
+        lbl.anchored_position = (screen.width // 2, screen.height // 2)
+        self.group.append(lbl)
+
+    def tick(self, events, now):
+        if im.CONFIRM in events:
+            self._restart()
+        return None
+
+    def render(self):
+        pass
 
 
 class DiagMode:

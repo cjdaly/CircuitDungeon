@@ -1,24 +1,6 @@
-# The MIT License (MIT)
+# SPDX-FileCopyrightText: 2026 Chris J Daly (github user cjdaly)
 #
-# Copyright (c) 2026 Chris J Daly (github user cjdaly)
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
+# SPDX-License-Identifier: MIT
 
 # The pure game-state core: a tile grid, the actors on it, movement, and the
 # turn scheduler. No displayio, no board, no timing — so it runs and is
@@ -26,6 +8,8 @@
 # and drives this; the generator (cd-dsc) will hand back a World.
 #
 # Governed by doc/ENGINE.md section 1 (turn model).
+
+import log as log_mod
 
 # Actors are plain dicts in a list, not class instances: CircuitPython has no
 # __slots__, so every instance carries a full __dict__ and a class buys
@@ -40,15 +24,38 @@ def make_actor(x, y, sheet, tile, blocks=True, **extra):
     return a
 
 
+# doc/ENGINE.md §9. Combat stats (hp/power/defense) are plain actor keys —
+# any actor that has them can fight and die (cd-e3p.5). Monsters get theirs
+# from the spawn tables (LEVELGEN.md §5); the hero starts here.
+HERO_DEFAULTS = {
+    "hp": 20, "max_hp": 20,
+    "power": 4, "defense": 1,
+    "gold": 0, "xp": 0, "level": 1,
+}
+
+
+def make_hero(x, y, tile=0, **over):
+    h = make_actor(x, y, "heroes", tile, blocks=True)
+    h.update(HERO_DEFAULTS)
+    h.update(over)
+    return h
+
+
+CORPSE_TILE = 6    # objects.bmp — see game/tiles/tiles.json
+
+
 class World:
-    def __init__(self, grid, wall_tiles):
+    def __init__(self, grid, wall_tiles, depth=1):
         # grid: list of equal-length rows, each an indexable sequence of tile
         #   indices (list of ints, or a bytes/bytearray row to save RAM).
         # wall_tiles: iterable of tile indices that block movement.
         self.grid = grid
         self.wall_tiles = frozenset(wall_tiles)
+        self.depth = depth     # dungeon level number (for the status line, spawns)
         self.actors = []
         self.turn = 0          # completed turns; distinct from engine's cycle pulse
+        self.log = log_mod.Log()  # message log (cd-e3p.9)
+        self.roster_version = 0  # bumped on any add/remove — PlayMode re-syncs sprites
         self.height = len(grid)
         self.width = len(grid[0]) if grid else 0
 
@@ -56,15 +63,21 @@ class World:
     def hero(self):
         return self.actors[0] if self.actors else None
 
+    def hero_alive(self):
+        h = self.hero
+        return h is not None and h.get("hp", 1) > 0
+
     def monsters(self):
         return self.actors[1:]
 
     def add_actor(self, actor):
         self.actors.append(actor)
+        self.roster_version += 1
         return actor
 
     def remove_actor(self, actor):
         self.actors.remove(actor)
+        self.roster_version += 1
 
     # -- queries ----------------------------------------------------------
 
@@ -155,9 +168,11 @@ def _apply_player_action(world, action):
         if result == "moved":
             return True
         if isinstance(result, tuple) and result[0] == "bump":
-            # TODO(cd-e3p.5): a bump onto a hostile is an attack and DOES spend
-            # the turn (ENGINE.md 1.2). No combat yet, so treat it as inert.
-            return False
+            other = result[1]
+            if "hp" in other:              # bump a fightable actor -> attack
+                resolve_attack(world, world.hero, other)
+                return True                # ENGINE.md 1.2 — spends the turn
+            return False                   # bumped a non-combatant
         return False  # "blocked" — wall or edge
     if kind == "wait":
         return True
@@ -166,13 +181,17 @@ def _apply_player_action(world, action):
 
 def resolve_turn(world, scheduler, action, monster_turn):
     """One turn: hero acts, then every monster acts once, then upkeep
-    (ENGINE.md 1.1). `monster_turn(world, actor)` is the per-monster AI
-    (a no-op until cd-e3p.4). Returns True if a turn actually passed."""
+    (ENGINE.md 1.1). `monster_turn(world, actor)` is the per-monster AI.
+    Returns True if a turn actually passed."""
     if not _apply_player_action(world, action):
         return False
     for actor in scheduler.actors_for_turn():
         if actor is world.hero:
             continue
+        if actor not in world.actors:
+            continue                       # died earlier this turn (corpse)
+        if not world.hero_alive():
+            break                          # nothing swings at a dead hero
         monster_turn(world, actor)
     _upkeep(world)
     world.turn += 1
@@ -183,6 +202,39 @@ def _upkeep(world):
     """End-of-turn bookkeeping — status-effect ticks, regen, etc.
     Empty until cd-e3p.7 (player model) / cd-e3p.4 add state that needs it."""
     pass
+
+
+# -- combat (ENGINE.md §7, bead cd-e3p.5) ----------------------------
+# v1 is hero <-> monster only. Damage = max(1, power - defense). A dead
+# monster is replaced by a non-blocking corpse; a dead hero stays at
+# actors[0] and engine.Game handles the game-over screen (§9.2).
+
+
+def _mob_name(actor):
+    return "the " + actor.get("name", "creature")
+
+
+def resolve_attack(world, attacker, defender):
+    dmg = max(1, attacker.get("power", 1) - defender.get("defense", 0))
+    defender["hp"] = defender.get("hp", 0) - dmg
+
+    if attacker is world.hero:
+        world.log.add("You hit %s for %d." % (_mob_name(defender), dmg))
+    else:
+        world.log.add("%s hits you for %d." % (_mob_name(attacker).capitalize(), dmg))
+
+    if defender["hp"] > 0:
+        return
+    if defender is world.hero:
+        world.log.add("You die.")
+        return
+    world.log.add("%s dies." % _mob_name(defender).capitalize())
+    world.remove_actor(defender)
+    world.add_actor(
+        make_actor(defender["x"], defender["y"], "objects", CORPSE_TILE, blocks=False)
+    )
+    if attacker is world.hero:
+        world.hero["xp"] = world.hero.get("xp", 0) + defender.get("xp", 0)
 
 
 # -- viewport / camera (LAYOUT.md §3) ---------------------------------

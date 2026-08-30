@@ -133,15 +133,16 @@ Chapter_7/game/
   modes.py         # ModeStack + PlayMode / MenuMode / DiagMode  (§4; cd-e3p.12)
   input.py         # InputModel: raw buttons -> named events  (§3; cd-e3p.11)
   ai.py            # per-monster idle/wander/chase  (§6; cd-e3p.4)
+  log.py           # message log  (§11; cd-e3p.9)
   world.py         # Pure core: grid, actors, movement, scheduler, turn loop,
-                   #   camera, line-of-sight. No displayio/board — off-device.
+                   #   combat, camera, line-of-sight. No displayio/board.
   hardware.py      # forked verbatim + X/Y face buttons wired for PicoSystem
   util.py          # forked verbatim (displayio helpers)
   level_loader.py  # forked verbatim; the `.lvl` Level type is a handy target
                    #   for the generator (cd-dsc) but nothing calls it yet
   tiles/           # terrain/creatures/heroes/objects .bmp + palette + tiles.json
 Chapter_7/tests/
-  test_{world,input,modes,turn,ai,scene}.py   # off-device: python3 <file>
+  test_{world,input,modes,turn,ai,combat,log,scene}.py   # off-device: python3 <file>
 ```
 
 The **`world.py` / presentation split is the fork's main structural move** and
@@ -159,9 +160,10 @@ the `.lvl` exit/event trigger system · pixel-scroll camera.
 
 ### 2.3 What is still left for later beads
 
-- The hero moves, turns advance, and monsters idle/wander/chase (§§5–6).
-  Still no-ops: `_upkeep` (player stats / regen — **`cd-e3p.7`**) and
-  bump-as-attack (**`cd-e3p.5`**).
+- The hero moves, turns advance, monsters chase and fight, bump-combat kills
+  (corpses, xp), death → game-over, and combat text shows on the message line
+  (§§5–7, §9, §11). Still missing: FOV (`cd-e3p.6`), inventory (`cd-e3p.8`),
+  `_upkeep` regen, and the HUD content (`cd-oht.3`/`.4`/`.5`).
 - `PlayMode` lays out the Option-G regions (`cd-oht.2`): a 13×13 terrain
   viewport with a hero-centred clamped camera, plus empty `status_group` /
   `rail_group` / `message_group` for `cd-oht.3` / `.5` / `.4` to fill.
@@ -207,14 +209,15 @@ Resolves bead `cd-e3p.12`. `Chapter_7/game/modes.py`.
 A **mode** is an object with `tick(events, now)`, `render()`, and a `.group`
 (its displayio scene). v1 modes:
 
-| Mode | Class | Scene |
-|---|---|---|
-| play | `PlayMode` | Option-G scene: 13×13 terrain viewport + camera + actor layer + empty HUD region groups (`LAYOUT.md`, `cd-oht.2`) |
-| menu | `MenuMode` → `_StubOverlay` | centred label; real screen is `cd-e3p.13` |
-| diag | `DiagMode` | live input page — `chord_stats()` / held state / trace (`cd-e3p.14`); RAM/flash/timing pages are `cd-89o.6` |
+| Mode | Class | Scene | switched by |
+|---|---|---|---|
+| play | `PlayMode` | Option-G scene: 13×13 terrain viewport + camera + actor layer + empty HUD region groups (`LAYOUT.md`, `cd-oht.2`) | — (base) |
+| menu | `MenuMode` → `_StubOverlay` | centred label; real screen is `cd-e3p.13` | `A+B` chord |
+| diag | `DiagMode` | live input page — `chord_stats()` / held state / trace (`cd-e3p.14`); RAM/flash/timing pages are `cd-89o.6` | `X+Y` chord |
+| game-over | `GameOverMode` | "YOU DIED" — `CONFIRM` calls the restart callback (§9.2) | `stack.show()` on death |
 
-`tick()` returns `"exit"` to ask the stack to drop back to play (both overlays
-do this on `CANCEL`); anything else returns `None`.
+`tick()` returns `"exit"` to ask the stack to drop back to play (the menu/diag
+overlays do this on `CANCEL`); anything else returns `None`.
 
 ### 4.2 ModeStack
 
@@ -224,6 +227,8 @@ bottom; at most one overlay sits on top (never two).
 - `handle(events, now)` — the `"menu"` / `"diag"` **chord events are consumed
   here** and toggle their overlay (same chord again, or a `tick()` `"exit"`,
   returns to play). Every other event is passed to `top.tick()`.
+- `show(mode)` forces a non-chord overlay (game-over) that chords and `"exit"`
+  can't dismiss — the mode leaves on its own terms.
 - Because the toggle event never reaches `PlayMode.tick()` and play isn't
   ticked while an overlay is up, **entering/leaving menu or diag passes no
   game turn** (§1.1).
@@ -278,8 +283,8 @@ world.turn += 1
 return True
 ```
 
-- **A failed move (wall/edge) or a `bump` onto an actor passes no turn.** Bump
-  becomes an attack (and *does* spend the turn) at `cd-e3p.5`; inert for now.
+- **A failed move (wall/edge) passes no turn.** A `bump` onto a fightable
+  actor (`hp` key) is an attack and *does* spend the turn (§7).
 - `monster_turn` is `ai.take_turn` (§6); `_upkeep` is still the `cd-e3p.7` seam.
 - Movement is an instant snap — `PlayMode.render()` repositions sprites from
   `world.actors` on the next frame (§1.4). No tween.
@@ -314,9 +319,8 @@ Monsters are plain dicts (§2.4). `take_turn` reads/writes two keys:
   fallback if blocked (no real pathfinding in v1; greedy is enough for open
   rooms). Reaching `goal` without seeing the hero → back to **sleep**.
 
-Stepping onto the hero's tile is a **bump** — `world.move_actor` returns
-`("bump", hero)` and `take_turn` does nothing with it. Becomes an attack at
-**`cd-e3p.5`**.
+Stepping onto the hero's tile is a **bump** → `ai._step_toward` calls
+`world.resolve_attack` (§7).
 
 ### 6.3 Line of sight
 
@@ -331,8 +335,81 @@ separate, heavier `cd-e3p.6`.
 (`LEVELGEN.md` §6). Deterministic given the run seed and the call order.
 Tests set `ai.WANDER_CHANCE = 0` to drop the randomness.
 
-## 7. Combat  *(cd-e3p.5 — open)*
+## 7. Combat
+
+Resolves bead `cd-e3p.5`. `world.resolve_attack(world, attacker, defender)` —
+v1 is **hero ↔ monster only** (nothing else has `hp`/`power`).
+
+- **Trigger:** a bump. `world.move_actor` returns `("bump", other)`; if `other`
+  has an `hp` key, `_apply_player_action` / `ai._step_toward` call
+  `resolve_attack` instead of moving, and the bump **spends the turn** (§1.2).
+- **Damage:** `max(1, attacker.power - defender.defense)` — always at least 1.
+- **Monster death:** removed from `world.actors`; a non-blocking corpse
+  (`objects` tile `CORPSE_TILE`) takes its place; if the killer is the hero,
+  `hero["xp"] += monster["xp"]`.
+- **Hero death:** `hp ≤ 0`, but the hero **stays at `actors[0]`** — no corpse.
+  `engine.Game.run()` sees `not world.hero_alive()` and shows `GameOverMode`
+  (§9.2). `resolve_turn` also `break`s its monster loop once the hero is dead,
+  so a later monster doesn't swing at a corpse.
+- **Messages:** `resolve_attack` calls `world.log.add(...)` ("You hit the rat
+  for 4.", "The rat dies.", "The rat hits you for 2.", "You die.") — §11.
+- **Sprites:** `world.roster_version` bumps on every add/remove;
+  `PlayMode.tick` re-runs `_sync_actor_sprites()` when it changes.
+
+*Open:* no level-up from xp (§9.1); no ranged attacks / to-hit roll (flat
+"always hits"); a "dead" hero sprite (`ART.md` §8).
+
 ## 8. Field of view  *(cd-e3p.6 — open)*
-## 9. Player model  *(cd-e3p.7 — open)*
+
+## 9. Player model
+
+Resolves bead `cd-e3p.7`.
+
+### 9.1 Stats — plain actor keys
+
+The hero is `world.actors[0]`, an actor dict like any other. `world.make_hero()`
+adds `world.HERO_DEFAULTS`:
+
+| key | v1 | |
+|---|---|---|
+| `hp` / `max_hp` | 20 / 20 | health |
+| `power` | 4 | damage dealt on a hit (`cd-e3p.5`) |
+| `defense` | 1 | damage reduced |
+| `gold` | 0 | for the status line |
+| `xp` / `level` | 0 / 1 | tracked; **no level-up mechanic in v1** — a later polish (xp threshold → +max_hp/+power) |
+
+Combat stats are just keys, so **any actor with `hp`/`power` can fight and
+die** — monsters get theirs from the spawn tables (`LEVELGEN.md` §5).
+`world.depth` (the dungeon level number) also lives on the `World`.
+
+### 9.2 Death → game over
+
+`world.hero_alive()` = `hero exists and hero.get("hp", 1) > 0` (a stat-less
+hero counts as alive). Each loop pass, `engine.Game.run()` checks it right
+after `stack.handle`; on death it calls `stack.show(self.gameover)` —
+`GameOverMode`, a non-chord overlay the player can't dismiss. `CONFIRM` on it
+calls the `restart` callback: `supervisor.reload()` on device (`main.py`),
+a test hook off it. The world freezes behind the overlay (play isn't ticked).
+
+*Open:* passive regen / status-effect ticks in `_upkeep` (§5.2) — none yet.
+
 ## 10. Inventory model  *(cd-e3p.8 — open)*
-## 11. Message log API  *(cd-e3p.9 — open)*
+## 11. Message log
+
+Resolves bead `cd-e3p.9`. `Chapter_7/game/log.py` — pure. `world.log` is a
+`Log`; engine code formats a sentence and calls `world.log.add(text)`.
+
+| | |
+|---|---|
+| `add(text)` | append; drop the oldest past `CAP` (24); `seq += 1` |
+| `latest()` | newest line (`""` when empty) |
+| `tail(n)` / `all()` | recent-first slice / the whole list |
+| `seq` | bumps on every add — **renderers watch this** and re-render when it changes |
+
+`PlayMode._paint_message` (called after a turn) sets the message-line label to
+`log.latest()` truncated to ~39 chars when `seq` moved. That's the minimum
+viable line — **`cd-oht.4`** adds horizontal scroll for long lines and a
+short multi-line history; **`cd-oht.7`** could show `all()` as a scrollback.
+
+Writers so far: combat (§7). Later: item pickup/use (`cd-e3p.8`), descent
+(`cd-e3p.10`), traps.

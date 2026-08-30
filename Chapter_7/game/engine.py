@@ -1,24 +1,6 @@
-# The MIT License (MIT)
+# SPDX-FileCopyrightText: 2026 Chris J Daly (github user cjdaly)
 #
-# Copyright (c) 2026 Chris J Daly (github user cjdaly)
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
+# SPDX-License-Identifier: MIT
 
 # Chapter 7 engine — the top-level Game object and the non-blocking main loop.
 # Forked from Chapter_6/game/engine.py (bead cd-e3p.2) and stripped of the
@@ -45,12 +27,13 @@ TICK_SECONDS = 1 / 20
 
 
 class Game:
-    def __init__(self, display, world):
+    def __init__(self, display, world, restart=None):
         self.display = display          # a hardware.GameDisplay
         self.world = world              # a world.World
         self.input = im.InputModel()    # chords: X+Y -> "diag", A+B -> "menu"
 
         self.play = modes.PlayMode(display, world)
+        self.gameover = modes.GameOverMode(display, restart or (lambda: None))
         self.stack = modes.ModeStack(
             self.play,
             {
@@ -70,6 +53,8 @@ class Game:
 
             events = self.input.tick(buttons(), t0)
             self.stack.handle(events, t0)
+            if self.stack.top is self.play and not self.world.hero_alive():
+                self.stack.show(self.gameover)   # ENGINE.md §9
             # no d-pad auto-repeat while an overlay (menu/diag) is up
             self.input.repeat_paused = self.stack.overlay_active()
 

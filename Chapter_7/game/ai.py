@@ -1,24 +1,6 @@
-# The MIT License (MIT)
+# SPDX-FileCopyrightText: 2026 Chris J Daly (github user cjdaly)
 #
-# Copyright (c) 2026 Chris J Daly (github user cjdaly)
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
+# SPDX-License-Identifier: MIT
 
 # Per-monster AI for the turn loop (bead cd-e3p.4). Pure: `world.resolve_turn`
 # calls take_turn(world, actor) for each monster once per turn. Monsters are
@@ -88,8 +70,8 @@ def _can_see(world, actor, hero):
 
 def _step_toward(world, actor, gx, gy):
     """One greedy 4-way step toward (gx, gy): the axis with the larger
-    remaining delta first, the other axis as a fallback if blocked. Stepping
-    onto the hero is a bump — an attack once cd-e3p.5 lands; a no-op now."""
+    remaining delta first, the other axis as a fallback if blocked. Bumping
+    the hero is an attack (cd-e3p.5)."""
     dx = gx - actor["x"]
     dy = gy - actor["y"]
     prefer_x = abs(dx) >= abs(dy)
@@ -105,7 +87,8 @@ def _step_toward(world, actor, gx, gy):
         if result == "moved":
             return
         if isinstance(result, tuple) and result[0] == "bump" and result[1] is world.hero:
-            return  # TODO(cd-e3p.5): attack the hero
+            world_mod.resolve_attack(world, actor, world.hero)
+            return
         # "blocked" or bumped another actor -> try the other axis
 
 

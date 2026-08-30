@@ -1,24 +1,6 @@
-# The MIT License (MIT)
+# SPDX-FileCopyrightText: 2026 Chris J Daly (github user cjdaly)
 #
-# Copyright (c) 2026 Chris J Daly (github user cjdaly)
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
+# SPDX-License-Identifier: MIT
 
 import gc
 
@@ -52,13 +34,20 @@ def _test_room():
     grid[3][_W - 4] = STAIRS_DOWN
     grid[_H - 4][3] = WATER
 
-    world = world_mod.World(grid, wall_tiles=(WALL,))
-    world.add_actor(world_mod.make_actor(_W // 2 - 3, _H // 2 - 3, "heroes", 0))
+    world = world_mod.World(grid, wall_tiles=(WALL,), depth=1)
+    world.add_actor(world_mod.make_hero(_W // 2 - 3, _H // 2 - 3))
     # same quadrant as the hero -> line of sight -> wakes and chases (cd-e3p.4)
-    world.add_actor(world_mod.make_actor(4, 4, "creatures", 1, ai="sleep"))
+    world.add_actor(world_mod.make_actor(4, 4, "creatures", 1, name="rat",
+                                        ai="sleep", hp=3, power=2, defense=0, xp=2))
     # far bottom-right quadrant, no LoS -> idles / wanders
-    world.add_actor(world_mod.make_actor(_W - 4, _H - 4, "creatures", 2, ai="sleep"))
+    world.add_actor(world_mod.make_actor(_W - 4, _H - 4, "creatures", 2, name="bat",
+                                        ai="sleep", hp=4, power=2, defense=0, xp=3))
     return world
+
+
+def _restart():
+    import supervisor
+    supervisor.reload()
 
 
 # --- smoke-test boot log (cd-89o.8): watch over serial `screen /dev/tty.usbmodem*`
@@ -69,7 +58,7 @@ display = hardware.detect()
 if display.neopixel is not None:
     display.neopixel.fill((0, 3, 5))
 
-game = engine.Game(display, _test_room())
+game = engine.Game(display, _test_room(), restart=_restart)
 gc.collect()
 print("Ch7 ready  free=%d  X+Y=diag  A+B=menu" % gc.mem_free())
 game.run()

@@ -132,6 +132,42 @@ class Scheduler(unittest.TestCase):
         self.assertEqual(len(w.actors), 1)
 
 
+class Player(unittest.TestCase):
+    def test_make_hero_has_default_stats(self):
+        h = world_mod.make_hero(5, 5)
+        for k in ("hp", "max_hp", "power", "defense", "gold", "xp", "level"):
+            self.assertIn(k, h)
+        self.assertEqual(h["hp"], h["max_hp"])
+        self.assertEqual(h["sheet"], "heroes")
+
+    def test_make_hero_overrides_one_stat_only(self):
+        h = world_mod.make_hero(0, 0, hp=5, gold=99)
+        self.assertEqual((h["hp"], h["gold"]), (5, 99))
+        self.assertEqual(h["max_hp"], 20)          # default untouched
+
+    def test_hero_alive(self):
+        w = room(5, 5)
+        h = w.add_actor(world_mod.make_hero(2, 2))
+        self.assertTrue(w.hero_alive())
+        h["hp"] = 0
+        self.assertFalse(w.hero_alive())
+        h["hp"] = -3
+        self.assertFalse(w.hero_alive())
+
+    def test_statless_hero_counts_as_alive(self):
+        w = room(5, 5)
+        w.add_actor(world_mod.make_actor(2, 2, "heroes", 0))
+        self.assertTrue(w.hero_alive())
+
+    def test_no_hero_is_not_alive(self):
+        self.assertFalse(room(5, 5).hero_alive())
+
+    def test_world_depth(self):
+        self.assertEqual(room(5, 5).depth, 1)
+        w = world_mod.World([bytearray((0, 0, 0))], wall_tiles=(2,), depth=4)
+        self.assertEqual(w.depth, 4)
+
+
 class Camera(unittest.TestCase):
     V = 13  # MAP_TILES
 

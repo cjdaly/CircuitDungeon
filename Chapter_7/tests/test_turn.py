@@ -77,12 +77,21 @@ class ResolveTurn(unittest.TestCase):
         self.assertEqual(self.w.turn, 0)
         self.assertEqual(self.acted, [])              # monsters did not move
 
-    def test_bump_actor_is_free_for_now(self):
-        self.w.add_actor(world_mod.make_actor(4, 3, "creatures", 1))
+    def test_bump_statless_actor_is_free(self):
+        self.w.add_actor(world_mod.make_actor(4, 3, "creatures", 1))  # no hp
         spent = self.run_turn(("move", 1, 0))
-        self.assertFalse(spent)                       # TODO cd-e3p.5: attack -> True
+        self.assertFalse(spent)
         self.assertEqual((self.hero["x"], self.hero["y"]), (3, 3))
         self.assertEqual(self.w.turn, 0)
+
+    def test_bump_fightable_actor_attacks_and_spends_a_turn(self):
+        self.hero["power"] = 3
+        mob = self.w.add_actor(world_mod.make_actor(4, 3, "creatures", 1, hp=9))
+        spent = self.run_turn(("move", 1, 0))
+        self.assertTrue(spent)
+        self.assertEqual((self.hero["x"], self.hero["y"]), (3, 3))   # didn't move
+        self.assertEqual(mob["hp"], 6)                                # took 3
+        self.assertEqual(self.w.turn, 1)
 
     def test_none_action_is_free(self):
         self.assertFalse(self.run_turn(None))

@@ -187,17 +187,17 @@ def _room(w, h):
                 row[x] = WALL
         grid.append(row)
     wd = world_mod.World(grid, wall_tiles=(WALL,))
-    wd.add_actor(world_mod.make_actor(w // 2, h // 2, "heroes", 0))
+    wd.add_actor(world_mod.make_hero(w // 2, h // 2))
     wd.add_actor(world_mod.make_actor(2, 2, "creatures", 1))
     wd.add_actor(world_mod.make_actor(w - 3, h - 3, "creatures", 2))  # off-view
     return wd
 
 
 class Harness:
-    def __init__(self, w=24, h=24):
+    def __init__(self, w=24, h=24, restart=None):
         self.display = _FakeDisplay()
         self.world = _room(w, h)
-        self.game = engine.Game(self.display, self.world)
+        self.game = engine.Game(self.display, self.world, restart=restart)
         self.now = 0.0
 
     def press(self, *names):
@@ -210,6 +210,8 @@ class Harness:
         g = self.game
         events = g.input.tick(self.display.read_buttons(), self.now)
         g.stack.handle(events, self.now)
+        if g.stack.top is g.play and not self.world.hero_alive():
+            g.stack.show(g.gameover)
         g.input.repeat_paused = g.stack.overlay_active()
         g.stack.render(self.display.screen)
         self.display.screen.refresh()
@@ -322,6 +324,72 @@ class ModeSwitch(unittest.TestCase):
         for _ in range(10):
             h.tick("right")        # movement ignored by DiagMode
         self.assertEqual(h.world.turn, t)
+
+
+class Combat(unittest.TestCase):
+    def test_hero_kills_adjacent_monster_and_sprites_resync(self):
+        h = Harness()
+        hero = h.world.hero
+        hero["power"] = 99
+        m = h.world.add_actor(world_mod.make_actor(
+            hero["x"] + 1, hero["y"], "creatures", 1, name="rat", hp=1))
+        h.tick("right")                        # bump-attack (right fires immediately)
+        self.assertNotIn(m, h.world.actors)
+        self.assertTrue(any(a["sheet"] == "objects" for a in h.world.actors))
+        self.assertEqual(len(h.game.play._actor_sprites), len(h.world.actors))
+
+    def test_combat_text_reaches_the_message_line(self):
+        h = Harness()
+        hero = h.world.hero
+        hero["power"] = 99
+        h.world.add_actor(world_mod.make_actor(
+            hero["x"] + 1, hero["y"], "creatures", 1, name="rat", hp=1))
+        h.tick("right")
+        self.assertIn("rat", h.game.play._message_label.text)
+
+    def test_hunting_monster_kills_the_hero_end_to_end(self):
+        h = Harness(w=14, h=14)
+        hero = h.world.hero
+        hero["hp"] = 4                          # 4 hits at 1 dmg -> dead
+        m = h.world.add_actor(world_mod.make_actor(
+            hero["x"] + 1, hero["y"], "creatures", 1,
+            name="rat", ai="hunt", hp=99, power=2))
+        m["goal"] = (hero["x"], hero["y"])
+        for _ in range(30):
+            h.tick("down", "b")                 # wait chord -> monster gets its swing
+            h.tick()                            # release (re-arm the chord)
+            if not h.world.hero_alive():
+                break
+        self.assertFalse(h.world.hero_alive())
+        self.assertIs(h.game.stack.top, h.game.gameover)
+        self.assertTrue(any("hits you for" in s for s in h.world.log.all()))
+
+
+class GameOver(unittest.TestCase):
+    def test_death_shows_gameover_over_play(self):
+        h = Harness()
+        h.world.hero["hp"] = 0
+        h.tick()
+        self.assertIs(h.game.stack.top, h.game.gameover)
+        self.assertIs(h.display.screen.root_group, h.game.gameover.group)
+
+    def test_confirm_calls_restart(self):
+        seen = []
+        h = Harness(restart=lambda: seen.append(1))
+        h.world.hero["hp"] = -5
+        h.tick()                    # -> gameover
+        h.tick("a")                 # a is chord-eligible: CONFIRM lands next tick
+        h.tick("a")
+        self.assertEqual(seen, [1])
+
+    def test_world_frozen_behind_gameover(self):
+        h = Harness()
+        h.world.hero["hp"] = 0
+        h.tick()
+        turn = h.world.turn
+        for _ in range(5):
+            h.tick("right")         # play isn't ticked -> no turn passes
+        self.assertEqual(h.world.turn, turn)
 
 
 if __name__ == "__main__":
