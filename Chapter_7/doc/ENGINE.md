@@ -173,10 +173,26 @@ no `__slots__`; Ch6 `PLAN.md` "State"). `actors[0]` is the hero. Shape:
 Sprites are a parallel list in `engine`, re-synced by `_sync_actor_sprites()`
 when the roster changes.
 
-## 3. Turn loop implementation  *(cd-e3p.3 — open)*
-## 4. Monsters + AI  *(cd-e3p.4 — open)*
-## 5. Combat  *(cd-e3p.5 — open)*
-## 6. Field of view  *(cd-e3p.6 — open)*
-## 7. Player model  *(cd-e3p.7 — open)*
-## 8. Inventory model  *(cd-e3p.8 — open)*
-## 9. Message log API  *(cd-e3p.9 — open)*
+## 3. Button input model
+
+Resolves bead `cd-e3p.11`. Full spec in [`INPUT.md`](INPUT.md); in brief:
+
+- `Chapter_7/game/input.py` — `InputModel.tick(buttons, now)` turns the raw
+  8-key `hardware.read_buttons()` dict into named events; `get()` pops one per
+  loop pass. Pure, off-device tested (`tests/test_input.py`).
+- Events: `MOVE_N/S/E/W` (d-pad, edge + auto-repeat), `CONFIRM`/`CANCEL`/
+  `AUX_X`/`AUX_Y` (face, one per press, no long-press), plus chord names.
+- Chords: simultaneous pairs, once per hold. v1 bindings — **X+Y → `diag`**,
+  **A+B → `menu`** — consumed by the mode dispatch (§4).
+- Repeat timing is instance config (settings-tunable); `repeat_paused` is set
+  by the engine per §1.3. Output queue bounded at 4, drop-oldest.
+- `trace()` / `snapshot()` expose input timing for the `cd-89o.6` diag page.
+
+## 4. Screen / mode dispatch  *(cd-e3p.12 — open)*
+## 5. Turn loop implementation  *(cd-e3p.3 — open)*
+## 6. Monsters + AI  *(cd-e3p.4 — open)*
+## 7. Combat  *(cd-e3p.5 — open)*
+## 8. Field of view  *(cd-e3p.6 — open)*
+## 9. Player model  *(cd-e3p.7 — open)*
+## 10. Inventory model  *(cd-e3p.8 — open)*
+## 11. Message log API  *(cd-e3p.9 — open)*
