@@ -59,22 +59,19 @@ Simultaneous button pairs, edge-triggered, **fire once per hold** (release
 one member to re-arm). The model emits the bound *name* verbatim — it doesn't
 know what "diag" or "menu" do.
 
-| Chord | Name | Consumer | |
-|---|---|---|---|
-| X + Y | `diag` | on-device diagnostics (`cd-89o.6`) | |
-| A + B | `menu` | main menu / settings (`cd-e3p.13`) | |
-| Left + Right | `wait` | pass a turn (`world.resolve_turn`) | *provisional* |
-| Up + Down | `wait` | " | *provisional* |
-| Down + B | `wait` | " | *provisional*, Chris's pick |
+| Chord | Name | Consumer |
+|---|---|---|
+| X + Y | `diag` | on-device diagnostics (`cd-89o.6`) |
+| A + B | `menu` | main menu / settings (`cd-e3p.13`) |
+| Down + B | `wait` | pass a turn (`world.resolve_turn`) — "both thumbs down" |
 
 `DEFAULT_CHORDS` in `input.py` holds these; the table is passed to the
 constructor and is extensible.
 
-**The three `wait` bindings are an experiment (`cd-e3p.14`).** Opposing d-pad
-squeezes may or may not register cleanly on the real rocker; `Down + B` should
-be the most reliable. The diagnostics input page (`DiagMode`) shows
-`chord_stats()` — fire / miss counts and press-spread per binding — so the
-losers can be dropped after a hardware session.
+`cd-e3p.14` also shipped `Left+Right` and `Up+Down` as candidate `wait`
+bindings. The 2026-08-30 hardware run (`cd-e3p.15`, `DEPLOY.md`) settled it:
+on the real d-pad rocker those squeezes **never formed a chord** (0 fired,
+1 miss each) while `Down + B` landed every time (4/0). Dropped.
 
 ### How chords stay reliable
 
@@ -90,11 +87,9 @@ Any button that appears in a chord holds its single-press for `CHORD_WINDOW`
 - a member is tapped and released inside the window → the single still fires
   (a fast tap isn't lost).
 
-**With the `wait` bindings, every d-pad direction is chord-eligible**, so
-every move press now takes the 50 ms deferral (previously d-pad fired
-immediately). Imperceptible in a turn game, but revisit if the `wait`
-bindings are narrowed to just `Down + B` — then Up/Left/Right could fire
-immediately again.
+Of the d-pad, **only `Down` is chord-eligible** (via `Down + B`), so only
+down-moves take the 50 ms deferral; `Up` / `Left` / `Right` fire immediately
+on press. The asymmetry is imperceptible in a turn-based game.
 
 ## Timing
 

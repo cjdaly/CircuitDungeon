@@ -106,12 +106,25 @@ the icon-rail strip on the right, a message band on the bottom.
 | `X`+`Y` together | switches to the DIAG page — live `chord_stats` table, held buttons, input trace |
 | `X`+`Y` again / `B` | back to the game |
 | `A`+`B` together | the MENU stub label; `B` exits |
-| wait chords | on the DIAG page, mash `Left+Right`, `Up+Down`, `Down+B` — compare `fired` / `missed` / `sprd` (feeds `cd-e3p.15`) |
+| wait chord | `Down+B` together → the `chord_stats` `b+down` row's `fired` climbs (`Left+Right` / `Up+Down` were dropped after the first run — see below) |
 
 ## First smoke test — 2026-08-30
 
 Passed. The Option-G scene renders, the camera scrolls and keeps the hero
 centred, and both overlay modes work.
+
+```
+Ch7 boot   board=pimoroni_picosystem  free=146896
+Ch7 ready  free=99616  X+Y=diag  A+B=menu
+```
+
+**RAM:** ~144 KB free after imports; `engine.Game(...)` construction costs
+~47 KB (3 tile sheets, displayio groups, the 13×13 grid, actor sprites, the
+mode stack) leaving **~97 KB free heap**. Comfortable for now — the real
+64×64 level adds only ~3 KB (the terrain TileGrid stays viewport-sized), FOV
++ a full monster/item roster maybe ~15 KB more. `cd-dsc.6` does the proper
+RAM pass; an easy win noted there is swapping the `adafruit_display_text`
+labels for the lighter `bitmap_label`.
 
 | | |
 |---|---|

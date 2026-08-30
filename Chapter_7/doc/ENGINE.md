@@ -59,7 +59,7 @@ A failed move (into a wall) is a no-op: no turn passes, the player just
 stays put. Bumping a hostile is an attack and *does* pass the turn.
 
 There is a **wait** action that passes exactly one turn — bound to the
-`wait` chord (Left+Right / Up+Down / Down+B, provisional; `cd-e3p.14`).
+`Down + B` chord (`cd-e3p.15`).
 
 ### 1.3 Movement — 4-way, single step
 
@@ -132,15 +132,16 @@ Chapter_7/game/
   engine.py        # Game: owns the InputModel + ModeStack; the ~20fps loop
   modes.py         # ModeStack + PlayMode / MenuMode / DiagMode  (§4; cd-e3p.12)
   input.py         # InputModel: raw buttons -> named events  (§3; cd-e3p.11)
-  world.py         # Pure core: grid, actors, movement, scheduler. No
-                   #   displayio/board/time — runs and is tested off-device.
+  ai.py            # per-monster idle/wander/chase  (§6; cd-e3p.4)
+  world.py         # Pure core: grid, actors, movement, scheduler, turn loop,
+                   #   camera, line-of-sight. No displayio/board — off-device.
   hardware.py      # forked verbatim + X/Y face buttons wired for PicoSystem
   util.py          # forked verbatim (displayio helpers)
   level_loader.py  # forked verbatim; the `.lvl` Level type is a handy target
                    #   for the generator (cd-dsc) but nothing calls it yet
   tiles/           # terrain/creatures/heroes/objects .bmp + palette + tiles.json
 Chapter_7/tests/
-  test_world.py test_input.py test_modes.py   # off-device: python3 <file>
+  test_{world,input,modes,turn,ai,scene}.py   # off-device: python3 <file>
 ```
 
 The **`world.py` / presentation split is the fork's main structural move** and
@@ -158,9 +159,9 @@ the `.lvl` exit/event trigger system · pixel-scroll camera.
 
 ### 2.3 What is still left for later beads
 
-- The hero moves and turns advance (§5), but `monster_turn` and `_upkeep`
-  are no-ops — monster AI is **`cd-e3p.4`**, player stats / death are
-  **`cd-e3p.7`**, and a bump becomes an attack at **`cd-e3p.5`**.
+- The hero moves, turns advance, and monsters idle/wander/chase (§§5–6).
+  Still no-ops: `_upkeep` (player stats / regen — **`cd-e3p.7`**) and
+  bump-as-attack (**`cd-e3p.5`**).
 - `PlayMode` lays out the Option-G regions (`cd-oht.2`): a 13×13 terrain
   viewport with a hero-centred clamped camera, plus empty `status_group` /
   `rail_group` / `message_group` for `cd-oht.3` / `.5` / `.4` to fill.
@@ -258,7 +259,7 @@ Resolves bead `cd-e3p.3`. The loop body lives in `world.py` (pure, tested in
 | Event | Action | |
 |---|---|---|
 | `MOVE_N/S/E/W` | `("move", dx, dy)` | 4-way, ±1 |
-| `wait` | `("wait",)` | passes a turn in place — chord: Left+Right / Up+Down / Down+B (provisional, `cd-e3p.14`) |
+| `wait` | `("wait",)` | passes a turn in place — the `Down + B` chord (`cd-e3p.15`) |
 | `CONFIRM` / `CANCEL` / `AUX_X` / `AUX_Y` | — | belong to later beads (inventory, look); pass no turn |
 
 At most one action per tick — extra events are dropped (auto-repeat is already
@@ -271,7 +272,7 @@ if not _apply_player_action(world, action):   # move → move_actor(); "moved" s
     return False                              #   a turn, "blocked"/"bump"/None don't
 for actor in scheduler.actors_for_turn():     # §1.1 — round-robin, hero first
     if actor is world.hero: continue
-    monster_turn(world, actor)                # per-monster AI — cd-e3p.4 (no-op now)
+    monster_turn(world, actor)                # per-monster AI — ai.take_turn (§6)
 _upkeep(world)                                # status ticks / regen — empty until cd-e3p.7
 world.turn += 1
 return True
@@ -279,19 +280,57 @@ return True
 
 - **A failed move (wall/edge) or a `bump` onto an actor passes no turn.** Bump
   becomes an attack (and *does* spend the turn) at `cd-e3p.5`; inert for now.
-- `monster_turn` and `_upkeep` are the seams for `cd-e3p.4` / `cd-e3p.7`.
+- `monster_turn` is `ai.take_turn` (§6); `_upkeep` is still the `cd-e3p.7` seam.
 - Movement is an instant snap — `PlayMode.render()` repositions sprites from
   `world.actors` on the next frame (§1.4). No tween.
 - `world.turn` counts real turns; `PlayMode.cycle` is the wall-clock pulse.
 
 ### 5.3 What's still open
 
-- The three `wait` chord bindings are provisional (`cd-e3p.14`) — narrow to
-  the one that proves reliable on hardware, using `DiagMode`'s stats.
 - Repeat-pause while a monster is in view (§1.3) waits on FOV (`cd-e3p.6`);
   the engine currently only pauses repeat for overlays.
 
-## 6. Monsters + AI  *(cd-e3p.4 — open)*
+## 6. Monsters + AI
+
+Resolves bead `cd-e3p.4`. `Chapter_7/game/ai.py` — pure; `PlayMode._monster_turn`
+calls `ai.take_turn(world, actor)` for each monster once per turn (§5.2).
+
+### 6.1 State — on the actor dict
+
+Monsters are plain dicts (§2.4). `take_turn` reads/writes two keys:
+
+| key | |
+|---|---|
+| `actor["ai"]` | `"sleep"` \| `"hunt"` — defaults to `"sleep"` if absent |
+| `actor["goal"]` | `(x, y)` last-known hero tile, while hunting |
+
+### 6.2 Behaviours (4-way, §1.3)
+
+- **sleep** — idle. `WANDER_CHANCE` (0.12) per turn to shuffle one tile.
+  Wakes to **hunt** on line of sight to the hero within `SIGHT` (8, Chebyshev),
+  setting `goal` to the hero's tile.
+- **hunt** — if it still sees the hero, refresh `goal`. Step greedily toward
+  `goal` — the axis with the larger remaining delta first, the other as a
+  fallback if blocked (no real pathfinding in v1; greedy is enough for open
+  rooms). Reaching `goal` without seeing the hero → back to **sleep**.
+
+Stepping onto the hero's tile is a **bump** — `world.move_actor` returns
+`("bump", hero)` and `take_turn` does nothing with it. Becomes an attack at
+**`cd-e3p.5`**.
+
+### 6.3 Line of sight
+
+`world.los_clear(world, x0, y0, x1, y1)` — a Bresenham walk, endpoints
+excluded, `False` on the first wall between. This is the *monster→hero* ray
+only; the player's field of view (visible / explored / unseen) is the
+separate, heavier `cd-e3p.6`.
+
+### 6.4 RNG
+
+`ai.py` uses the module `random` stream, continuing after level generation
+(`LEVELGEN.md` §6). Deterministic given the run seed and the call order.
+Tests set `ai.WANDER_CHANCE = 0` to drop the randomness.
+
 ## 7. Combat  *(cd-e3p.5 — open)*
 ## 8. Field of view  *(cd-e3p.6 — open)*
 ## 9. Player model  *(cd-e3p.7 — open)*

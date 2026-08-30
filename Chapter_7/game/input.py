@@ -46,24 +46,21 @@ _FACE = {"a": CONFIRM, "b": CANCEL, "x": AUX_X, "y": AUX_Y}
 _EVENT = dict(_DPAD)
 _EVENT.update(_FACE)
 
-# PicoSystem face-button diamond (Chris's unit): X top, Y left, A right, B bottom
-# (doc/INPUT.md). "wait" has THREE provisional bindings — cd-e3p.14 keeps the
-# one that proves most reliable on the real d-pad (see chord_stats()):
-#   LEFT+RIGHT / UP+DOWN  - opposing d-pad squeeze
-#   DOWN+B                - both thumbs "down"  (Chris's pick)
+# PicoSystem face-button diamond (Chris's unit): X top, Y left, A right, B bottom.
+# "wait" is DOWN+B — "both thumbs down". cd-e3p.14 shipped three candidates
+# (also LEFT+RIGHT / UP+DOWN); the 2026-08-30 hardware run (cd-e3p.15) showed
+# the opposing-d-pad squeezes never form on the real rocker, so they're gone.
 DEFAULT_CHORDS = {
     frozenset(("x", "y")): "diag",
     frozenset(("a", "b")): "menu",
-    frozenset(("left", "right")): "wait",
-    frozenset(("up", "down")): "wait",
     frozenset(("down", "b")): "wait",
 }
 
 # A chord-participating button holds its single-press this long (seconds) to
 # see whether the other half of a chord arrives. ~50 ms — one tick at 20 fps,
-# imperceptible in a turn-based game (doc/ENGINE.md 1.1). With the wait chords
-# above, every d-pad direction is chord-eligible, so every move press takes
-# this delay; revisit if/when the wait bindings are narrowed.
+# imperceptible in a turn-based game (doc/ENGINE.md 1.1). Of the d-pad, only
+# DOWN is chord-eligible now (via DOWN+B), so only down-moves take the delay;
+# UP / LEFT / RIGHT fire immediately.
 CHORD_WINDOW = 0.05
 
 _TRACE_SIZE = 32

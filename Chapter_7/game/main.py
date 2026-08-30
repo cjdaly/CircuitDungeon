@@ -54,8 +54,10 @@ def _test_room():
 
     world = world_mod.World(grid, wall_tiles=(WALL,))
     world.add_actor(world_mod.make_actor(_W // 2 - 3, _H // 2 - 3, "heroes", 0))
-    world.add_actor(world_mod.make_actor(3, 3, "creatures", 1))          # in view
-    world.add_actor(world_mod.make_actor(_W - 4, _H - 4, "creatures", 2))  # off view
+    # same quadrant as the hero -> line of sight -> wakes and chases (cd-e3p.4)
+    world.add_actor(world_mod.make_actor(4, 4, "creatures", 1, ai="sleep"))
+    # far bottom-right quadrant, no LoS -> idles / wanders
+    world.add_actor(world_mod.make_actor(_W - 4, _H - 4, "creatures", 2, ai="sleep"))
     return world
 
 

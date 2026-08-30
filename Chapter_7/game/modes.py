@@ -36,6 +36,7 @@
 #
 # Governed by doc/ENGINE.md section 4.
 
+import ai
 import input as im
 import world as world_mod
 
@@ -54,7 +55,7 @@ _EVENT_ACTION = {
     im.MOVE_S: ("move",) + world_mod.MOVE_DELTAS["s"],
     im.MOVE_W: ("move",) + world_mod.MOVE_DELTAS["w"],
     im.MOVE_E: ("move",) + world_mod.MOVE_DELTAS["e"],
-    "wait": ("wait",),   # LEFT+RIGHT / UP+DOWN / DOWN+B chords (cd-e3p.14)
+    "wait": ("wait",),   # the DOWN+B chord (cd-e3p.15)
 }
 
 
@@ -250,7 +251,7 @@ class PlayMode:
         return None
 
     def _monster_turn(self, world, actor):
-        pass  # per-monster AI: bead cd-e3p.4
+        ai.take_turn(world, actor)
 
     def render(self):
         self._render()

@@ -200,3 +200,30 @@ def camera_for(hero_x, hero_y, view_tiles, level_w, level_h):
     cx = min(max(hero_x - half, 0), max_x) if max_x > 0 else 0
     cy = min(max(hero_y - half, 0), max_y) if max_y > 0 else 0
     return cx, cy
+
+
+# -- line of sight (for monster AI, cd-e3p.4) ------------------------
+# A monster→hero visibility ray. Simpler than the player FOV (cd-e3p.6):
+# one straight line, walls only.
+
+
+def los_clear(world, x0, y0, x1, y1):
+    """True if no wall tile lies strictly between (x0,y0) and (x1,y1) — a
+    Bresenham walk, endpoints excluded."""
+    dx = abs(x1 - x0)
+    dy = abs(y1 - y0)
+    sx = 1 if x0 < x1 else -1
+    sy = 1 if y0 < y1 else -1
+    err = dx - dy
+    x, y = x0, y0
+    while (x, y) != (x1, y1):
+        e2 = 2 * err
+        if e2 > -dy:
+            err -= dy
+            x += sx
+        if e2 < dx:
+            err += dx
+            y += sy
+        if (x, y) != (x1, y1) and world.is_wall(x, y):
+            return False
+    return True

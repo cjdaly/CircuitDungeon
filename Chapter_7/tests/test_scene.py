@@ -146,6 +146,9 @@ import engine  # noqa: E402
 import modes  # noqa: E402
 import world as world_mod  # noqa: E402
 import input as im  # noqa: E402
+import ai  # noqa: E402
+
+ai.WANDER_CHANCE = 0.0  # deterministic — no random idle steps in the harness
 
 
 # -- fake display (mimics hardware.GameDisplay) ------------------------
