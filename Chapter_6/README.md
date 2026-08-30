@@ -1,7 +1,9 @@
 
 # CircuitDungeon - Chapter 6 - Chit-chat with Claude
 
-<!-- pics of the devices running the game go here -->
+![The Chapter 6 game running on a Pimoroni PicoSystem (top) and an Adafruit
+PyBadge (bottom) - same engine, same `home` level, two very different
+240x240 / 160x128 screens.](pics/ch6-picosystem-and-pybadge.jpg)
 
 The earlier chapters are a pile of one-off demos: each one re-invents map
 loading, movement, and animation from scratch, in whatever style seemed good

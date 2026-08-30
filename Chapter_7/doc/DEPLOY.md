@@ -108,6 +108,30 @@ the icon-rail strip on the right, a message band on the bottom.
 | `A`+`B` together | the MENU stub label; `B` exits |
 | wait chords | on the DIAG page, mash `Left+Right`, `Up+Down`, `Down+B` — compare `fired` / `missed` / `sprd` (feeds `cd-e3p.15`) |
 
+## First smoke test — 2026-08-30
+
+Passed. The Option-G scene renders, the camera scrolls and keeps the hero
+centred, and both overlay modes work.
+
+| | |
+|---|---|
+| ![Ch7 play screen: the 13×13 map viewport with the hero, wall border and interior cross; dark status/message bands top and bottom.](../pics/smoke-play-viewport.jpg) | ![Same, camera scrolled — a monster sprite near the room edge.](../pics/smoke-play-scrolled.jpg) |
+| ![The DIAG input page: the `chord_stats` table, `held:` line, and the newest-last input trace showing `press x / press y / chord diag / release x / release y`.](../pics/smoke-diag-input.jpg) | ![The MENU stub overlay — "MENU / (CANCEL / chord to exit)".](../pics/smoke-menu-stub.jpg) |
+
+**Wait-chord data** (`cd-e3p.15`) — after mashing each binding:
+
+![DIAG chord_stats after the wait-chord test: b+down fired 4 / missed 0; x+y 2/0; a+b 2/0; up+down 0/1; left+right 0/1.](../pics/smoke-diag-chord-stats.jpg)
+
+| chord | fired | missed |
+|---|---|---|
+| **Down + B** | 4 | 0 |
+| Up + Down | 0 | 1 |
+| Left + Right | 0 | 1 |
+
+`Down + B` lands every time; the opposing-d-pad squeezes never formed a chord
+and each logged a miss. Confirms Chris's hunch — narrow to `Down + B` in
+`cd-e3p.15`.
+
 ## Troubleshooting
 
 - **Blank screen, no serial** — likely still in the UF2 bootloader (check for
