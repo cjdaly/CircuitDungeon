@@ -53,7 +53,10 @@ class Game:
         self.play = modes.PlayMode(display, world)
         self.stack = modes.ModeStack(
             self.play,
-            {"menu": modes.MenuMode(display), "diag": modes.DiagMode(display)},
+            {
+                "menu": modes.MenuMode(display),
+                "diag": modes.DiagMode(display, self.input),
+            },
         )
 
         display.screen.auto_refresh = False

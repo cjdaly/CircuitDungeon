@@ -58,8 +58,8 @@ The seam is the commitment; the rungs are optional.
 A failed move (into a wall) is a no-op: no turn passes, the player just
 stays put. Bumping a hostile is an attack and *does* pass the turn.
 
-There is a **wait** action that passes exactly one turn (button binding is
-`cd-e3p.11` / `cd-oht`'s call; the turn model only requires that it exists).
+There is a **wait** action that passes exactly one turn — bound to the
+`wait` chord (Left+Right / Up+Down / Down+B, provisional; `cd-e3p.14`).
 
 ### 1.3 Movement — 4-way, single step
 
@@ -167,8 +167,9 @@ the `.lvl` exit/event trigger system · pixel-scroll camera.
   generator (**`cd-dsc`**) hands back a `World`.
 - No idle animation yet — the placeholder tile sheets are one frame each;
   it lands with the art (`cd-e17.*`) and the polish pass.
-- `MenuMode` / `DiagMode` are stub overlays — real screens are `cd-e3p.13`
-  and `cd-89o.6`.
+- `MenuMode` is a stub overlay — real screen is `cd-e3p.13`. `DiagMode`
+  shows a live input page (`cd-e3p.14`); RAM/flash/timing pages are
+  `cd-89o.6`.
 
 ### 2.4 Actor representation
 
@@ -206,10 +207,10 @@ A **mode** is an object with `tick(events, now)`, `render()`, and a `.group`
 |---|---|---|
 | play | `PlayMode` | terrain grid + actor sprites (moved here from the `cd-e3p.2` `Game`) |
 | menu | `MenuMode` → `_StubOverlay` | centred label; real screen is `cd-e3p.13` |
-| diag | `DiagMode` → `_StubOverlay` | centred label; real screen is `cd-89o.6` |
+| diag | `DiagMode` | live input page — `chord_stats()` / held state / trace (`cd-e3p.14`); RAM/flash/timing pages are `cd-89o.6` |
 
-`tick()` returns `"exit"` to ask the stack to drop back to play (the stubs do
-this on `CANCEL`); anything else returns `None`.
+`tick()` returns `"exit"` to ask the stack to drop back to play (both overlays
+do this on `CANCEL`); anything else returns `None`.
 
 ### 4.2 ModeStack
 
@@ -254,7 +255,7 @@ Resolves bead `cd-e3p.3`. The loop body lives in `world.py` (pure, tested in
 | Event | Action | |
 |---|---|---|
 | `MOVE_N/S/E/W` | `("move", dx, dy)` | 4-way, ±1 |
-| *(unbound yet)* | `("wait",)` | passes a turn in place — no button assigned |
+| `wait` | `("wait",)` | passes a turn in place — chord: Left+Right / Up+Down / Down+B (provisional, `cd-e3p.14`) |
 | `CONFIRM` / `CANCEL` / `AUX_X` / `AUX_Y` | — | belong to later beads (inventory, look); pass no turn |
 
 At most one action per tick — extra events are dropped (auto-repeat is already
@@ -282,7 +283,8 @@ return True
 
 ### 5.3 What's still open
 
-- `("wait",)` has no button — a binding is `cd-oht` / a UI call.
+- The three `wait` chord bindings are provisional (`cd-e3p.14`) — narrow to
+  the one that proves reliable on hardware, using `DiagMode`'s stats.
 - Repeat-pause while a monster is in view (§1.3) waits on FOV (`cd-e3p.6`);
   the engine currently only pauses repeat for overlays.
 

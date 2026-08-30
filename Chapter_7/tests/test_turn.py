@@ -110,6 +110,9 @@ class EventToAction(unittest.TestCase):
         self.assertEqual(modes._first_action([im.MOVE_W]), ("move", -1, 0))
         self.assertEqual(modes._first_action([im.MOVE_E]), ("move", 1, 0))
 
+    def test_wait_event_maps_to_wait_action(self):
+        self.assertEqual(modes._first_action(["wait"]), ("wait",))
+
     def test_non_action_events_yield_none(self):
         self.assertIsNone(modes._first_action([im.CONFIRM, im.CANCEL, im.AUX_X]))
         self.assertIsNone(modes._first_action([]))

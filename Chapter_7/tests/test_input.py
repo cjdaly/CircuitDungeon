@@ -55,10 +55,12 @@ class DPad(unittest.TestCase):
 
     def test_hold_auto_repeats(self):
         m = im.InputModel(repeat_delay=0.28, repeat_interval=0.13)
-        steps = [({"right": True}, t / 100.0) for t in range(0, 60, 2)]  # held 0.00-0.58s
+        steps = [({"right": True}, t / 100.0) for t in range(0, 72, 2)]  # held 0.00-0.70s
         evs = feed(m, steps)
-        # press at t=0, first repeat at >=0.28, second at >=0.41, third at >=0.54
-        self.assertEqual(evs.count(im.MOVE_E), 4)
+        # right is chord-eligible (left+right), so the first MOVE_E lands after
+        # the ~50ms chord window (~0.06), then repeats at +0.28, +0.13, +0.13...
+        self.assertGreaterEqual(evs.count(im.MOVE_E), 3)
+        self.assertLessEqual(evs.count(im.MOVE_E), 5)
 
     def test_repeat_paused(self):
         m = im.InputModel()
@@ -203,7 +205,51 @@ class Instrumentation(unittest.TestCase):
         snap = m.snapshot()
         self.assertEqual(snap["held"], ["a"])
         self.assertGreaterEqual(snap["hold_ms"]["a"], 90)
-        self.assertIn(["a", "b"], snap["chord_candidates"])  # a down, b not -> candidate
+        self.assertIn("a+b", snap["chord_candidates"])  # a down, b not -> menu forming
+
+
+class WaitChords(unittest.TestCase):
+    def _hold(self, m, combo, t0=0.0):
+        keys = {k: (k in combo) for k in _KEYS}
+        return feed(m, [(keys, t0), (keys, t0 + 0.02), ({k: False for k in _KEYS}, t0 + 0.1)])
+
+    def test_three_bindings_all_emit_wait(self):
+        for combo in (("left", "right"), ("up", "down"), ("down", "b")):
+            m = im.InputModel()
+            evs = self._hold(m, combo)
+            self.assertEqual(evs, ["wait"], combo)
+
+    def test_wait_chord_suppresses_the_moves(self):
+        m = im.InputModel()
+        evs = self._hold(m, ("left", "right"))
+        self.assertNotIn(im.MOVE_W, evs)
+        self.assertNotIn(im.MOVE_E, evs)
+
+    def test_chord_stats_count_fires(self):
+        m = im.InputModel()
+        self._hold(m, ("down", "b"))
+        self._hold(m, ("down", "b"), t0=1.0)
+        row = next(r for r in m.chord_stats() if r["combo"] == "b+down")
+        self.assertEqual(row["fired"], 2)
+        self.assertEqual(row["name"], "wait")
+        self.assertIsNotNone(row["last_spread_ms"])
+
+    def test_chord_stats_count_misses(self):
+        # press LEFT, let it single (window passes), THEN press RIGHT while
+        # still holding LEFT -> the squeeze was too slow: a miss, no wait.
+        m = im.InputModel()
+        keys_l = {k: (k == "left") for k in _KEYS}
+        keys_lr = {k: (k in ("left", "right")) for k in _KEYS}
+        evs = feed(m, [
+            (keys_l, 0.0), (keys_l, 0.07),          # LEFT singles -> MOVE_W
+            (keys_lr, 0.10), (keys_lr, 0.20),       # RIGHT joins late
+            ({k: False for k in _KEYS}, 0.25),
+        ])
+        self.assertIn(im.MOVE_W, evs)
+        self.assertNotIn("wait", evs)
+        row = next(r for r in m.chord_stats() if r["combo"] == "left+right")
+        self.assertEqual(row["fired"], 0)
+        self.assertEqual(row["missed"], 1)
 
 
 if __name__ == "__main__":

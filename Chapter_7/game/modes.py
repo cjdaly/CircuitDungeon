@@ -50,6 +50,7 @@ _EVENT_ACTION = {
     im.MOVE_S: ("move",) + world_mod.MOVE_DELTAS["s"],
     im.MOVE_W: ("move",) + world_mod.MOVE_DELTAS["w"],
     im.MOVE_E: ("move",) + world_mod.MOVE_DELTAS["e"],
+    "wait": ("wait",),   # LEFT+RIGHT / UP+DOWN / DOWN+B chords (cd-e3p.14)
 }
 
 
@@ -199,8 +200,8 @@ class PlayMode:
 
 
 class _StubOverlay:
-    """Placeholder for MenuMode / DiagMode — a centred label so the mode
-    switch is visible and testable before cd-e3p.13 / cd-89o.6 build them."""
+    """Placeholder overlay — a centred label so the mode switch is visible and
+    testable before the real screen (cd-e3p.13) is built."""
 
     def __init__(self, display, title):
         import displayio
@@ -230,8 +231,55 @@ def MenuMode(display):
     return _StubOverlay(display, "MENU")   # cd-e3p.13
 
 
-def DiagMode(display):
-    return _StubOverlay(display, "DIAG")   # cd-89o.6
+class DiagMode:
+    """On-device diagnostics. v1 shows the input page only: per-chord
+    effectiveness, held state, and the recent input trace — so the wait-chord
+    bindings (cd-e3p.14) can be evaluated on real hardware. RAM/flash/timing
+    pages and page-switching are cd-89o.6."""
+
+    def __init__(self, display, game_input):
+        import displayio
+        import terminalio
+        import util
+
+        self.display = display
+        self.input = game_input
+        self.group = displayio.Group()
+        self._label = util.init_label(terminalio.FONT, 0x33FF33, x=2, y=6, text="")
+        self.group.append(self._label)
+        self._every = 3        # refresh the text every N ticks (Label churn is costly)
+        self._n = 0
+
+    def tick(self, events, now):
+        if im.CANCEL in events:
+            return "exit"
+        return None
+
+    def render(self):
+        self._n += 1
+        if self._n % self._every:
+            return
+        self._label.text = self._text()
+
+    def _text(self):
+        inp = self.input
+        lines = ["INPUT DIAG   X+Y exits", "chord        fire miss sprd"]
+        for row in inp.chord_stats():
+            spread = row["last_spread_ms"]
+            lines.append(
+                "%-12s %4d %4d %4s"
+                % (row["combo"], row["fired"], row["missed"],
+                   "-" if spread is None else spread)
+            )
+        snap = inp.snapshot()
+        held = " ".join(snap["held"]) or "-"
+        lines.append("held: " + held)
+        if snap["chord_candidates"]:
+            lines.append("forming: " + " ".join(snap["chord_candidates"]))
+        lines.append("--- trace (newest last) ---")
+        for t_ms, kind, detail in inp.trace()[-6:]:
+            lines.append("%7d %-7s %s" % (t_ms, kind, detail if detail else ""))
+        return "\n".join(lines)
 
 
 def _first_action(events):

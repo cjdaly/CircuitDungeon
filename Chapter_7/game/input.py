@@ -26,7 +26,7 @@
 # passes `now`), so it runs and is tested off-device with synthetic input.
 #
 # Governed by doc/INPUT.md and doc/ENGINE.md section 1.
-# Bead cd-e3p.11.
+# Beads cd-e3p.11 (model), cd-e3p.14 (wait chords + per-chord stats).
 
 # -- event names ----------------------------------------------------------
 # d-pad (edge-triggered, then auto-repeated while held)
@@ -43,15 +43,27 @@ AUX_Y = "aux_y"       # Y
 
 _DPAD = {"up": MOVE_N, "down": MOVE_S, "left": MOVE_W, "right": MOVE_E}
 _FACE = {"a": CONFIRM, "b": CANCEL, "x": AUX_X, "y": AUX_Y}
+_EVENT = dict(_DPAD)
+_EVENT.update(_FACE)
 
+# PicoSystem face-button diamond (Chris's unit): X top, Y left, A right, B bottom
+# (doc/INPUT.md). "wait" has THREE provisional bindings — cd-e3p.14 keeps the
+# one that proves most reliable on the real d-pad (see chord_stats()):
+#   LEFT+RIGHT / UP+DOWN  - opposing d-pad squeeze
+#   DOWN+B                - both thumbs "down"  (Chris's pick)
 DEFAULT_CHORDS = {
     frozenset(("x", "y")): "diag",
     frozenset(("a", "b")): "menu",
+    frozenset(("left", "right")): "wait",
+    frozenset(("up", "down")): "wait",
+    frozenset(("down", "b")): "wait",
 }
 
 # A chord-participating button holds its single-press this long (seconds) to
 # see whether the other half of a chord arrives. ~50 ms — one tick at 20 fps,
-# imperceptible in a turn-based game (doc/ENGINE.md 1.1).
+# imperceptible in a turn-based game (doc/ENGINE.md 1.1). With the wait chords
+# above, every d-pad direction is chord-eligible, so every move press takes
+# this delay; revisit if/when the wait bindings are narrowed.
 CHORD_WINDOW = 0.05
 
 _TRACE_SIZE = 32
@@ -75,11 +87,22 @@ class InputModel:
         self._prev = {b: False for b in list(_DPAD) + list(_FACE)}
         self._held_since = {}          # button -> now it went down
         self._repeat_at = {}           # d-pad button -> next repeat time
-        self._pending = {}             # face button -> [deadline, event, consumed]
+        self._pending = {}             # button -> [deadline, event, consumed]
         self._singled = set()          # buttons whose single-press already fired this hold
-        self._chord_fired = set()      # chord names fired and awaiting re-arm
+        self._chord_fired = set()      # chord combos (frozensets) fired, awaiting re-arm
+        self._chord_missed = set()     # combos already counted as a miss this attempt
         self._queue = []               # bounded output queue
         self._queue_max = 4            # drop-oldest; stale turn-based input is worthless
+
+        # per-binding effectiveness, for the diagnostics screen (cd-e3p.14):
+        #   fired   - chord landed
+        #   missed  - both members held but a member had already fired its move
+        #             (the d-pad rock/chatter failure)
+        #   last_spread_ms - |press-time gap| between the two members, last fire
+        self._chord_stats = {
+            combo: {"name": name, "fired": 0, "missed": 0, "last_spread_ms": None}
+            for combo, name in self.chords.items()
+        }
 
         self._trace = []               # ring of (t_ms, kind, detail)
         self._trace_i = 0
@@ -122,20 +145,26 @@ class InputModel:
 
     # -- press / release ------------------------------------------------
 
+    def _fire_single(self, b, now, out):
+        """Emit button `b`'s single-press event and, for a d-pad button, arm
+        its auto-repeat from here."""
+        out.append(_EVENT[b])
+        self._singled.add(b)
+        self._trace_add(now, "single", b)
+        if b in _DPAD:
+            self._repeat_at[b] = now + self.repeat_delay
+
     def _on_press(self, b, now, out):
         self._held_since[b] = now
         self._singled.discard(b)          # fresh hold
         self._trace_add(now, "press", b)
-        if b in _DPAD:
-            out.append(_DPAD[b])
-            self._repeat_at[b] = now + self.repeat_delay
-        elif b in _FACE:
-            if b in self._chord_buttons:
-                # defer: a chord may still form this window
-                self._pending[b] = [now + CHORD_WINDOW, _FACE[b], False]
-            else:
-                out.append(_FACE[b])
-                self._singled.add(b)
+        if b in self._chord_buttons:
+            # defer the single-press — a chord may still form within the window.
+            # Applies to d-pad and face buttons alike (the wait chords make
+            # every d-pad direction chord-eligible).
+            self._pending[b] = [now + CHORD_WINDOW, _EVENT[b], False]
+        else:
+            self._fire_single(b, now, out)
 
     def _on_release(self, b, now, out):
         self._held_since.pop(b, None)
@@ -145,44 +174,57 @@ class InputModel:
         pend = self._pending.pop(b, None)
         if pend is not None and not pend[2]:
             # released before the window closed and no chord claimed it -> a tap
-            out.append(pend[1])
-            self._trace_add(now, "single", b)
+            self._fire_single(b, now, out)
 
         self._singled.discard(b)
-        # re-arm any chord this button belongs to
-        for combo, name in self.chords.items():
-            if b in combo and name in self._chord_fired:
-                self._chord_fired.discard(name)
+        # re-arm / clear miss-tracking for any chord this button belongs to
+        for combo in self.chords:
+            if b in combo:
+                self._chord_fired.discard(combo)
+                self._chord_missed.discard(combo)
 
     # -- chords -------------------------------------------------------
 
     def _check_chords(self, buttons, now, out):
         for combo, name in self.chords.items():
-            if name in self._chord_fired:
+            if combo in self._chord_fired:
                 continue
+            all_held = all(buttons.get(x) for x in combo)
             if any(x in self._singled for x in combo):
-                continue  # a member already fired its single this hold — not a chord
-            if all(buttons.get(x) for x in combo):
+                if all_held and combo not in self._chord_missed:
+                    # both members down, but one already fired its move — the
+                    # squeeze was too slow / the pad rocked. Count it once.
+                    self._chord_stats[combo]["missed"] += 1
+                    self._chord_missed.add(combo)
+                    self._trace_add(now, "miss", name)
+                continue
+            if all_held:
                 out.append(name)
-                self._chord_fired.add(name)
+                self._chord_fired.add(combo)
                 self._trace_add(now, "chord", name)
+                self._record_fire(combo, now)
                 for x in combo:
                     if x in self._pending:
                         self._pending[x][2] = True   # consumed; release won't fire it
                         self._pending.pop(x, None)
 
+    def _record_fire(self, combo, now):
+        s = self._chord_stats[combo]
+        s["fired"] += 1
+        times = [self._held_since[x] for x in combo if x in self._held_since]
+        if len(times) >= 2:
+            s["last_spread_ms"] = int((max(times) - min(times)) * 1000)
+
     def _resolve_pending(self, buttons, now, out):
         done = []
         for b, pend in self._pending.items():
-            deadline, event, consumed = pend
+            deadline, _event, consumed = pend
             if consumed:
                 done.append(b)
             elif not buttons.get(b):
                 done.append(b)                       # handled in _on_release
             elif now >= deadline:
-                out.append(event)
-                self._singled.add(b)
-                self._trace_add(now, "single", b)
+                self._fire_single(b, now, out)
                 done.append(b)
         for b in done:
             self._pending.pop(b, None)
@@ -221,6 +263,10 @@ class InputModel:
             return list(self._trace)
         return self._trace[self._trace_i:] + self._trace[: self._trace_i]
 
+    @staticmethod
+    def _combo_label(combo):
+        return "+".join(sorted(combo))
+
     def snapshot(self):
         """Live state for the diagnostics input page."""
         now = self._last_now
@@ -230,11 +276,25 @@ class InputModel:
         for combo in self.chords:
             n_down = sum(1 for x in combo if self._prev.get(x))
             if 0 < n_down < len(combo):
-                candidates.append(sorted(combo))
+                candidates.append(self._combo_label(combo))
         return {
             "held": held,
             "hold_ms": hold_ms,
             "chord_candidates": candidates,
-            "chord_fired": sorted(self._chord_fired),
+            "chord_armed": [self._combo_label(c) for c in self._chord_fired],
             "queue_depth": len(self._queue),
         }
+
+    def chord_stats(self):
+        """Per-binding effectiveness, for the diagnostics screen. One row per
+        chord binding: {combo, name, fired, missed, last_spread_ms}."""
+        rows = []
+        for combo, s in self._chord_stats.items():
+            rows.append({
+                "combo": self._combo_label(combo),
+                "name": s["name"],
+                "fired": s["fired"],
+                "missed": s["missed"],
+                "last_spread_ms": s["last_spread_ms"],
+            })
+        return rows
