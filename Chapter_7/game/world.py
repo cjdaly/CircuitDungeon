@@ -131,3 +131,55 @@ class RoundRobinScheduler:
     def actors_for_turn(self):
         # snapshot: a monster dying mid-turn must not reshuffle the iteration
         return list(self.world.actors)
+
+
+# -- the turn loop (ENGINE.md 1.1, bead cd-e3p.3) -----------------------
+#
+# Pure: no displayio. modes.PlayMode maps input events to an `action` and
+# calls resolve_turn(); its render() then reflects the new positions
+# (instant snap in v1 — ENGINE.md 1.4).
+#
+# An action is a tuple:  ("move", dx, dy) | ("wait",) | None
+# None / a free action / a failed move spends no turn.
+
+MOVE_DELTAS = {"n": (0, -1), "s": (0, 1), "w": (-1, 0), "e": (1, 0)}
+
+
+def _apply_player_action(world, action):
+    """Apply the hero's action. Returns True if it spends a turn."""
+    if action is None:
+        return False
+    kind = action[0]
+    if kind == "move":
+        result = world.move_actor(world.hero, action[1], action[2])
+        if result == "moved":
+            return True
+        if isinstance(result, tuple) and result[0] == "bump":
+            # TODO(cd-e3p.5): a bump onto a hostile is an attack and DOES spend
+            # the turn (ENGINE.md 1.2). No combat yet, so treat it as inert.
+            return False
+        return False  # "blocked" — wall or edge
+    if kind == "wait":
+        return True
+    return False
+
+
+def resolve_turn(world, scheduler, action, monster_turn):
+    """One turn: hero acts, then every monster acts once, then upkeep
+    (ENGINE.md 1.1). `monster_turn(world, actor)` is the per-monster AI
+    (a no-op until cd-e3p.4). Returns True if a turn actually passed."""
+    if not _apply_player_action(world, action):
+        return False
+    for actor in scheduler.actors_for_turn():
+        if actor is world.hero:
+            continue
+        monster_turn(world, actor)
+    _upkeep(world)
+    world.turn += 1
+    return True
+
+
+def _upkeep(world):
+    """End-of-turn bookkeeping — status-effect ticks, regen, etc.
+    Empty until cd-e3p.7 (player model) / cd-e3p.4 add state that needs it."""
+    pass

@@ -37,11 +37,20 @@
 # Governed by doc/ENGINE.md section 4.
 
 import input as im
+import world as world_mod
 
 TILE = 16  # ART.md section 2
 
 # input events that switch modes; consumed by the stack, never seen by a mode
 _TOGGLE_EVENTS = ("menu", "diag")
+
+# play-mode input event -> turn action (world.resolve_turn). 4-way only.
+_EVENT_ACTION = {
+    im.MOVE_N: ("move",) + world_mod.MOVE_DELTAS["n"],
+    im.MOVE_S: ("move",) + world_mod.MOVE_DELTAS["s"],
+    im.MOVE_W: ("move",) + world_mod.MOVE_DELTAS["w"],
+    im.MOVE_E: ("move",) + world_mod.MOVE_DELTAS["e"],
+}
 
 
 class ModeStack:
@@ -105,7 +114,6 @@ class PlayMode:
     def __init__(self, display, world):
         import displayio
         import util
-        import world as world_mod
 
         self.display = display
         self.world = world
@@ -168,22 +176,26 @@ class PlayMode:
     # -- per-tick -------------------------------------------------
 
     def tick(self, events, now):
-        # TODO(cd-e3p.3): consume one actionable event -> self._resolve_turn().
-        # Until the turn loop exists, movement events are ignored and the world
-        # is static. The pulse still advances so idle animation has a clock
-        # (ENGINE.md 1.5).
-        self.cycle += 1
+        # doc/ENGINE.md 1.5: at most one actionable event -> one turn. Extra
+        # events this tick are dropped (auto-repeat is already rate-capped in
+        # input.py, so >1 move in a single ~50ms tick is nearly impossible).
+        self.cycle += 1                        # presentation pulse (ENGINE.md 1.5)
+        action = _first_action(events)
+        if action is not None:
+            world_mod.resolve_turn(
+                self.world, self.scheduler, action, self._monster_turn
+            )
         return None
 
+    def _monster_turn(self, world, actor):
+        pass  # per-monster AI: bead cd-e3p.4
+
     def render(self):
+        # presentation half of ENGINE.md 1.4 — instant snap, no interpolation
         for actor, spr in zip(self.world.actors, self._actor_sprites):
             spr.x = actor["x"] * TILE
             spr.y = actor["y"] * TILE
             spr[0, 0] = actor["tile"]
-
-    def _resolve_turn(self, action):
-        """One turn per ENGINE.md 1.1 — the turn loop is bead cd-e3p.3."""
-        raise NotImplementedError("turn loop: cd-e3p.3")
 
 
 class _StubOverlay:
@@ -220,3 +232,14 @@ def MenuMode(display):
 
 def DiagMode(display):
     return _StubOverlay(display, "DIAG")   # cd-89o.6
+
+
+def _first_action(events):
+    """First play-mode action in `events`, or None. Non-action events
+    (CONFIRM/CANCEL/AUX_*) belong to future beads (inventory, look) and pass
+    no turn."""
+    for ev in events:
+        action = _EVENT_ACTION.get(ev)
+        if action is not None:
+            return action
+    return None

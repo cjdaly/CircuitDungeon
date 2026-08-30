@@ -158,9 +158,9 @@ the `.lvl` exit/event trigger system · pixel-scroll camera.
 
 ### 2.3 What is still left for later beads
 
-- `PlayMode._resolve_turn()` — raises `NotImplementedError`; the turn loop
-  body is **`cd-e3p.3`**. `PlayMode.tick()` currently ignores movement events
-  and just advances the pulse; the world is static.
+- The hero moves and turns advance (§5), but `monster_turn` and `_upkeep`
+  are no-ops — monster AI is **`cd-e3p.4`**, player stats / death are
+  **`cd-e3p.7`**, and a bump becomes an attack at **`cd-e3p.5`**.
 - `PlayMode` is one full-bleed world group. Status / map-viewport / inventory
   bands are **`cd-oht.2`** (geometry from `cd-oht.1`).
 - The hardcoded `_test_room()` in `main.py` is a placeholder until the
@@ -241,7 +241,51 @@ each ~20fps tick:
     stack.render(screen); screen.refresh()
 ```
 
-## 5. Turn loop implementation  *(cd-e3p.3 — open)*
+## 5. Turn loop
+
+Resolves bead `cd-e3p.3`. The loop body lives in `world.py` (pure, tested in
+`tests/test_turn.py`); `modes.PlayMode` maps input to actions and renders.
+
+### 5.1 Action
+
+`PlayMode.tick(events, now)` takes the first play-mode event and maps it to an
+**action** tuple:
+
+| Event | Action | |
+|---|---|---|
+| `MOVE_N/S/E/W` | `("move", dx, dy)` | 4-way, ±1 |
+| *(unbound yet)* | `("wait",)` | passes a turn in place — no button assigned |
+| `CONFIRM` / `CANCEL` / `AUX_X` / `AUX_Y` | — | belong to later beads (inventory, look); pass no turn |
+
+At most one action per tick — extra events are dropped (auto-repeat is already
+rate-capped in `input.py`, so >1 move per ~50 ms tick is nearly impossible).
+
+### 5.2 `world.resolve_turn(world, scheduler, action, monster_turn)`
+
+```
+if not _apply_player_action(world, action):   # move → move_actor(); "moved" spends
+    return False                              #   a turn, "blocked"/"bump"/None don't
+for actor in scheduler.actors_for_turn():     # §1.1 — round-robin, hero first
+    if actor is world.hero: continue
+    monster_turn(world, actor)                # per-monster AI — cd-e3p.4 (no-op now)
+_upkeep(world)                                # status ticks / regen — empty until cd-e3p.7
+world.turn += 1
+return True
+```
+
+- **A failed move (wall/edge) or a `bump` onto an actor passes no turn.** Bump
+  becomes an attack (and *does* spend the turn) at `cd-e3p.5`; inert for now.
+- `monster_turn` and `_upkeep` are the seams for `cd-e3p.4` / `cd-e3p.7`.
+- Movement is an instant snap — `PlayMode.render()` repositions sprites from
+  `world.actors` on the next frame (§1.4). No tween.
+- `world.turn` counts real turns; `PlayMode.cycle` is the wall-clock pulse.
+
+### 5.3 What's still open
+
+- `("wait",)` has no button — a binding is `cd-oht` / a UI call.
+- Repeat-pause while a monster is in view (§1.3) waits on FOV (`cd-e3p.6`);
+  the engine currently only pauses repeat for overlays.
+
 ## 6. Monsters + AI  *(cd-e3p.4 — open)*
 ## 7. Combat  *(cd-e3p.5 — open)*
 ## 8. Field of view  *(cd-e3p.6 — open)*
