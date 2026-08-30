@@ -15,10 +15,18 @@ CIRCUITPY/
   util.py  level_loader.py
   tiles/  terrain.bmp creatures.bmp heroes.bmp objects.bmp
           (palette.* / tiles.json copied too; not imported yet)
-  lib/  adafruit_display_text/  adafruit_imageload/  neopixel.mpy
+  lib/  adafruit_display_text/  adafruit_imageload/
 ```
 
 `doc/`, `tools/`, and `tests/` stay on the desktop.
+
+**No `neopixel` on the PicoSystem.** It has no NeoPixel — its status LED is a
+plain RGB LED on 3 PWM pins (`board.LED_R`/`LED_G`/`LED_B` = GPIO 14/13/15),
+and CircuitPython defines no `board.NEOPIXEL` for this board.
+`hardware._picosystem()` sets `neopixel = None` and never imports the lib, so
+`neopixel.mpy` in `lib/` is an unused leftover — harmless to keep, fine to
+delete. `deploy.sh` only checks for `adafruit_display_text` and
+`adafruit_imageload`.
 
 ## Current device state (2026-08-30)
 
@@ -49,8 +57,8 @@ really just: does the Ch7 code run, and what's the RAM headroom.
    `RPI-RP2` drive mounts (screen stays blank — normal). Drop the `.uf2` on
    it. Connect straight to the Mac, not through a hub.
 2. **Bundle libraries** into `CIRCUITPY/lib/` (from the matching bundle):
-   `adafruit_display_text/`, `adafruit_imageload/`, `neopixel.mpy`. Or
-   `circup install adafruit_display_text adafruit_imageload neopixel`.
+   `adafruit_display_text/`, `adafruit_imageload/`. (`neopixel.mpy` is not
+   used on this board — see above.)
 
 ## Deploy
 

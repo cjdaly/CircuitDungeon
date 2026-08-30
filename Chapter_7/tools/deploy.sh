@@ -32,16 +32,16 @@ rsync -rtv --delete \
   --exclude '/lib/' --exclude '/boot_out.txt' --exclude '/settings.toml' \
   "$SRC"/ "$TARGET"/
 
-# --- lib check (warn only) ---
+# --- lib check (warn only) --- PicoSystem needs just these two;
+# neopixel is not used on this board (RGB LED is 3 PWM pins, not a NeoPixel).
 missing=()
 for lib in adafruit_display_text adafruit_imageload; do
   [ -d "$TARGET/lib/$lib" ] || missing+=("$lib/")
 done
-[ -f "$TARGET/lib/neopixel.mpy" ] || missing+=("neopixel.mpy")
 if [ ${#missing[@]} -ne 0 ]; then
   echo
   echo "deploy: WARNING — missing from $TARGET/lib/ :  ${missing[*]}" >&2
-  echo "        circup install adafruit_display_text adafruit_imageload neopixel" >&2
+  echo "        circup install adafruit_display_text adafruit_imageload" >&2
 fi
 
 sync
