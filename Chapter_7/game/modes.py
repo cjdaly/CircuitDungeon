@@ -39,7 +39,11 @@
 import input as im
 import world as world_mod
 
-TILE = 16  # ART.md section 2
+# doc/LAYOUT.md — Option G, 240×240 PicoSystem
+TILE = 16
+MAP_TILES = 13                 # odd → hero on the exact centre tile
+MAP_PX = MAP_TILES * TILE       # 208 — map viewport is 208×208
+BAND_H = TILE                   # 16 — one terminalio line, top and bottom
 
 # input events that switch modes; consumed by the stack, never seen by a mode
 _TOGGLE_EVENTS = ("menu", "diag")
@@ -109,50 +113,91 @@ class ModeStack:
 
 
 class PlayMode:
-    """The roguelike itself: the terrain grid + actor sprites + (eventually,
-    cd-e3p.3) the turn loop. Owns the world-scene displayio group."""
+    """The roguelike itself. Owns the Option-G scene: a 13×13 terrain
+    viewport with an actor layer, a status band, an icon rail, and a message
+    band (doc/LAYOUT.md §1). Child beads render into the HUD groups:
+    cd-oht.3 status, cd-oht.4 message, cd-oht.5 rail, cd-oht.6 map polish."""
+
+    VOID_TILE = 2  # shown for viewport cells outside the level (wall-top)
 
     def __init__(self, display, world):
         import displayio
+        import terminalio
         import util
 
         self.display = display
         self.world = world
         self.scheduler = world_mod.RoundRobinScheduler(world)
-        self.cycle = 0  # presentation pulse (wall-clock); NOT world.turn
+        self.cycle = 0            # presentation pulse (wall-clock); NOT world.turn
+        self.cam_x = 0
+        self.cam_y = 0
+        self._util = util
+
+        screen = display.screen
+        rail_w = screen.width - MAP_PX          # 32 on a 240-wide screen
+        msg_y = BAND_H + MAP_PX                 # 224
 
         self.group = displayio.Group()
-        # TODO(cd-oht.2): partition into status / map / inventory bands
-        # (geometry from cd-oht.1). For now the world fills the screen.
-        world_group = displayio.Group()
-        self.group.append(world_group)
-        self._world_group = world_group
-        display.groups["world"] = world_group
-        display.groups["root"] = self.group
 
+        # --- map viewport: a MAP_TILES-square terrain grid + actor layer ---
+        self._map_group = displayio.Group(x=0, y=BAND_H)
         self._terrain_bmp, self._terrain_pal = util.load_bitmap("terrain")
-        terrain = util.tilegrid(
+        self._terrain = util.tilegrid(
             self._terrain_bmp, self._terrain_pal,
-            world.width, world.height, TILE, TILE,
+            MAP_TILES, MAP_TILES, TILE, TILE,
         )
-        display.grids["terrain"] = terrain
-        world_group.append(terrain)
-        self._paint_terrain()
-
-        self._util = util
+        self._map_group.append(self._terrain)
         self._actor_sheets = {}
-        self._actor_sprites = []
-        self._sync_actor_sprites()
+        self._actor_sprites = []                # parallel to world.actors
+        self.group.append(self._map_group)
 
-    # -- scene ------------------------------------------------------
+        # --- HUD region groups — content is the child beads' job ---
+        self.status_group = displayio.Group(x=0, y=0)
+        self.rail_group = displayio.Group(x=MAP_PX, y=BAND_H)
+        self.message_group = displayio.Group(x=0, y=msg_y)
+        self._status_label = util.init_label(terminalio.FONT, 0xC8E0FF, x=2, text="")
+        self._message_label = util.init_label(terminalio.FONT, 0xC8E0FF, x=2, text="")
+        for lbl in (self._status_label, self._message_label):
+            lbl.anchor_point = (0.0, 0.5)
+            lbl.anchored_position = (2, BAND_H // 2)
+        self.status_group.append(self._status_label)
+        self.message_group.append(self._message_label)
+        self.group.append(self.status_group)
+        self.group.append(self.rail_group)
+        self.group.append(self.message_group)
+
+        # for the child beads / debugging
+        display.groups["root"] = self.group
+        display.grids["terrain"] = self._terrain
+        self._rail_w = rail_w
+
+        self._recenter()
+        self._sync_actor_sprites()
+        self._paint_terrain()
+        self._render()
+
+    # -- camera + terrain viewport (LAYOUT.md §3) ------------------
+
+    def _recenter(self):
+        hero = self.world.hero
+        self.cam_x, self.cam_y = world_mod.camera_for(
+            hero["x"], hero["y"], MAP_TILES, self.world.width, self.world.height
+        )
 
     def _paint_terrain(self):
-        terrain = self.display.grids["terrain"]
-        grid = self.world.grid
-        for y in range(self.world.height):
-            row = grid[y]
-            for x in range(self.world.width):
-                terrain[x, y] = row[x]
+        g = self.world.grid
+        w, h = self.world.width, self.world.height
+        for row in range(MAP_TILES):
+            wy = self.cam_y + row
+            in_y = 0 <= wy < h
+            for col in range(MAP_TILES):
+                wx = self.cam_x + col
+                if in_y and 0 <= wx < w:
+                    self._terrain[col, row] = g[wy][wx]
+                else:
+                    self._terrain[col, row] = self.VOID_TILE
+
+    # -- actor sprites (presentation half of ENGINE.md 1.4) --------
 
     def _sheet(self, name):
         pair = self._actor_sheets.get(name)
@@ -164,17 +209,29 @@ class PlayMode:
     def _sync_actor_sprites(self):
         """Match the sprite list to world.actors after a spawn/death."""
         for spr in self._actor_sprites:
-            self._world_group.remove(spr)
+            self._map_group.remove(spr)
         self._actor_sprites = []
         for actor in self.world.actors:
             bmp, pal = self._sheet(actor["sheet"])
             spr = self._util.tilegrid(bmp, pal, 1, 1, TILE, TILE, transparent=0)
             spr[0, 0] = actor["tile"]
-            self._world_group.append(spr)
+            self._map_group.append(spr)
             self._actor_sprites.append(spr)
         self.display.sprites["actors"] = self._actor_sprites
 
-    # -- per-tick -------------------------------------------------
+    def _render(self):
+        for actor, spr in zip(self.world.actors, self._actor_sprites):
+            vx = actor["x"] - self.cam_x
+            vy = actor["y"] - self.cam_y
+            if 0 <= vx < MAP_TILES and 0 <= vy < MAP_TILES:
+                spr.hidden = False
+                spr.x = vx * TILE
+                spr.y = vy * TILE
+                spr[0, 0] = actor["tile"]
+            else:
+                spr.hidden = True
+
+    # -- mode interface -------------------------------------------
 
     def tick(self, events, now):
         # doc/ENGINE.md 1.5: at most one actionable event -> one turn. Extra
@@ -186,17 +243,17 @@ class PlayMode:
             world_mod.resolve_turn(
                 self.world, self.scheduler, action, self._monster_turn
             )
+        cam = (self.cam_x, self.cam_y)
+        self._recenter()
+        if (self.cam_x, self.cam_y) != cam:
+            self._paint_terrain()
         return None
 
     def _monster_turn(self, world, actor):
         pass  # per-monster AI: bead cd-e3p.4
 
     def render(self):
-        # presentation half of ENGINE.md 1.4 — instant snap, no interpolation
-        for actor, spr in zip(self.world.actors, self._actor_sprites):
-            spr.x = actor["x"] * TILE
-            spr.y = actor["y"] * TILE
-            spr[0, 0] = actor["tile"]
+        self._render()
 
 
 class _StubOverlay:

@@ -118,9 +118,9 @@ gameplay RNG runs. Same run replays identically; each depth is deterministic.
 
 - `world.World(level["grid"], wall_tiles={2})` consumes the grid; `main.py`
   places the hero at `level["up"]` (replaces `_test_room()`).
-- **Terrain TileGrid must be viewport-sized** (13×13 or 14×14, repainted on
-  scroll — `LAYOUT.md` §3), **not** 64×64. `cd-e3p.2`'s full-world TileGrid
-  in `modes.PlayMode` is rewired here / in `cd-oht.6`.
+- Terrain TileGrid is **viewport-sized** — `modes.PlayMode` (as of `cd-oht.2`)
+  holds a 13×13 grid repainted from `world.camera_for(...)` on each camera
+  move, **not** the whole 64×64 level.
 
 ## 8. Child beads
 

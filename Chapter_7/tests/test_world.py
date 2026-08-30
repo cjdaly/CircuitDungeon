@@ -132,5 +132,29 @@ class Scheduler(unittest.TestCase):
         self.assertEqual(len(w.actors), 1)
 
 
+class Camera(unittest.TestCase):
+    V = 13  # MAP_TILES
+
+    def test_centred_away_from_edges(self):
+        self.assertEqual(world_mod.camera_for(20, 20, self.V, 64, 64), (14, 14))
+        self.assertEqual(world_mod.camera_for(7, 3, self.V, 64, 64), (1, 0))
+
+    def test_clamps_at_low_edge(self):
+        self.assertEqual(world_mod.camera_for(2, 0, self.V, 64, 64), (0, 0))
+
+    def test_clamps_at_high_edge(self):
+        # max cam = 64 - 13 = 51
+        self.assertEqual(world_mod.camera_for(60, 63, self.V, 64, 64), (51, 51))
+
+    def test_level_smaller_than_viewport_pins_to_zero(self):
+        self.assertEqual(world_mod.camera_for(5, 5, self.V, 10, 10), (0, 0))
+
+    def test_hero_stays_within_viewport_everywhere(self):
+        for lw in (13, 20, 64):
+            for hx in range(lw):
+                cx, _ = world_mod.camera_for(hx, 0, self.V, lw, lw)
+                self.assertTrue(0 <= hx - cx < self.V, (lw, hx, cx))
+
+
 if __name__ == "__main__":
     unittest.main()

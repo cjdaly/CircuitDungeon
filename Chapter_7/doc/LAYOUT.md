@@ -102,11 +102,11 @@ screen deliberately ships without it.
 
 ## 7. Child beads
 
-| Bead | Region |
-|---|---|
-| `cd-oht.2` | region scaffolding — the four `displayio` groups/grids at §1's coords |
-| `cd-oht.3` | status line rendering |
-| `cd-oht.4` | message line + horizontal scroll |
-| `cd-oht.5` | icon rail (equipped / HP bar / status icons) |
-| `cd-oht.6` | map viewport + hero-centred clamped camera |
-| `cd-oht.7` | *(deferred)* inventory / detail toggle overlay |
+| Bead | Region | |
+|---|---|---|
+| `cd-oht.2` | region scaffolding + 13×13 terrain viewport + clamped camera | done |
+| `cd-oht.3` | status line rendering | |
+| `cd-oht.4` | message line + horizontal scroll | |
+| `cd-oht.5` | icon rail (equipped / HP bar / status icons) | |
+| `cd-oht.6` | map viewport — camera folded into `cd-oht.2`; open only for FOV dimming (`cd-e3p.6`) | |
+| `cd-oht.7` | *(deferred)* inventory / detail toggle overlay | |

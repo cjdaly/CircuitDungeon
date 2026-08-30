@@ -183,3 +183,20 @@ def _upkeep(world):
     """End-of-turn bookkeeping — status-effect ticks, regen, etc.
     Empty until cd-e3p.7 (player model) / cd-e3p.4 add state that needs it."""
     pass
+
+
+# -- viewport / camera (LAYOUT.md §3) ---------------------------------
+# Pure: modes.PlayMode calls this to pick which view_tiles-square window of
+# the level to paint into its terrain TileGrid.
+
+
+def camera_for(hero_x, hero_y, view_tiles, level_w, level_h):
+    """Top-left level tile of a `view_tiles`-square viewport centred on the
+    hero, clamped so the window never leaves the level. Near an edge the hero
+    drifts off-centre rather than showing out-of-bounds (standard roguelike)."""
+    half = view_tiles // 2
+    max_x = level_w - view_tiles
+    max_y = level_h - view_tiles
+    cx = min(max(hero_x - half, 0), max_x) if max_x > 0 else 0
+    cy = min(max(hero_y - half, 0), max_y) if max_y > 0 else 0
+    return cx, cy

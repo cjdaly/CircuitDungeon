@@ -161,12 +161,15 @@ the `.lvl` exit/event trigger system · pixel-scroll camera.
 - The hero moves and turns advance (§5), but `monster_turn` and `_upkeep`
   are no-ops — monster AI is **`cd-e3p.4`**, player stats / death are
   **`cd-e3p.7`**, and a bump becomes an attack at **`cd-e3p.5`**.
-- `PlayMode` is one full-bleed world group. Status / map-viewport / inventory
-  bands are **`cd-oht.2`** (geometry from `cd-oht.1`).
+- `PlayMode` lays out the Option-G regions (`cd-oht.2`): a 13×13 terrain
+  viewport with a hero-centred clamped camera, plus empty `status_group` /
+  `rail_group` / `message_group` for `cd-oht.3` / `.5` / `.4` to fill.
 - The hardcoded `_test_room()` in `main.py` is a placeholder until the
-  generator (**`cd-dsc`**) hands back a `World`.
+  generator (**`cd-dsc`**) hands back a level dict (`LEVELGEN.md` §7).
 - No idle animation yet — the placeholder tile sheets are one frame each;
   it lands with the art (`cd-e17.*`) and the polish pass.
+- No FOV — the whole camera window is drawn. `cd-e3p.6` hooks fog-of-war into
+  `PlayMode._paint_terrain` / `_render`.
 - `MenuMode` is a stub overlay — real screen is `cd-e3p.13`. `DiagMode`
   shows a live input page (`cd-e3p.14`); RAM/flash/timing pages are
   `cd-89o.6`.
@@ -205,7 +208,7 @@ A **mode** is an object with `tick(events, now)`, `render()`, and a `.group`
 
 | Mode | Class | Scene |
 |---|---|---|
-| play | `PlayMode` | terrain grid + actor sprites (moved here from the `cd-e3p.2` `Game`) |
+| play | `PlayMode` | Option-G scene: 13×13 terrain viewport + camera + actor layer + empty HUD region groups (`LAYOUT.md`, `cd-oht.2`) |
 | menu | `MenuMode` → `_StubOverlay` | centred label; real screen is `cd-e3p.13` |
 | diag | `DiagMode` | live input page — `chord_stats()` / held state / trace (`cd-e3p.14`); RAM/flash/timing pages are `cd-89o.6` |
 

@@ -25,26 +25,30 @@ import engine
 import world as world_mod
 
 # Terrain tile indices — see game/tiles/tiles.json.
-FLOOR = 0
-WALL = 2
+FLOOR, FLAGSTONE, WALL = 0, 1, 2
 
 # TODO(cd-dsc): the procedural generator replaces this. Until it exists, a
-# plain walled room so the forked engine has something to draw and cd-e3p.3
-# has a board to move on. 15x15 fills the 240x240 PicoSystem screen.
-_ROOM_W, _ROOM_H = 15, 15
+# walled room bigger than the 13×13 viewport so the camera actually scrolls,
+# with an interior cross so the scroll is visible. Roughly a quarter of a real
+# 64×64 level.
+_W, _H = 28, 28
 
 
 def _test_room():
     grid = []
-    for y in range(_ROOM_H):
-        row = bytearray(FLOOR for _ in range(_ROOM_W))
-        for x in range(_ROOM_W):
-            if x == 0 or x == _ROOM_W - 1 or y == 0 or y == _ROOM_H - 1:
+    for y in range(_H):
+        row = bytearray(FLAGSTONE for _ in range(_W))
+        for x in range(_W):
+            edge = x in (0, _W - 1) or y in (0, _H - 1)
+            cross = x in (_W // 2, _W // 2 + 1) and 4 < y < _H - 5
+            cross |= y in (_H // 2, _H // 2 + 1) and 4 < x < _W - 5
+            if edge or cross:
                 row[x] = WALL
         grid.append(row)
     world = world_mod.World(grid, wall_tiles=(WALL,))
-    world.add_actor(world_mod.make_actor(_ROOM_W // 2, _ROOM_H // 2, "heroes", 0))
-    world.add_actor(world_mod.make_actor(3, 3, "creatures", 1))  # a rat, to prove the sprite path
+    world.add_actor(world_mod.make_actor(_W // 2 - 3, _H // 2 - 3, "heroes", 0))
+    world.add_actor(world_mod.make_actor(3, 3, "creatures", 1))          # in view
+    world.add_actor(world_mod.make_actor(_W - 4, _H - 4, "creatures", 2))  # off view
     return world
 
 
