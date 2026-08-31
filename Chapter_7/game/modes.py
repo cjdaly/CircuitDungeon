@@ -104,9 +104,9 @@ class ModeStack:
 
 class PlayMode:
     """The roguelike itself. Owns the Option-G scene: a 13×13 terrain
-    viewport with an actor layer, a status band, an icon rail, and a message
-    band (doc/LAYOUT.md §1). Child beads render into the HUD groups:
-    cd-oht.3 status, cd-oht.4 message, cd-oht.5 rail, cd-oht.6 map polish."""
+    viewport with an actor layer, a status band (HP/depth/turn/gold —
+    cd-oht.3), an icon rail (cd-oht.5, empty), and a message band (cd-e3p.9;
+    scroll is cd-oht.4). doc/LAYOUT.md §1."""
 
     VOID_TILE = 2  # shown for viewport cells outside the level (wall-top)
 
@@ -116,8 +116,6 @@ class PlayMode:
         import util
 
         self.display = display
-        self.world = world
-        self.scheduler = world_mod.RoundRobinScheduler(world)
         self.cycle = 0            # presentation pulse (wall-clock); NOT world.turn
         self.cam_x = 0
         self.cam_y = 0
@@ -160,11 +158,22 @@ class PlayMode:
         display.groups["root"] = self.group
         display.grids["terrain"] = self._terrain
         self._rail_w = rail_w
-        self._msg_seq = -1          # last world.log.seq shown on the message line
 
+        self.load_world(world)
+
+    def load_world(self, world):
+        """Point the scene at a World and (re)paint everything. Called once
+        from __init__ and again on each level change (cd-e3p.10) — the
+        displayio scene (viewport size, HUD groups) is reused, only the
+        contents change."""
+        self.world = world
+        self.scheduler = world_mod.RoundRobinScheduler(world)
+        self._msg_seq = -1          # last world.log.seq shown on the message line
+        self._status_sig = None     # last (hp, max_hp, depth, turn, gold) painted
         self._recenter()
         self._sync_actor_sprites()
         self._paint_terrain()
+        self._paint_status()
         self._paint_message()
         self._render()
 
@@ -224,6 +233,23 @@ class PlayMode:
             else:
                 spr.hidden = True
 
+    # -- status line (cd-oht.3) — HP / depth / turn / gold (LAYOUT.md §4) --
+
+    _STATUS_CHARS = 39   # ~ (240 - 4) / 6 for terminalio
+
+    def _paint_status(self):
+        """Repaint the top band only when a shown value changed — Label text
+        assignment rebuilds the glyph bitmap, so it's not free."""
+        h = self.world.hero
+        sig = (h.get("hp", 0), h.get("max_hp", 0), self.world.depth,
+               self.world.turn, h.get("gold", 0))
+        if sig == self._status_sig:
+            return
+        self._status_sig = sig
+        self._status_label.text = (
+            "HP %s/%s   Depth %s   Turn %s   Gold %s" % sig
+        )[: self._STATUS_CHARS]
+
     # -- message line (cd-e3p.9; cd-oht.4 adds scroll / a longer history) --
 
     _MSG_CHARS = 39   # ~ (240 - 4) / 6 for terminalio
@@ -247,6 +273,7 @@ class PlayMode:
             )
             if self.world.roster_version != self._synced_roster:
                 self._sync_actor_sprites()     # a monster died / spawned (cd-e3p.5)
+            self._paint_status()               # HP / turn / gold moved (cd-oht.3)
             self._paint_message()              # combat / event text (cd-e3p.9)
         cam = (self.cam_x, self.cam_y)
         self._recenter()

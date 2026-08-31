@@ -101,7 +101,7 @@ touching the RNG for generation. CircuitPython's `random` is module-level
 only (no `random.Random` instances), so generation must complete before any
 gameplay RNG runs. Same run replays identically; each depth is deterministic.
 
-## 7. Output & engine integration  *(cd-dsc.5)*
+## 7. Output & engine integration
 
 `generate()` returns a plain dict — **not** `level_loader.Level` (that type is
 `.lvl`-format-specific and stays unused for Ch7 gameplay):
@@ -116,18 +116,55 @@ gameplay RNG runs. Same run replays identically; each depth is deterministic.
 }
 ```
 
-- `world.World(level["grid"], wall_tiles={2})` consumes the grid; `main.py`
-  places the hero at `level["up"]` (replaces `_test_room()`).
+- **`cd-dsc.5` (done):** `world.world_from_level(level)` builds the `World`
+  (`wall_tiles=(2,)`, `depth` carried through) with the hero on `level["up"]`.
+  `main.py._new_game(depth)` calls it, then drops placeholder monsters on the
+  first few `spawn_points` until `cd-dsc.4`. `_test_room()` is gone.
 - Terrain TileGrid is **viewport-sized** — `modes.PlayMode` (as of `cd-oht.2`)
   holds a 13×13 grid repainted from `world.camera_for(...)` on each camera
-  move, **not** the whole 64×64 level.
+  move, **not** the whole 64×64 level. Verified end-to-end in
+  `test_scene.GeneratedLevel`.
 
 ## 8. Child beads
 
-| Bead | |
-|---|---|
-| `cd-dsc.2` | `generator.py` — steps §3, reproducible from a seed |
-| `cd-dsc.3` | BFS connectivity guarantee + smarter stairs placement |
-| `cd-dsc.4` | populate `spawn_points` from `spawns.py`, depth-scaled |
-| `cd-dsc.5` | feed the level dict into the engine; viewport TileGrid |
-| `cd-dsc.6` | RP2040 perf & RAM pass (gen time, depth-scaled size) |
+| Bead | | |
+|---|---|---|
+| `cd-dsc.2` | `generator.py` — steps §3, reproducible from a seed | **done** |
+| `cd-dsc.3` | BFS connectivity guarantee + smarter stairs placement | **done** |
+| `cd-dsc.4` | populate `spawn_points` from `spawns.py`, depth-scaled | open |
+| `cd-dsc.5` | feed the level dict into the engine; viewport TileGrid | **done** |
+| `cd-dsc.6` | RP2040 perf & RAM pass (gen time, depth-scaled size) | open |
+
+### 8.1 As built (`cd-dsc.2`) — deviations from the spec above
+
+- `generate(seed, depth, rng=None)` — the extra `rng` arg is an escape hatch
+  for hermetic tests (`random.Random`); left `None` on device, where the
+  module RNG is seeded per §6. `tests/test_generator.py`.
+- **Degenerate-seed guard:** if rejection sampling yields fewer than 2 rooms,
+  the generator carves two guaranteed-disjoint corner rooms so `rooms[0]`
+  and a distinct farthest room always exist. `cd-dsc.3`'s BFS repair
+  supersedes this.
+- Room rolling: keep going until 14 rooms **or** 120 attempts (yields the
+  ~9–16 of §2). Farthest room is by squared centre distance (argmax-equiv).
+- Corridors overwrite **only** wall, so a corridor crossing a room leaves the
+  room floor (flagstone) intact rather than cutting a dirt stripe through it.
+- Spawn pool: distinct floor tiles outside the entry room (stairs excluded
+  since they aren't floor). All floor is now one connected region (`_connect`
+  below), so no separate reachability filter is needed — `cd-dsc.4` just
+  assigns entities.
+
+### 8.2 As built (`cd-dsc.3`) — connectivity + stairs
+
+- `_dist_grid(grid, start)` → a flat `bytearray[64*64]` of BFS step counts over
+  non-wall tiles (`_UNREACHED` = 255 elsewhere). Flat, **not** a
+  `{(x, y): steps}` dict — that dict is ~1500 tuple keys and would blow the
+  RP2040 heap. Queue is an int list drained by a head index (no
+  `collections.deque`). `_dist_at(dist, (x, y))` indexes it.
+- `_connect(grid, rooms, rng)` runs right after layout: flood from `rooms[0]`;
+  for any room whose centre isn't reached, carve a repair corridor to the
+  nearest connected room and re-flood. Loops until every room is in. Result:
+  the whole floor is a single connected region.
+- Down-stairs go in `_farthest_room_bfs` — the room whose centre is the most
+  BFS steps from the entry room (Euclidean `_farthest_room` kept as a
+  pathological-case fallback). This is a real "end of the longest walk", not
+  just the far corner.

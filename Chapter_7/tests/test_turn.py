@@ -112,6 +112,39 @@ class ResolveTurn(unittest.TestCase):
         self.assertEqual(self.w.turn, 2)
 
 
+class StairTransition(unittest.TestCase):
+    """cd-e3p.10 — stepping onto a stair tile flags world.transition; the
+    engine reads it after the turn resolves."""
+
+    def _stairs_room(self):
+        w = room(7, 7)
+        w.grid[3][4] = world_mod.STAIRS_DOWN_TILE   # one step east of the hero
+        w.grid[3][2] = world_mod.STAIRS_UP_TILE     # one step west
+        hero = w.add_actor(world_mod.make_actor(3, 3, "heroes", 0))
+        return w, hero, world_mod.RoundRobinScheduler(w)
+
+    def test_step_onto_down_stairs_flags_down(self):
+        w, _, sched = self._stairs_room()
+        world_mod.resolve_turn(w, sched, ("move", 1, 0), lambda *a: None)
+        self.assertEqual(w.transition, "down")
+
+    def test_step_onto_up_stairs_flags_up(self):
+        w, _, sched = self._stairs_room()
+        world_mod.resolve_turn(w, sched, ("move", -1, 0), lambda *a: None)
+        self.assertEqual(w.transition, "up")
+
+    def test_plain_move_leaves_transition_none(self):
+        w, _, sched = self._stairs_room()
+        world_mod.resolve_turn(w, sched, ("move", 0, 1), lambda *a: None)
+        self.assertIsNone(w.transition)
+
+    def test_starting_on_a_stair_tile_does_not_flag(self):
+        w = room(7, 7)
+        w.grid[3][3] = world_mod.STAIRS_DOWN_TILE
+        w.add_actor(world_mod.make_actor(3, 3, "heroes", 0))
+        self.assertIsNone(w.transition)
+
+
 class EventToAction(unittest.TestCase):
     def test_move_events_map_to_deltas(self):
         self.assertEqual(modes._first_action([im.MOVE_N]), ("move", 0, -1))

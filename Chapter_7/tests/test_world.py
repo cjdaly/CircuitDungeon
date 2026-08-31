@@ -168,6 +168,36 @@ class Player(unittest.TestCase):
         self.assertEqual(w.depth, 4)
 
 
+class WorldFromLevel(unittest.TestCase):
+    def _level(self):
+        grid = [bytearray([world_mod.WALL_TILE]) * 8 for _ in range(8)]
+        for y in range(2, 6):
+            for x in range(2, 6):
+                grid[y][x] = 1
+        return {
+            "grid": grid, "rooms": [(2, 2, 4, 4)],
+            "up": (3, 3), "down": (5, 5),
+            "spawn_points": [(4, 4)], "depth": 3, "seed": 9,
+        }
+
+    def test_builds_world_with_hero_on_the_up_stairs(self):
+        w = world_mod.world_from_level(self._level())
+        self.assertEqual(w.depth, 3)
+        self.assertEqual((w.width, w.height), (8, 8))
+        self.assertEqual(len(w.actors), 1)
+        hero = w.hero
+        self.assertEqual((hero["x"], hero["y"]), (3, 3))
+        self.assertEqual(hero["sheet"], "heroes")
+        self.assertIn(world_mod.WALL_TILE, w.wall_tiles)
+        self.assertTrue(w.is_wall(0, 0))
+        self.assertFalse(w.is_wall(3, 3))
+
+    def test_start_down_places_hero_on_the_down_stairs(self):
+        w = world_mod.world_from_level(self._level(), start="down")
+        self.assertEqual((w.hero["x"], w.hero["y"]), (5, 5))
+        self.assertIsNone(w.transition)
+
+
 class Camera(unittest.TestCase):
     V = 13  # MAP_TILES
 

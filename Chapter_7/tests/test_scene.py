@@ -147,6 +147,7 @@ import modes  # noqa: E402
 import world as world_mod  # noqa: E402
 import input as im  # noqa: E402
 import ai  # noqa: E402
+import generator  # noqa: E402
 
 ai.WANDER_CHANCE = 0.0  # deterministic — no random idle steps in the harness
 
@@ -194,11 +195,16 @@ def _room(w, h):
 
 
 class Harness:
-    def __init__(self, w=24, h=24, restart=None):
+    def __init__(self, w=24, h=24, restart=None, world=None, new_level=None):
         self.display = _FakeDisplay()
-        self.world = _room(w, h)
-        self.game = engine.Game(self.display, self.world, restart=restart)
+        start_world = world if world is not None else _room(w, h)
+        self.game = engine.Game(self.display, start_world, restart=restart,
+                                new_level=new_level)
         self.now = 0.0
+
+    @property
+    def world(self):
+        return self.game.world      # follows level changes (cd-e3p.10)
 
     def press(self, *names):
         for k in _KEYS:
@@ -211,8 +217,10 @@ class Harness:
         g.metrics.maybe_sample_ram(self.now)
         events = g.input.tick(self.display.read_buttons(), self.now)
         g.stack.handle(events, self.now)
-        if g.stack.top is g.play and not self.world.hero_alive():
+        if g.stack.top is g.play and not g.world.hero_alive():
             g.stack.show(g.gameover)
+        elif g.world.transition:
+            g._change_level(g.world.transition)
         g.input.repeat_paused = g.stack.overlay_active()
         g.stack.render(self.display.screen)
         self.display.screen.refresh()
@@ -346,6 +354,38 @@ class ModeSwitch(unittest.TestCase):
         self.assertEqual(h.world.turn, t)
 
 
+class StatusLine(unittest.TestCase):
+    def test_initial_status_shows_hp_depth_turn_gold(self):
+        h = Harness()
+        t = h.game.play._status_label.text
+        self.assertIn("HP 20/20", t)
+        self.assertIn("Depth 1", t)
+        self.assertIn("Turn 0", t)
+        self.assertIn("Gold 0", t)
+
+    def test_turn_counter_updates_after_a_move(self):
+        h = Harness()
+        h.tick("right")
+        self.assertIn("Turn 1", h.game.play._status_label.text)
+
+    def test_hp_drops_on_the_status_line_when_the_hero_is_hit(self):
+        h = Harness()
+        hero = h.world.hero
+        m = h.world.add_actor(world_mod.make_actor(
+            hero["x"] + 1, hero["y"], "creatures", 1,
+            name="rat", ai="hunt", hp=99, power=3))
+        m["goal"] = (hero["x"], hero["y"])
+        h.tick("down", "b")                       # wait -> the rat swings
+        h.tick()
+        self.assertNotIn("HP 20/20", h.game.play._status_label.text)
+        self.assertIn("HP %d/20" % hero["hp"], h.game.play._status_label.text)
+
+    def test_status_follows_a_level_change(self):
+        h = Harness(world=_stair_level(1, "up"), new_level=_stair_level)
+        h.tick("right")                           # descend to depth 2
+        self.assertIn("Depth 2", h.game.play._status_label.text)
+
+
 class Combat(unittest.TestCase):
     def test_hero_kills_adjacent_monster_and_sprites_resync(self):
         h = Harness()
@@ -410,6 +450,77 @@ class GameOver(unittest.TestCase):
         for _ in range(5):
             h.tick("right")         # play isn't ticked -> no turn passes
         self.assertEqual(h.world.turn, turn)
+
+
+def _stair_level(depth, start):
+    """A 16x16 walled room with up-stairs at (9,10) and down-stairs one step
+    east at (10,10) — so a single move steps the hero between them."""
+    FLOOR, WALL = 0, 2
+    grid = [bytearray(
+        FLOOR if 0 < x < 15 and 0 < y < 15 else WALL for x in range(16)
+    ) for y in range(16)]
+    grid[10][9] = 5    # STAIRS_UP
+    grid[10][10] = 4   # STAIRS_DOWN
+    lvl = {"grid": grid, "rooms": [(1, 1, 14, 14)], "up": (9, 10),
+           "down": (10, 10), "spawn_points": [], "depth": depth, "seed": 0}
+    return world_mod.world_from_level(lvl, start=start)
+
+
+class Descent(unittest.TestCase):
+    def test_stepping_on_down_stairs_swaps_in_the_next_level(self):
+        h = Harness(world=_stair_level(1, "up"), new_level=_stair_level)
+        self.assertEqual(h.world.depth, 1)
+        old = h.world
+        h.tick("right")                              # (9,10) -> (10,10) = down-stairs
+        self.assertEqual(h.world.depth, 2)
+        self.assertIsNot(h.world, old)
+        self.assertEqual((h.world.hero["x"], h.world.hero["y"]), (9, 10))  # new up
+        self.assertIsNone(h.world.transition)
+        self.assertIn("descend to depth 2", h.game.play._message_label.text)
+        self.assertIs(h.game.diag.world, h.world)    # diag follows the swap
+
+    def test_climb_back_up(self):
+        h = Harness(world=_stair_level(1, "up"), new_level=_stair_level)
+        h.tick("right")                              # depth 2, hero on up-stairs (9,10)
+        h.tick("left")                               # -> (8,10) floor
+        h.tick("right")                              # -> (9,10) up-stairs -> ascend
+        self.assertEqual(h.world.depth, 1)
+        self.assertEqual((h.world.hero["x"], h.world.hero["y"]), (10, 10))  # arrive on down
+
+    def test_up_stairs_on_depth_one_is_sealed(self):
+        h = Harness(world=_stair_level(1, "up"), new_level=_stair_level)
+        h.tick("left")                               # (9,10) -> (8,10)
+        h.tick("right")                              # back onto up-stairs (9,10)
+        self.assertEqual(h.world.depth, 1)           # no change
+        self.assertIn("sealed", h.game.play._message_label.text)
+
+
+class GeneratedLevel(unittest.TestCase):
+    """cd-dsc.5 — the engine runs on a real generator.generate() level, not
+    just the hand-built _room()."""
+
+    def _world(self, seed=4):
+        return world_mod.world_from_level(generator.generate(seed, 1))
+
+    def test_engine_builds_and_runs_on_a_64x64_generated_level(self):
+        w = self._world()
+        h = Harness(world=w)
+        self.assertEqual((w.width, w.height), (64, 64))
+        self.assertEqual(h.game.play._terrain.width, modes.MAP_TILES)   # viewport, not 64
+        for i in range(30):
+            h.tick("right" if i % 2 else "down")
+        self.assertGreater(w.turn, 0)
+        self.assertIs(h.display.screen.root_group, h.game.play.group)
+
+    def test_hero_starts_on_the_up_stairs_and_camera_clamps(self):
+        lvl = generator.generate(4, 1)
+        h = Harness(world=world_mod.world_from_level(lvl))
+        self.assertEqual((h.world.hero["x"], h.world.hero["y"]), lvl["up"])
+        h.tick()
+        vx = h.world.hero["x"] - h.game.play.cam_x
+        vy = h.world.hero["y"] - h.game.play.cam_y
+        self.assertTrue(0 <= vx < modes.MAP_TILES)
+        self.assertTrue(0 <= vy < modes.MAP_TILES)
 
 
 if __name__ == "__main__":

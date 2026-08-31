@@ -28,24 +28,49 @@ TICK_SECONDS = 1 / 20
 
 
 class Game:
-    def __init__(self, display, world, restart=None):
+    def __init__(self, display, world, restart=None, new_level=None):
         self.display = display          # a hardware.GameDisplay
         self.world = world              # a world.World
+        # new_level(depth, start) -> a fresh World for that depth (cd-e3p.10);
+        # None disables descent (some tests don't need it).
+        self._new_level = new_level
         self.input = im.InputModel()    # chords: X+Y -> "diag", A+B -> "menu"
         self.metrics = metrics_mod.Metrics()
 
         self.play = modes.PlayMode(display, world)
         self.gameover = modes.GameOverMode(display, restart or (lambda: None))
+        self.diag = modes.DiagMode(display, self.input, self.metrics, world)
         self.stack = modes.ModeStack(
             self.play,
-            {
-                "menu": modes.MenuMode(display),
-                "diag": modes.DiagMode(display, self.input, self.metrics, world),
-            },
+            {"menu": modes.MenuMode(display), "diag": self.diag},
         )
 
         display.screen.auto_refresh = False
         self.stack.render(display.screen)   # sets root_group to the play scene
+
+    def _change_level(self, direction):
+        """Hero stepped onto stairs (world.transition). Build the next level
+        and swap it in. Regenerate-on-entry: generator.generate(seed, depth)
+        is deterministic, so re-entering a depth gives the same layout with
+        fresh monsters (ENGINE.md §5.4)."""
+        world = self.world
+        world.transition = None
+        if self._new_level is None:
+            return
+        if direction == "up" and world.depth <= 1:
+            world.log.add("The way out has sealed behind you.")
+            self.play._paint_message()
+            return
+        depth = world.depth + (1 if direction == "down" else -1)
+        arrive = "up" if direction == "down" else "down"
+        self.world = self._new_level(depth, arrive)
+        self.world.turn = world.turn        # turn count is a running total, not per-level
+        self.world.log.add(
+            "You %s to depth %d." % (
+                "descend" if direction == "down" else "climb", depth)
+        )
+        self.play.load_world(self.world)
+        self.diag.world = self.world
 
     def run(self):
         screen = self.display.screen
@@ -58,6 +83,8 @@ class Game:
             self.stack.handle(events, t0)
             if self.stack.top is self.play and not self.world.hero_alive():
                 self.stack.show(self.gameover)   # ENGINE.md §9
+            elif self.world.transition:
+                self._change_level(self.world.transition)   # ENGINE.md §5.4
             # no d-pad auto-repeat while an overlay (menu/diag) is up
             self.input.repeat_paused = self.stack.overlay_active()
 

@@ -41,7 +41,21 @@ def make_hero(x, y, tile=0, **over):
     return h
 
 
-CORPSE_TILE = 6    # objects.bmp — see game/tiles/tiles.json
+CORPSE_TILE = 6         # objects.bmp — see game/tiles/tiles.json
+WALL_TILE = 2           # terrain.bmp "wall_top" — the one blocking terrain tile v1
+STAIRS_DOWN_TILE = 4    # terrain.bmp — walkable; stepping on it descends (cd-e3p.10)
+STAIRS_UP_TILE = 5      # terrain.bmp — walkable; stepping on it ascends
+
+
+def world_from_level(level, start="up"):
+    """Build a World from a generator.generate() dict (LEVELGEN.md §7): the
+    grid goes in, the hero starts on `level[start]` — "up" for a fresh descent,
+    "down" when climbing back up into a level (cd-e3p.10). Monsters and items
+    come from the spawn tables in a later step (cd-dsc.4)."""
+    world = World(level["grid"], wall_tiles=(WALL_TILE,), depth=level["depth"])
+    sx, sy = level[start]
+    world.add_actor(make_hero(sx, sy))
+    return world
 
 
 class World:
@@ -56,6 +70,7 @@ class World:
         self.turn = 0          # completed turns; distinct from engine's cycle pulse
         self.log = log_mod.Log()  # message log (cd-e3p.9)
         self.roster_version = 0  # bumped on any add/remove — PlayMode re-syncs sprites
+        self.transition = None   # "up" | "down" set when the hero steps on stairs
         self.height = len(grid)
         self.width = len(grid[0]) if grid else 0
 
@@ -158,6 +173,19 @@ class RoundRobinScheduler:
 MOVE_DELTAS = {"n": (0, -1), "s": (0, 1), "w": (-1, 0), "e": (1, 0)}
 
 
+def _check_transition(world):
+    """Hero just stepped somewhere — flag a level change if it was a stair
+    tile. The engine (engine.Game._change_level) reads and clears this after
+    the turn resolves. Only a *move* onto stairs triggers it, never spawning
+    there (world_from_level adds the hero without going through here)."""
+    h = world.hero
+    tile = world.grid[h["y"]][h["x"]]
+    if tile == STAIRS_DOWN_TILE:
+        world.transition = "down"
+    elif tile == STAIRS_UP_TILE:
+        world.transition = "up"
+
+
 def _apply_player_action(world, action):
     """Apply the hero's action. Returns True if it spends a turn."""
     if action is None:
@@ -166,6 +194,7 @@ def _apply_player_action(world, action):
     if kind == "move":
         result = world.move_actor(world.hero, action[1], action[2])
         if result == "moved":
+            _check_transition(world)
             return True
         if isinstance(result, tuple) and result[0] == "bump":
             other = result[1]

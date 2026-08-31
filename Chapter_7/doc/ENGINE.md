@@ -135,6 +135,8 @@ Chapter_7/game/
   ai.py            # per-monster idle/wander/chase  (§6; cd-e3p.4)
   log.py           # message log  (§11; cd-e3p.9)
   metrics.py       # RAM / flash / frame-time readout for DiagMode  (§4.1; cd-89o.6)
+  generator.py     # Pure: seed -> level dict (grid/rooms/stairs/spawns).
+                   #   No displayio/board.  (LEVELGEN.md; cd-dsc.2)
   world.py         # Pure core: grid, actors, movement, scheduler, turn loop,
                    #   combat, camera, line-of-sight. No displayio/board.
   hardware.py      # forked verbatim + X/Y face buttons wired for PicoSystem
@@ -143,7 +145,7 @@ Chapter_7/game/
                    #   for the generator (cd-dsc) but nothing calls it yet
   tiles/           # terrain/creatures/heroes/objects .bmp + palette + tiles.json
 Chapter_7/tests/
-  test_{world,input,modes,turn,ai,combat,log,metrics,scene}.py  # off-device: python3 <file>
+  test_{world,input,modes,turn,ai,combat,log,metrics,generator,scene}.py  # python3 <file>
 ```
 
 The **`world.py` / presentation split is the fork's main structural move** and
@@ -168,8 +170,10 @@ the `.lvl` exit/event trigger system · pixel-scroll camera.
 - `PlayMode` lays out the Option-G regions (`cd-oht.2`): a 13×13 terrain
   viewport with a hero-centred clamped camera, plus empty `status_group` /
   `rail_group` / `message_group` for `cd-oht.3` / `.5` / `.4` to fill.
-- The hardcoded `_test_room()` in `main.py` is a placeholder until the
-  generator (**`cd-dsc`**) hands back a level dict (`LEVELGEN.md` §7).
+- `main.py` now builds the level with `generator.generate(seed, depth)` →
+  `world.world_from_level(level)` (hero on the up-stairs); `cd-dsc.5`. Seed is
+  fixed (`RUN_SEED`) and monsters are three placeholders on `spawn_points`
+  until `cd-dsc.4` reads the spawn tables and `cd-89o.1` owns seed/depth.
 - No idle animation yet — the placeholder tile sheets are one frame each;
   it lands with the art (`cd-e17.*`) and the polish pass.
 - No FOV — the whole camera window is drawn. `cd-e3p.6` hooks fog-of-war into
@@ -249,6 +253,8 @@ each ~20fps tick:
     metrics.maybe_sample_ram(now)                  # §4.4 — gc.collect() on a timer
     events = input.tick(read_buttons(), now)
     stack.handle(events, now)
+    if play on top and hero dead:  stack.show(gameover)     # §9
+    elif world.transition:         _change_level(...)       # §5.4
     input.repeat_paused = stack.overlay_active()   # no d-pad repeat in a menu
     stack.render(screen); screen.refresh()
     metrics.note_frame(dt)
@@ -323,6 +329,33 @@ return True
 
 - Repeat-pause while a monster is in view (§1.3) waits on FOV (`cd-e3p.6`);
   the engine currently only pauses repeat for overlays.
+
+### 5.4 Descent between levels (`cd-e3p.10`)
+
+Stairs are walkable floor (`STAIRS_DOWN_TILE = 4`, `STAIRS_UP_TILE = 5`).
+When the hero **moves onto** one, `world._check_transition` sets
+`world.transition` to `"down"` / `"up"` (spawning on a stair tile does not —
+`world_from_level` adds the hero without going through the move path).
+
+The engine loop checks `world.transition` right after the game-over check
+(death wins) and calls `Game._change_level(direction)`:
+
+```
+depth  = world.depth ± 1
+arrive = "up"  when descending  (you drop in at the new level's up-stairs)
+         "down" when ascending  (you climb back up through the hole you made)
+world  = new_level(depth, arrive)          # main._new_game — generate() + spawn
+play.load_world(world);  diag.world = world
+```
+
+- **Regenerate on entry.** `generator.generate(seed, depth)` is deterministic,
+  so re-entering a depth gives the *same layout* with *fresh* monsters — no
+  level state is persisted (RAM: one 64×64 level is enough).
+- `PlayMode.load_world(world)` reuses the displayio scene (viewport, HUD
+  groups) and just re-points + repaints — no mode rebuild.
+- Ascending from depth 1 is sealed (a log line, no transition).
+- `main.py` passes `new_level=_new_game`; without it (some tests) descent is
+  inert.
 
 ## 6. Monsters + AI
 

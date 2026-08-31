@@ -73,8 +73,12 @@ the spec.
   across 240 px, ~10 px glyph height in the 16 px band). Zero load/RAM cost.
   A bitmap font (DawnLike `SDS_8x8` is in `sourceArt/`) is a later style call,
   not now.
-- **Status line** (`cd-oht.3`): persistent vitals — HP, dungeon depth, turn
-  count, gold. All the numerics the 32 px rail can't fit.
+- **Status line** (`cd-oht.3`, done): `PlayMode._paint_status()` writes
+  `"HP h/max   Depth d   Turn t   Gold g"` to the top band. Repaint is
+  gated on a `(hp, max_hp, depth, turn, gold)` signature — a `Label` text
+  set rebuilds the glyph bitmap, so it only fires when a value actually
+  moved (after a resolved turn, or a level change). Turn count is a running
+  total carried across descents, not per-level.
 - **Message line** (`cd-oht.4`): the latest log line; scroll horizontally when
   longer than the band (Ch6 already has the HUD-scroll mechanism). One line
   only — a fuller scrollback is the toggle screen's job (§6) if it's built.
@@ -105,7 +109,7 @@ screen deliberately ships without it.
 | Bead | Region | |
 |---|---|---|
 | `cd-oht.2` | region scaffolding + 13×13 terrain viewport + clamped camera | done |
-| `cd-oht.3` | status line rendering | |
+| `cd-oht.3` | status line rendering | done |
 | `cd-oht.4` | message line + horizontal scroll | |
 | `cd-oht.5` | icon rail (equipped / HP bar / status icons) | |
 | `cd-oht.6` | map viewport — camera folded into `cd-oht.2`; open only for FOV dimming (`cd-e3p.6`) | |
