@@ -16,6 +16,7 @@
 import time
 
 import input as im
+import metrics as metrics_mod
 import modes
 
 
@@ -31,6 +32,7 @@ class Game:
         self.display = display          # a hardware.GameDisplay
         self.world = world              # a world.World
         self.input = im.InputModel()    # chords: X+Y -> "diag", A+B -> "menu"
+        self.metrics = metrics_mod.Metrics()
 
         self.play = modes.PlayMode(display, world)
         self.gameover = modes.GameOverMode(display, restart or (lambda: None))
@@ -38,7 +40,7 @@ class Game:
             self.play,
             {
                 "menu": modes.MenuMode(display),
-                "diag": modes.DiagMode(display, self.input),
+                "diag": modes.DiagMode(display, self.input, self.metrics, world),
             },
         )
 
@@ -50,6 +52,7 @@ class Game:
         buttons = self.display.read_buttons
         while True:
             t0 = time.monotonic()
+            self.metrics.maybe_sample_ram(t0)   # ~0.5 Hz gc.collect() + read
 
             events = self.input.tick(buttons(), t0)
             self.stack.handle(events, t0)
@@ -61,6 +64,8 @@ class Game:
             self.stack.render(screen)
             screen.refresh()
 
-            slack = TICK_SECONDS - (time.monotonic() - t0)
+            dt = time.monotonic() - t0
+            self.metrics.note_frame(dt)
+            slack = TICK_SECONDS - dt
             if slack > 0:
                 time.sleep(slack)

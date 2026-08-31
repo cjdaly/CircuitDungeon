@@ -208,6 +208,7 @@ class Harness:
         """One iteration of engine.Game.run()'s body."""
         self.press(*held)
         g = self.game
+        g.metrics.maybe_sample_ram(self.now)
         events = g.input.tick(self.display.read_buttons(), self.now)
         g.stack.handle(events, self.now)
         if g.stack.top is g.play and not self.world.hero_alive():
@@ -215,6 +216,7 @@ class Harness:
         g.input.repeat_paused = g.stack.overlay_active()
         g.stack.render(self.display.screen)
         self.display.screen.refresh()
+        g.metrics.note_frame(0.01)
         self.now += 0.05
         return events
 
@@ -296,6 +298,24 @@ class ModeSwitch(unittest.TestCase):
         for _ in range(6):          # DiagMode refreshes text every 3rd render
             h.tick()
         self.assertIn("INPUT DIAG", h.game.stack.top._label.text)
+
+    def test_diag_a_button_pages_to_system_and_shows_ram(self):
+        h = Harness()
+        h.tick("x", "y")           # open diag (INPUT page)
+        for _ in range(6):
+            h.tick()
+        self.assertIn("INPUT DIAG", h.game.stack.top._label.text)
+        h.tick("a")                # CONFIRM cycles the page
+        h.tick("a")                # a is chord-eligible: hold a second tick
+        for _ in range(6):
+            h.tick()
+        txt = h.game.stack.top._label.text
+        self.assertIn("SYSTEM DIAG", txt)
+        self.assertIn("ram  free", txt)           # CPython host: shows "-"
+        self.assertIn("board  pimoroni_picosystem", txt)
+        self.assertIn("actors ", txt)
+        # the engine loop's RAM sampler ran (values are None off-device)
+        self.assertGreater(h.game.metrics.ram_samples, 0)
 
     def test_diag_toggles_back_to_play(self):
         h = Harness()

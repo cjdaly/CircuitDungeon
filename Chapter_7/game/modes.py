@@ -9,7 +9,7 @@
 # v1 modes:
 #   play  - the roguelike (PlayMode here; the turn loop is cd-e3p.3)
 #   menu  - main menu / settings (stub; cd-e3p.13)
-#   diag  - on-device diagnostics (stub; cd-89o.6)
+#   diag  - on-device diagnostics: INPUT + SYSTEM pages (cd-e3p.14, cd-89o.6)
 #
 # The two chord events from input.py, "menu" and "diag", toggle their overlay
 # over play. ModeStack imports nothing hardware-side (displayio et al. are
@@ -322,28 +322,47 @@ class GameOverMode:
         pass
 
 
-class DiagMode:
-    """On-device diagnostics. v1 shows the input page only: per-chord
-    effectiveness, held state, and the recent input trace — so the wait-chord
-    bindings (cd-e3p.14) can be evaluated on real hardware. RAM/flash/timing
-    pages and page-switching are cd-89o.6."""
+def _kib(n):
+    """Bytes -> a short 'NNNk' string; '-' for None."""
+    return "-" if n is None else "%dk" % (n // 1024)
 
-    def __init__(self, display, game_input):
+
+class DiagMode:
+    """On-device diagnostics (bead cd-89o.6). Two pages; `CONFIRM` (A) cycles,
+    `CANCEL` (B) or the X+Y chord exits:
+
+      INPUT   per-chord effectiveness, held state, recent input trace
+              (cd-e3p.14 — evaluate the wait-chord bindings on real hardware)
+      SYSTEM  RAM (free / low-water / heap), flash, frame time, board + CP
+              version, actor / turn / depth counts
+
+    The always-on diagnostic event-log ring buffer is a follow-up (cd-89o.10).
+    Text is rebuilt only every 3rd render (Label churn is costly)."""
+
+    PAGES = ("INPUT", "SYSTEM")
+
+    def __init__(self, display, game_input, metrics=None, world=None):
         import displayio
         import terminalio
         import util
 
         self.display = display
         self.input = game_input
+        self.metrics = metrics
+        self.world = world
         self.group = displayio.Group()
         self._label = util.init_label(terminalio.FONT, 0x33FF33, x=2, y=6, text="")
         self.group.append(self._label)
         self._every = 3        # refresh the text every N ticks (Label churn is costly)
         self._n = 0
+        self._page = 0
 
     def tick(self, events, now):
         if im.CANCEL in events:
             return "exit"
+        if im.CONFIRM in events:
+            self._page = (self._page + 1) % len(self.PAGES)
+            self._label.text = self._text()      # repaint immediately on a page flip
         return None
 
     def render(self):
@@ -353,8 +372,13 @@ class DiagMode:
         self._label.text = self._text()
 
     def _text(self):
+        if self.PAGES[self._page] == "SYSTEM":
+            return self._text_system()
+        return self._text_input()
+
+    def _text_input(self):
         inp = self.input
-        lines = ["INPUT DIAG   X+Y exits", "chord        fire miss sprd"]
+        lines = ["INPUT DIAG   A:page B:exit", "chord        fire miss sprd"]
         for row in inp.chord_stats():
             spread = row["last_spread_ms"]
             lines.append(
@@ -371,6 +395,35 @@ class DiagMode:
         for t_ms, kind, detail in inp.trace()[-6:]:
             lines.append("%7d %-7s %s" % (t_ms, kind, detail if detail else ""))
         return "\n".join(lines)
+
+    def _text_system(self):
+        lines = ["SYSTEM DIAG  A:page B:exit"]
+        m = self.metrics
+        if m is None:
+            lines.append("(no metrics)")
+        else:
+            lines.append("ram  free %-6s low %s" % (_kib(m.free), _kib(m.free_low)))
+            lines.append("ram  used %-6s heap %s" % (_kib(m.alloc), _kib(m.heap)))
+            lines.append("gc.collect %d ms  (n=%d)" % (m.collect_ms, m.ram_samples))
+            ff, ft = m.flash()
+            lines.append("flash free %s / %s" % (_kib(ff), _kib(ft)))
+            ver, osname = m.environment()
+            lines.append("cpy  %s  %s" % (ver, osname))
+            lines.append("frame %d ms  max %d ms" % (m.frame_ms, m.frame_ms_max))
+        lines.append("board  %s" % _board_id())
+        w = self.world
+        if w is not None:
+            lines.append("actors %d  turn %d  depth %d"
+                         % (len(w.actors), w.turn, w.depth))
+        return "\n".join(lines)
+
+
+def _board_id():
+    try:
+        import board
+        return getattr(board, "board_id", "?")
+    except ImportError:
+        return "?"
 
 
 def _first_action(events):

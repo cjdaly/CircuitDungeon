@@ -134,6 +134,7 @@ Chapter_7/game/
   input.py         # InputModel: raw buttons -> named events  (§3; cd-e3p.11)
   ai.py            # per-monster idle/wander/chase  (§6; cd-e3p.4)
   log.py           # message log  (§11; cd-e3p.9)
+  metrics.py       # RAM / flash / frame-time readout for DiagMode  (§4.1; cd-89o.6)
   world.py         # Pure core: grid, actors, movement, scheduler, turn loop,
                    #   combat, camera, line-of-sight. No displayio/board.
   hardware.py      # forked verbatim + X/Y face buttons wired for PicoSystem
@@ -142,7 +143,7 @@ Chapter_7/game/
                    #   for the generator (cd-dsc) but nothing calls it yet
   tiles/           # terrain/creatures/heroes/objects .bmp + palette + tiles.json
 Chapter_7/tests/
-  test_{world,input,modes,turn,ai,combat,log,scene}.py   # off-device: python3 <file>
+  test_{world,input,modes,turn,ai,combat,log,metrics,scene}.py  # off-device: python3 <file>
 ```
 
 The **`world.py` / presentation split is the fork's main structural move** and
@@ -173,9 +174,9 @@ the `.lvl` exit/event trigger system · pixel-scroll camera.
   it lands with the art (`cd-e17.*`) and the polish pass.
 - No FOV — the whole camera window is drawn. `cd-e3p.6` hooks fog-of-war into
   `PlayMode._paint_terrain` / `_render`.
-- `MenuMode` is a stub overlay — real screen is `cd-e3p.13`. `DiagMode`
-  shows a live input page (`cd-e3p.14`); RAM/flash/timing pages are
-  `cd-89o.6`.
+- `MenuMode` is a stub overlay — real screen is `cd-e3p.13`. `DiagMode` has
+  INPUT + SYSTEM pages (§4.4, `cd-e3p.14` / `cd-89o.6`); the always-on
+  diagnostic event-log ring buffer is still open (`cd-89o.10`).
 
 ### 2.4 Actor representation
 
@@ -213,7 +214,7 @@ A **mode** is an object with `tick(events, now)`, `render()`, and a `.group`
 |---|---|---|---|
 | play | `PlayMode` | Option-G scene: 13×13 terrain viewport + camera + actor layer + empty HUD region groups (`LAYOUT.md`, `cd-oht.2`) | — (base) |
 | menu | `MenuMode` → `_StubOverlay` | centred label; real screen is `cd-e3p.13` | `A+B` chord |
-| diag | `DiagMode` | live input page — `chord_stats()` / held state / trace (`cd-e3p.14`); RAM/flash/timing pages are `cd-89o.6` | `X+Y` chord |
+| diag | `DiagMode` | two pages, `A` cycles (§4.4): **INPUT** — `chord_stats()` / held / trace (`cd-e3p.14`); **SYSTEM** — RAM / flash / frame-time / board+CP / actor counts (`cd-89o.6`) | `X+Y` chord |
 | game-over | `GameOverMode` | "YOU DIED" — `CONFIRM` calls the restart callback (§9.2) | `stack.show()` on death |
 
 `tick()` returns `"exit"` to ask the stack to drop back to play (the menu/diag
@@ -245,11 +246,39 @@ bottom; at most one overlay sits on top (never two).
 
 ```
 each ~20fps tick:
+    metrics.maybe_sample_ram(now)                  # §4.4 — gc.collect() on a timer
     events = input.tick(read_buttons(), now)
     stack.handle(events, now)
     input.repeat_paused = stack.overlay_active()   # no d-pad repeat in a menu
     stack.render(screen); screen.refresh()
+    metrics.note_frame(dt)
 ```
+
+### 4.4 Diagnostics (`cd-89o.6`)
+
+`DiagMode` has two pages; `CONFIRM` (A) cycles, `CANCEL` (B) or the `X+Y`
+chord exits. The text rebuilds only every 3rd render — `Label` churn is the
+expensive part.
+
+- **INPUT** — `chord_stats()` (per-binding fired / missed / spread), held
+  buttons, in-flight chord candidates, and the tail of the input trace.
+  Built to evaluate the wait-chord bindings on real hardware (`cd-e3p.14`).
+- **SYSTEM** — from `game/metrics.py` (pure: `gc` / `os` / `sys` / `time`):
+  - **RAM** — `gc.mem_free()` / `gc.mem_alloc()` read *after* `gc.collect()`,
+    since raw `mem_free()` counts not-yet-collected garbage as used. The
+    engine loop calls `metrics.maybe_sample_ram(now)` every tick, but it
+    only collects + reads on a ~0.5 Hz timer (`RAM_INTERVAL`) — `collect()`
+    costs a few ms. `free_low` is the low-water mark since boot: the number
+    that says how close to the edge you actually got.
+  - **flash** — `os.statvfs("/")` free / total.
+  - **frame time** — last and max ms (`metrics.note_frame`).
+  - board id, CircuitPython version, actor / turn / depth counts.
+  - Off-device (`gc` has no `mem_free`) the RAM fields read `None` → shown
+    as `-`; `metrics` still runs, tested headless in `test_metrics.py`.
+
+The always-on diagnostic **event-log ring buffer** (compact codes recorded
+from boot, so a bug is captured before you go looking) is a follow-up,
+`cd-89o.10` — deliberately split from this readout.
 
 ## 5. Turn loop
 
