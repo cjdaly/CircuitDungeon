@@ -7,7 +7,12 @@
 
 import displayio
 import adafruit_imageload
-from adafruit_display_text import label
+# bitmap_label, NOT label: label.Label is a Group with one TileGrid per glyph,
+# and re-assigning `.text` frees + reallocates all of them. The status line
+# rebuilds every turn (the turn counter is in it), so ~1000 turns shredded the
+# heap and a later 84-byte alloc in DiagMode OOM'd (cd-yl4). bitmap_label
+# renders into a single Bitmap it reuses when the text fits.
+from adafruit_display_text import bitmap_label
 
 _TILES_DIR = "/tiles/"
 
@@ -45,7 +50,7 @@ def load_sprite(filename, w, h, tw, th, x=0, y=0, transparent=0):
 
 
 def init_label(font, color, x=0, y=0, text=""):
-    lbl = label.Label(font, color=color, text=text)
+    lbl = bitmap_label.Label(font, color=color, text=text)
     lbl.x = x
     lbl.y = y
     return lbl

@@ -9,6 +9,7 @@
 #
 # Governed by doc/ENGINE.md section 1 (turn model).
 
+import fov as fov_mod
 import log as log_mod
 
 # Actors are plain dicts in a list, not class instances: CircuitPython has no
@@ -55,6 +56,7 @@ def world_from_level(level, start="up"):
     world = World(level["grid"], wall_tiles=(WALL_TILE,), depth=level["depth"])
     sx, sy = level[start]
     world.add_actor(make_hero(sx, sy))
+    world.refresh_fov()
     return world
 
 
@@ -73,6 +75,15 @@ class World:
         self.transition = None   # "up" | "down" set when the hero steps on stairs
         self.height = len(grid)
         self.width = len(grid[0]) if grid else 0
+
+        # Field of view (cd-e3p.6). Two bit-packed masks, width*height bits each
+        # — ~288 B apiece for a 48×48 level. `visible` is recomputed every hero
+        # move; `explored` only ever gains bits (fog-of-war memory, reset when
+        # the level regenerates). refresh_fov() fills them; modes.PlayMode reads
+        # is_visible()/is_explored() when painting (dimming is cd-oht.6).
+        self._fov_bytes = (self.width * self.height + 7) // 8
+        self.visible = bytearray(self._fov_bytes)
+        self.explored = bytearray(self._fov_bytes)
 
     @property
     def hero(self):
@@ -118,6 +129,50 @@ class World:
 
     def blocked(self, x, y):
         return self.is_wall(x, y) or self.actor_at(x, y) is not None
+
+    # -- field of view (ENGINE.md §8, bead cd-e3p.6) --------------------
+
+    def is_visible(self, x, y):
+        """In the hero's current line of sight (from the last refresh_fov())."""
+        if not self.in_bounds(x, y):
+            return False
+        i = y * self.width + x
+        return bool(self.visible[i >> 3] & (1 << (i & 7)))
+
+    def is_explored(self, x, y):
+        """Seen at least once this level — drawn dim when not also visible."""
+        if not self.in_bounds(x, y):
+            return False
+        i = y * self.width + x
+        return bool(self.explored[i >> 3] & (1 << (i & 7)))
+
+    def refresh_fov(self):
+        """Recompute `visible` from the hero's position (walls block sight);
+        OR the result into `explored`. Cheap enough to call every hero move."""
+        h = self.hero
+        vis = self.visible
+        for k in range(len(vis)):
+            vis[k] = 0
+        if h is None:
+            return
+        exp = self.explored
+        w = self.width
+        grid = self.grid
+        walls = self.wall_tiles
+        in_bounds = self.in_bounds
+
+        def _blocked(x, y):
+            return not in_bounds(x, y) or grid[y][x] in walls
+
+        def _mark(x, y):
+            if not in_bounds(x, y):
+                return
+            i = y * w + x
+            bit = 1 << (i & 7)
+            vis[i >> 3] |= bit
+            exp[i >> 3] |= bit
+
+        fov_mod.compute(h["x"], h["y"], _blocked, _mark)
 
     # -- movement (the logical half of ENGINE.md 1.4) --------------------
 
@@ -230,6 +285,7 @@ def resolve_turn(world, scheduler, action, monster_turn):
             break                          # nothing swings at a dead hero
         monster_turn(world, actor)
     _upkeep(world)
+    world.refresh_fov()        # the hero may have moved (cd-e3p.6)
     world.turn += 1
     return True
 

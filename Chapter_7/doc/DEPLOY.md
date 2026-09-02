@@ -16,18 +16,22 @@ CIRCUITPY/
   util.py  level_loader.py
   tiles/  terrain.bmp creatures.bmp heroes.bmp objects.bmp
           (palette.* / tiles.json copied too; not imported yet)
-  lib/  adafruit_display_text/  adafruit_imageload/
+  lib/  adafruit_display_text/  adafruit_imageload/  adafruit_ticks.mpy
 ```
 
 `doc/`, `tools/`, and `tests/` stay on the desktop.
+
+`adafruit_ticks.mpy` is a dependency of `adafruit_display_text.bitmap_label`
+(which `util.py` uses instead of `label` — `cd-yl4`). Missing it gives
+`ImportError: no module named 'adafruit_ticks'` at boot.
 
 **No `neopixel` on the PicoSystem.** It has no NeoPixel — its status LED is a
 plain RGB LED on 3 PWM pins (`board.LED_R`/`LED_G`/`LED_B` = GPIO 14/13/15),
 and CircuitPython defines no `board.NEOPIXEL` for this board.
 `hardware._picosystem()` sets `neopixel = None` and never imports the lib, so
 `neopixel.mpy` in `lib/` is an unused leftover — harmless to keep, fine to
-delete. `deploy.sh` only checks for `adafruit_display_text` and
-`adafruit_imageload`.
+delete. `deploy.sh` checks for `adafruit_display_text`, `adafruit_imageload`,
+and `adafruit_ticks`.
 
 ## Current device state (2026-08-30)
 
@@ -42,6 +46,7 @@ Known-good baseline (`downloads/`, gitignored):
 | bundle | `adafruit-circuitpython-bundle-10.x-mpy-20260820` |
 | `adafruit_display_text` | 5.0.5 |
 | `adafruit_imageload` | 1.24.8 |
+| `adafruit_ticks` | 1.1.7 (bundle 20260820) — added 2026-09-01 for `bitmap_label` |
 | `neopixel` | 6.4.2 (unused on the PicoSystem path) |
 
 CP 10.x has every displayio API Ch7 uses (`TileGrid.hidden`,
@@ -61,9 +66,9 @@ really just: does the Ch7 code run, and what's the RAM headroom.
    version automatically:
    ```
    pip install circup
-   circup --path /Volumes/CIRCUITPY install adafruit_display_text adafruit_imageload
+   circup --path /Volumes/CIRCUITPY install adafruit_display_text adafruit_imageload adafruit_ticks
    ```
-   (or hand-copy those two folders from the matching bundle's `lib/`.
+   (or hand-copy those folders + `adafruit_ticks.mpy` from the matching bundle's `lib/`.
    `neopixel.mpy` is not used on this board — see above.)
 
 ## Why deploying isn't just "copy the files"
@@ -236,6 +241,140 @@ run (didn't reach them).
 
 ![The message band reads "The way out has sealed behind you." after the hero stepped onto the depth-1 up-stairs; status band "HP 20/20  Depth 1  Turn 31  Gold 0".](../pics/test2/t2-stairs-sealed.jpg)
 ![The on-screen traceback: modes.py:91 handle → modes.py:272 tick → world.py:224 resolve_turn → modes.py:285 _monster_turn → ai.py:54 take_turn → ai.py:90 _step_toward → world.py:253 resolve_attack, ending "AttributeError: 'str' object has no attribute 'capitalize'".](../pics/test2/t2-hit-crash.jpg)
+
+## Third playtest — 2026-09-01 (evening)
+
+Deployed `696440c` — the corpse-follow fix + the first round of memory
+mitigations (`cd-yl4` A/B/C: preload all sprite sheets, stop the DIAG label
+churn, `gc.collect()` + release the old level before regenerating).
+
+**What held.** Killed 3 monsters with no imageload crash (sheet preload
+worked). Corpses stayed put. Opened the SYSTEM diag with no OOM, and
+`frame max` dropped from 7783 ms to **790 ms** — the per-frame label rebuild
+is gone.
+
+**Still crashed on descent.** Stepping onto the down-stairs to depth 2:
+
+```
+File "engine.py", line 80, in _change_level
+File "generator.py", line 59, in generate
+File "generator.py", line 208, in _connect
+File "generator.py", line 169, in _dist_grid
+MemoryError: memory allocation failed, allocating 4096 bytes
+```
+
+`gc.collect()` frees but **does not compact** — the heap had ~34 KB free
+(see below) yet no single contiguous 4 KB run for `_dist_grid`'s BFS buffer.
+Fixed by moving `generator._DIST` / `_QUEUE` to module scope, allocated once
+at import when the heap is clean, and reused by every `generate()` (and
+`_spawn_pool` now samples instead of building a ~1500-tile list). ~12 KB
+resident for the process; **needs a redeploy to confirm.**
+
+**RAM after restart + roaming depth 1** (turn 17, 4 actors):
+
+| | |
+|---|---|
+| free | 41 KB |
+| low-water (`free_low`) | **34 KB** |
+| used / heap | 118 KB / 159 KB |
+| frame / max | 0 ms / 790 ms |
+
+34 KB low-water on depth 1 with nothing unusual going on — the margin is
+thin. `cd-yl4` **D** (swap `adafruit_display_text` labels for `bitmap_label`)
+and possibly **E** (48×48 levels) are the next levers.
+
+![The on-screen traceback ending "MemoryError: memory allocation failed, allocating 4096 bytes", through engine.py _change_level → generator.generate → _connect → _dist_grid.](../pics/test3/t3-descent-crash.jpg)
+![SYSTEM diag after restart: ram free 41k / low 34k, used 118k / heap 159k, gc.collect 16 ms (n=20), flash free 15014k / 15328k, cpy 10.2.1 rp2040, frame 0 ms max 790 ms, board pimoroni_picosystem, actors 4 turn 17 depth 1.](../pics/test3/t3-diag-system.jpg)
+![Gameplay after restart: HP 20/20 Depth 1 Turn 28, the hero on the up-stairs in a flagstone room with dirt corridors branching off, message band "The way out has sealed behind you."](../pics/test3/t3-restart-play.jpg)
+
+## Fourth playtest — 2026-09-01 (late)
+
+Deployed the working tree with the generator fix + FOV (`cd-e3p.6`) + fog of
+war (`cd-oht.6`). **Big step:** descent works — reached **depth 6 at turn
+1029** with no crash, and the fog of war reads well (revealed rooms, dark
+unexplored rock, corridors opening up as you walk).
+
+**Then diag crashed — but on an 84-byte allocation:**
+
+```
+File "modes.py", line 439, in _repaint
+File "adafruit_display_text/label.py", line 331, in _update_text
+MemoryError: memory allocation failed, allocating 84 bytes
+```
+
+84 bytes, right after a `gc.collect()` — the heap wasn't fragmented, it was
+**exhausted**. Cause: `PlayMode._paint_status` rebuilds the status label every
+turn (the turn counter is in it), and `label.Label` frees and reallocates one
+`TileGrid` per glyph (~38) on every `.text` assignment. ~1000 turns of that
+churn ate the heap.
+
+Fixes:
+
+- **`util.init_label` → `bitmap_label.Label`** — a single `Bitmap` redrawn in
+  place, not a Group of per-glyph TileGrids. (`cd-yl4` D — no longer
+  speculative.)
+- **Status line is now fixed-width** (`HP %2d/%-2d  Dep %2d  Turn %5d  Gold
+  %4d`) so its pixel box never changes and `bitmap_label` reuses its bitmap
+  instead of reallocating as the digits roll over.
+
+(This alone wasn't enough — see the fourth playtest below.)
+
+**`bitmap_label` needs `adafruit_ticks`** — the first redeploy hit
+`ImportError: no module named 'adafruit_ticks'` at boot. Copied
+`adafruit_ticks.mpy` (1.1.7) into `CIRCUITPY/lib/`; `deploy.sh` now checks for
+it.
+
+**Then diag OOM'd again** — this time in `bitmap_label._reset_text` allocating
+**9108 bytes**: a `bitmap_label` renders its *whole* multi-line string into
+one contiguous `Bitmap`, and the diag page is ~10 lines. `ready free` was only
+**48 KB** (boot 115 KB → the generator's ~12 KB resident BFS scratch is the
+bulk of the drop from 134 KB).
+
+Fixes:
+
+- **DiagMode is now a grid of per-line labels** — 16 small constant-width
+  `bitmap_label`s, built lazily on first open and reused (each rewrites its
+  own bitmap in place, no big contiguous alloc). Guarded: a low-memory open
+  degrades to a partial page instead of crashing the game.
+- Every diag `_repaint` path catches `MemoryError` — the debug overlay can
+  never take the game down.
+
+`ready free` at 48 KB was thin, so **levels are now 48×48** (`generator.py`:
+`LEVEL_W/H = 48`, `ROOM_TARGET 10`, `ROOM_MAX 9`): the BFS scratch drops
+12 KB → ~7 KB, the persistent grid 4.6 KB → 2.3 KB, the FOV masks 512 B →
+288 B each, and generation is quicker. ~10 rooms per floor, still fully
+connected, still scrolls under the 13×13 viewport. Needs a redeploy + a fresh
+long run to see where `ready free` and the low-water land now.
+
+![Depth 6, turn 1029: fog of war — a lit flagstone room, the hero mid-map, a dark unexplored band to the left, message "You descend to depth 6."](../pics/test4/t4-depth6-fog.jpg)
+![The REPL traceback: modes.py:439 _repaint → adafruit_display_text label.py _update_text, ending "MemoryError: memory allocation failed, allocating 84 bytes".](../pics/test4/t4-diag-crash.jpg)
+
+## Fifth playtest — 2026-09-02
+
+Full tree (48×48 levels, per-line diag, `bitmap_label` HUD, fog of war).
+**Stable.** Reached **depth 7, turn 1153** — a longer run than the one that
+crashed before — with no MemoryError. Combat, descent, fog, the per-line diag
+page all render cleanly. The fixed-width status line reads
+`HP 17/20 Dep  7  Turn  1153  Gold    0`.
+
+**RAM holds, but the margin is small:**
+
+| | |
+|---|---|
+| free / low-water | **22 KB / 22 KB** |
+| used / heap | 137 KB / 159 KB |
+| `gc.collect` | 9 ms (n=319) |
+| frame / max | 0 ms / 1770 ms |
+
+`free == free_low == 22 KB` — it hasn't dipped below 22 KB, but it also
+hasn't been *lower* than right now, which is consistent with a very slow
+ongoing decline over the run (7 descents, ~1150 turns). Playable and no longer
+crashing; still worth one more pass on per-turn / per-descent allocation
+(`cd-yl4`) before calling it closed. `bitmap_label` for the HUD is the biggest
+remaining question — its win over `label.Label` here is churn, not footprint.
+
+![Depth 7, turn 1153: a lit flagstone room with two slime sprites and a corpse, the hero centred, a dark wall band on the right, message "The slime dies."](../pics/test5/t5-depth7-play.jpg)
+![SYSTEM diag, stable at turn 1153 / depth 7: ram free 22k / low 22k, used 137k / heap 159k, gc.collect 9 ms (n=319), flash free 14994k / 15328k, frame 0 ms max 1770 ms, actors 4.](../pics/test5/t5-diag-stable.jpg)
 
 ## Troubleshooting
 

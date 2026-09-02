@@ -25,10 +25,10 @@ BSP if rooms come out too sparse or clumped.
 
 | | value | note |
 |---|---|---|
-| level size | **64 × 64** tiles | fixed for v1; depth-scaled size is a `cd-dsc.6` tweak |
-| grid storage | one `bytearray` per row | 64 B/row × 64 = **4096 B**; trivial vs 264 KB SRAM |
-| rooms per level | ~9–16 (tunable) | rejection-sample; give up after K tries per room |
-| room size | 4–11 per side (tunable) | 1-tile buffer enforced between rooms |
+| level size | **48 × 48** tiles | was 64×64; shrunk for RP2040 RAM (`cd-yl4`) — the BFS scratch + grid scale with area |
+| grid storage | one `bytearray` per row | 48 B/row × 48 = **2304 B**; trivial vs 264 KB SRAM |
+| rooms per level | ~8–10 (`ROOM_TARGET` 10) | rejection-sample; give up after `ROOM_TRIES` |
+| room size | 4–9 per side (tunable) | 1-tile buffer enforced between rooms |
 | corridors | 1-tile wide, orthogonal L-bends | composes with 4-way movement (`ENGINE.md` §1.3) |
 
 Tile indices (`game/tiles/tiles.json`): room floor = **1** (flagstone),
@@ -40,8 +40,8 @@ The grid starts all-wall (2); rooms and corridors carve floor.
 ## 3. Generation steps
 
 1. `random.seed(run_seed + depth)` (§6).
-2. Fill the 64×64 grid with wall (2).
-3. **Rooms:** for each of ~9–16 attempts, roll a rect within bounds, reject if
+2. Fill the `LEVEL_W × LEVEL_H` (48×48) grid with wall (2).
+3. **Rooms:** for each of `ROOM_TRIES` attempts, roll a rect within bounds, reject if
    it (±1) overlaps an existing room; else carve flagstone (1) and append
    `(x, y, w, h)` to `rooms`.
 4. **Spine:** for consecutive rooms in `rooms` order, carve an L-bend dirt (0)
@@ -108,7 +108,7 @@ gameplay RNG runs. Same run replays identically; each depth is deterministic.
 
 ```python
 {
-  "grid": [bytearray, ...],        # 64 rows × 64 tile indices
+  "grid": [bytearray, ...],        # LEVEL_H rows × LEVEL_W tile indices (48×48)
   "rooms": [(x, y, w, h), ...],
   "up": (x, y), "down": (x, y),
   "spawn_points": [(x, y), ...],
@@ -121,9 +121,8 @@ gameplay RNG runs. Same run replays identically; each depth is deterministic.
   `main.py._new_game(depth)` calls it, then drops placeholder monsters on the
   first few `spawn_points` until `cd-dsc.4`. `_test_room()` is gone.
 - Terrain TileGrid is **viewport-sized** — `modes.PlayMode` (as of `cd-oht.2`)
-  holds a 13×13 grid repainted from `world.camera_for(...)` on each camera
-  move, **not** the whole 64×64 level. Verified end-to-end in
-  `test_scene.GeneratedLevel`.
+  holds a 13×13 grid repainted from `world.camera_for(...)`, **not** the whole
+  level. Verified end-to-end in `test_scene.GeneratedLevel`.
 
 ## 8. Child beads
 
@@ -155,11 +154,21 @@ gameplay RNG runs. Same run replays identically; each depth is deterministic.
 
 ### 8.2 As built (`cd-dsc.3`) — connectivity + stairs
 
-- `_dist_grid(grid, start)` → a flat `bytearray[64*64]` of BFS step counts over
-  non-wall tiles (`_UNREACHED` = 255 elsewhere). Flat, **not** a
-  `{(x, y): steps}` dict — that dict is ~1500 tuple keys and would blow the
-  RP2040 heap. Queue is an int list drained by a head index (no
-  `collections.deque`). `_dist_at(dist, (x, y))` indexes it.
+- `_dist_grid(grid, start)` → a flat `bytearray[LEVEL_W*LEVEL_H]` of BFS step
+  counts over non-wall tiles (`_UNREACHED` = 255 elsewhere). Flat, **not** a
+  `{(x, y): steps}` dict — that dict would be ~1000 tuple keys and blow the
+  RP2040 heap. `_dist_at(dist, (x, y))` indexes it.
+- **`_DIST` and `_QUEUE` are module-level, allocated once at import** — a
+  `bytearray(_CELLS)` + an `array('H', 2*_CELLS)` (~2.3 KB + ~4.6 KB at
+  48×48; ~7 KB total resident). `_dist_grid` refills and returns `_DIST`;
+  the queue is that fixed `array` walked with head/tail indices (no growing
+  list, no `collections.deque`). Why: mid-game the heap is too fragmented to
+  hand out a fresh contiguous block that size, and **descent's regeneration
+  was OOMing on exactly that** (`cd-yl4`). `generate()` never needs two live
+  distance grids, so one shared buffer is enough.
+- `_spawn_pool` uses **random rejection sampling**, not a materialised
+  candidate list — the full ~500-tile list was the same kind of transient
+  heap spike.
 - `_connect(grid, rooms, rng)` runs right after layout: flood from `rooms[0]`;
   for any room whose centre isn't reached, carve a repair corridor to the
   nearest connected room and re-flood. Loops until every room is in. Result:

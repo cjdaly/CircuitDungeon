@@ -110,7 +110,9 @@ class PlayMode:
     cd-oht.3), an icon rail (cd-oht.5, empty), and a message band (cd-e3p.9;
     scroll is cd-oht.4). doc/LAYOUT.md §1."""
 
-    VOID_TILE = 2  # shown for viewport cells outside the level (wall-top)
+    VOID_TILE = 2  # wall-top — drawn for cells off the level *and* for
+                   # never-seen cells (fog of war, cd-oht.6): the dungeon
+                   # reads as solid rock until the hero's FOV reveals it.
 
     def __init__(self, display, world):
         import displayio
@@ -178,6 +180,7 @@ class PlayMode:
         self.scheduler = world_mod.RoundRobinScheduler(world)
         self._msg_seq = -1          # last world.log.seq shown on the message line
         self._status_sig = None     # last (hp, max_hp, depth, turn, gold) painted
+        world.refresh_fov()         # seed FOV before the first paint (cd-oht.6)
         self._recenter()
         self._sync_actor_sprites()
         self._paint_terrain()
@@ -194,14 +197,20 @@ class PlayMode:
         )
 
     def _paint_terrain(self):
-        g = self.world.grid
-        w, h = self.world.width, self.world.height
+        """Repaint the 13×13 terrain window. Fog of war (cd-oht.6): a cell is
+        drawn as its real tile only once the hero has seen it
+        (`world.is_explored`); everything else is `VOID_TILE`. No dim/lit
+        distinction yet — that needs a darker tile row from the art pass."""
+        wd = self.world
+        g = wd.grid
+        w, h = wd.width, wd.height
+        explored = wd.is_explored
         for row in range(MAP_TILES):
             wy = self.cam_y + row
             in_y = 0 <= wy < h
             for col in range(MAP_TILES):
                 wx = self.cam_x + col
-                if in_y and 0 <= wx < w:
+                if in_y and 0 <= wx < w and explored(wx, wy):
                     self._terrain[col, row] = g[wy][wx]
                 else:
                     self._terrain[col, row] = self.VOID_TILE
@@ -233,11 +242,13 @@ class PlayMode:
         self._synced_roster = self.world.roster_version
 
     def _render(self):
-        for actor, spr in zip(self.world.actors, self._actor_sprites):
+        wd = self.world
+        for actor, spr in zip(wd.actors, self._actor_sprites):
             vx = actor["x"] - self.cam_x
             vy = actor["y"] - self.cam_y
-            if 0 <= vx < MAP_TILES and 0 <= vy < MAP_TILES:
-                spr.hidden = False
+            if (0 <= vx < MAP_TILES and 0 <= vy < MAP_TILES
+                    and wd.is_visible(actor["x"], actor["y"])):
+                spr.hidden = False          # hide anything outside the hero's FOV
                 spr.x = vx * TILE
                 spr.y = vy * TILE
                 spr[0, 0] = actor["tile"]
@@ -249,8 +260,10 @@ class PlayMode:
     _STATUS_CHARS = 39   # ~ (240 - 4) / 6 for terminalio
 
     def _paint_status(self):
-        """Repaint the top band only when a shown value changed — Label text
-        assignment rebuilds the glyph bitmap, so it's not free."""
+        """Repaint the top band only when a shown value changed. The turn
+        counter moves every turn, so the format is **fixed-width** — a
+        constant bounding box lets bitmap_label rewrite in place instead of
+        reallocating its Bitmap (cd-yl4)."""
         h = self.world.hero
         sig = (h.get("hp", 0), h.get("max_hp", 0), self.world.depth,
                self.world.turn, h.get("gold", 0))
@@ -258,7 +271,7 @@ class PlayMode:
             return
         self._status_sig = sig
         self._status_label.text = (
-            "HP %s/%s   Depth %s   Turn %s   Gold %s" % sig
+            "HP %2d/%-2d Dep %2d  Turn %5d  Gold %4d" % sig
         )[: self._STATUS_CHARS]
 
     # -- message line (cd-e3p.9; cd-oht.4 adds scroll / a longer history) --
@@ -278,8 +291,9 @@ class PlayMode:
         # input.py, so >1 move in a single ~50ms tick is nearly impossible).
         self.cycle += 1                        # presentation pulse (ENGINE.md 1.5)
         action = _first_action(events)
+        acted = False
         if action is not None:
-            world_mod.resolve_turn(
+            acted = world_mod.resolve_turn(
                 self.world, self.scheduler, action, self._monster_turn
             )
             if self.world.roster_version != self._synced_roster:
@@ -288,7 +302,9 @@ class PlayMode:
             self._paint_message()              # combat / event text (cd-e3p.9)
         cam = (self.cam_x, self.cam_y)
         self._recenter()
-        if (self.cam_x, self.cam_y) != cam:
+        # a resolved turn may have changed the FOV even if the camera is
+        # clamped and didn't move (cd-oht.6), so repaint on either.
+        if acted or (self.cam_x, self.cam_y) != cam:
             self._paint_terrain()
         return None
 
@@ -380,29 +396,55 @@ class DiagMode:
 
     The always-on diagnostic event-log ring buffer is a follow-up (cd-89o.10).
 
-    Assigning `Label.text` rebuilds the whole glyph bitmap and needs a ~2 KB
-    contiguous block — which OOM'd mid-game (cd-yl4). So the label is rebuilt
-    only when the rendered text actually changes (and at most every Nth
-    render), with a gc.collect() right before the allocation."""
+    The page is drawn as a grid of per-line labels, each a small
+    constant-width `bitmap_label` that reuses its bitmap on every update —
+    zero allocation once built. They're built **lazily on first open** (and
+    kept), so a game that never opens diag never pays for them, and each is
+    guarded so a low-memory open degrades to a partial page instead of
+    crashing. A `label.Label` reallocated every frame had shredded the heap;
+    one `bitmap_label` for the whole page wanted a ~9 KB contiguous Bitmap
+    and OOM'd on open (cd-yl4)."""
 
     PAGES = ("INPUT", "SYSTEM")
+    _MAX_LINES = 16
+    _LINE_W = 38          # ~terminalio chars across 240 px
+    _LINE_H = 11          # px between line baselines
+    _BLANK = " " * _LINE_W
 
     def __init__(self, display, game_input, metrics=None, world=None):
         import displayio
-        import terminalio
-        import util
 
         self.display = display
         self.input = game_input
         self.metrics = metrics
         self.world = world
         self.group = displayio.Group()
-        self._label = util.init_label(terminalio.FONT, 0x33FF33, x=2, y=6, text="")
-        self.group.append(self._label)
-        self._every = 4        # lower bound on renders between label rebuilds
+        self._lines = []            # built lazily by _ensure_lines()
+        self._built = False
+        self._shown = []
+        self._every = 4             # lower bound on renders between refreshes
         self._n = 0
-        self._shown = None     # last text pushed to the label
         self._page = 0
+
+    def _ensure_lines(self):
+        """Allocate the per-line labels the first time the page is drawn. If
+        memory is too tight to fit all 16, take what we can and never retry —
+        a short diag page beats a dead game."""
+        if self._built:
+            return
+        self._built = True
+        import terminalio
+        import util
+        gc.collect()
+        for i in range(self._MAX_LINES):
+            try:
+                lbl = util.init_label(terminalio.FONT, 0x33FF33,
+                                      x=2, y=6 + i * self._LINE_H, text=self._BLANK)
+            except MemoryError:
+                break
+            self.group.append(lbl)
+            self._lines.append(lbl)
+        self._shown = [self._BLANK] * len(self._lines)
 
     def tick(self, events, now):
         if im.CANCEL in events:
@@ -418,19 +460,34 @@ class DiagMode:
             self._repaint()
 
     def _repaint(self):
-        txt = self._text()
-        if txt == self._shown:
-            return
-        gc.collect()                              # defrag before the ~2 KB alloc
-        self._label.text = txt
-        self._shown = txt
+        self._ensure_lines()
+        want = self._page_lines()
+        for i in range(len(self._lines)):
+            row = want[i] if i < len(want) else ""
+            row = ("%-*s" % (self._LINE_W, row))[: self._LINE_W]
+            if row == self._shown[i]:
+                continue
+            try:
+                self._lines[i].text = row        # constant width -> bitmap reused
+            except MemoryError:
+                gc.collect()
+                try:
+                    self._lines[i].text = row
+                except MemoryError:
+                    return                       # skip this pass; game lives on
+            self._shown[i] = row
 
-    def _text(self):
+    @property
+    def text(self):
+        """The visible page as one string — for tests / logging, not render."""
+        return "\n".join(s.rstrip() for s in self._shown).rstrip()
+
+    def _page_lines(self):
         if self.PAGES[self._page] == "SYSTEM":
-            return self._text_system()
-        return self._text_input()
+            return self._lines_system()
+        return self._lines_input()
 
-    def _text_input(self):
+    def _lines_input(self):
         inp = self.input
         lines = ["INPUT DIAG   A:page B:exit", "chord        fire miss sprd"]
         for row in inp.chord_stats():
@@ -441,16 +498,15 @@ class DiagMode:
                    "-" if spread is None else spread)
             )
         snap = inp.snapshot()
-        held = " ".join(snap["held"]) or "-"
-        lines.append("held: " + held)
+        lines.append("held: " + (" ".join(snap["held"]) or "-"))
         if snap["chord_candidates"]:
             lines.append("forming: " + " ".join(snap["chord_candidates"]))
         lines.append("--- trace (newest last) ---")
         for t_ms, kind, detail in inp.trace()[-6:]:
             lines.append("%7d %-7s %s" % (t_ms, kind, detail if detail else ""))
-        return "\n".join(lines)
+        return lines
 
-    def _text_system(self):
+    def _lines_system(self):
         lines = ["SYSTEM DIAG  A:page B:exit"]
         m = self.metrics
         if m is None:
@@ -471,7 +527,7 @@ class DiagMode:
         if w is not None:
             lines.append("actors %d  turn %d  depth %d"
                          % (len(w.actors), w.turn, w.depth))
-        return "\n".join(lines)
+        return lines
 
 
 def _board_id():

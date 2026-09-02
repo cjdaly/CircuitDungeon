@@ -142,19 +142,20 @@ Chapter_7/game/
   modes.py         # ModeStack + PlayMode / MenuMode / DiagMode  (§4; cd-e3p.12)
   input.py         # InputModel: raw buttons -> named events  (§3; cd-e3p.11)
   ai.py            # per-monster idle/wander/chase  (§6; cd-e3p.4)
+  fov.py           # Pure: recursive shadowcasting field of view  (§8; cd-e3p.6)
   log.py           # message log  (§11; cd-e3p.9)
   metrics.py       # RAM / flash / frame-time readout for DiagMode  (§4.1; cd-89o.6)
   generator.py     # Pure: seed -> level dict (grid/rooms/stairs/spawns).
                    #   No displayio/board.  (LEVELGEN.md; cd-dsc.2)
   world.py         # Pure core: grid, actors, movement, scheduler, turn loop,
-                   #   combat, camera, line-of-sight. No displayio/board.
+                   #   combat, camera, line-of-sight, FOV state. No displayio.
   hardware.py      # forked verbatim + X/Y face buttons wired for PicoSystem
   util.py          # forked verbatim (displayio helpers)
   level_loader.py  # forked verbatim; the `.lvl` Level type is a handy target
                    #   for the generator (cd-dsc) but nothing calls it yet
   tiles/           # terrain/creatures/heroes/objects .bmp + palette + tiles.json
 Chapter_7/tests/
-  test_{world,input,modes,turn,ai,combat,log,metrics,generator,scene}.py  # python3 <file>
+  test_{world,input,modes,turn,ai,fov,combat,log,metrics,generator,scene}.py  # python3 <file>
 ```
 
 The **`world.py` / presentation split is the fork's main structural move** and
@@ -174,8 +175,10 @@ the `.lvl` exit/event trigger system · pixel-scroll camera.
 
 - The hero moves, turns advance, monsters chase and fight, bump-combat kills
   (corpses, xp), death → game-over, and combat text shows on the message line
-  (§§5–7, §9, §11). Still missing: FOV (`cd-e3p.6`), inventory (`cd-e3p.8`),
-  `_upkeep` regen, and the HUD content (`cd-oht.3`/`.4`/`.5`).
+  (§§5–7, §9, §11). FOV is computed and drawn as fog of war (§8,
+  `cd-e3p.6` / `cd-oht.6`). Still missing: inventory (`cd-e3p.8`), `_upkeep`
+  regen, the dim-vs-lit tile distinction, and the rest of the HUD content
+  (`cd-oht.4`/`.5`).
 - `PlayMode` lays out the Option-G regions (`cd-oht.2`): a 13×13 terrain
   viewport with a hero-centred clamped camera, plus empty `status_group` /
   `rail_group` / `message_group` for `cd-oht.3` / `.5` / `.4` to fill.
@@ -185,8 +188,9 @@ the `.lvl` exit/event trigger system · pixel-scroll camera.
   until `cd-dsc.4` reads the spawn tables and `cd-89o.1` owns seed/depth.
 - No idle animation yet — the placeholder tile sheets are one frame each;
   it lands with the art (`cd-e17.*`) and the polish pass.
-- No FOV — the whole camera window is drawn. `cd-e3p.6` hooks fog-of-war into
-  `PlayMode._paint_terrain` / `_render`.
+- FOV is drawn as fog of war (§8, `cd-e3p.6` / `cd-oht.6`): unseen cells are
+  rock, seen cells stay revealed, out-of-sight monsters are hidden. The
+  dim-vs-lit shading of remembered tiles waits on a dim tile from `cd-e17.5`.
 - `MenuMode` is a stub overlay — real screen is `cd-e3p.13`. `DiagMode` has
   INPUT + SYSTEM pages (§4.4, `cd-e3p.14` / `cd-89o.6`); the always-on
   diagnostic event-log ring buffer is still open (`cd-89o.10`).
@@ -275,11 +279,21 @@ each ~20fps tick:
 ### 4.4 Diagnostics (`cd-89o.6`)
 
 `DiagMode` has two pages; `CONFIRM` (A) cycles, `CANCEL` (B) or the `X+Y`
-chord exits. Assigning `Label.text` rebuilds the whole glyph bitmap and wants
-a ~2 KB contiguous block — it OOM'd mid-game (`cd-yl4`). So the label is
-rebuilt only when the rendered text *changes* (and at most every 4th render),
-with a `gc.collect()` immediately before the allocation. The frame-time
-readout is rounded to 10 ms so ordinary jitter doesn't count as a change.
+chord exits. RAM notes (all `cd-yl4`):
+
+- All labels are `bitmap_label.Label` (`util.init_label`), not `label.Label`
+  (a Group of one TileGrid per glyph, freed and rebuilt on every `.text =` —
+  the status line does that every turn and it shredded the heap over ~1000
+  turns).
+- The page is **16 per-line labels**, each a small constant-width
+  `bitmap_label` that rewrites its own bitmap in place. A single
+  `bitmap_label` for the whole page wanted one ~9 KB contiguous Bitmap and
+  OOM'd on open. The lines are built **lazily on first open** (so an unused
+  diag costs nothing) and every allocation is `MemoryError`-guarded — a
+  tight open gives a short page, never a crash.
+- Content is diffed per line; only changed lines touch a label. The
+  frame-time readout is rounded to 10 ms so jitter isn't a change. Refresh is
+  throttled to every 4th render.
 
 - **INPUT** — `chord_stats()` (per-binding fired / missed / spread), held
   buttons, in-flight chord candidates, and the tail of the input trace.
@@ -346,8 +360,10 @@ return True
 
 ### 5.3 What's still open
 
-- Repeat-pause while a monster is in view (§1.3) waits on FOV (`cd-e3p.6`);
-  the engine currently only pauses repeat for overlays.
+- Repeat-pause while a monster is in view (§1.3): `world.is_visible()` exists
+  now (§8), so the check is `any(world.is_visible(m["x"], m["y"]) for m in
+  world.monsters())` — not yet wired; the engine only pauses repeat for
+  overlays.
 
 ### 5.4 Descent between levels (`cd-e3p.10`)
 
@@ -369,7 +385,7 @@ play.load_world(world);  diag.world = world
 
 - **Regenerate on entry.** `generator.generate(seed, depth)` is deterministic,
   so re-entering a depth gives the *same layout* with *fresh* monsters — no
-  level state is persisted (RAM: one 64×64 level is enough).
+  level state is persisted (RAM: only the current level exists).
 - **Release the old level first.** `_change_level` nulls `self.world` /
   `play.world` / `diag.world` and `gc.collect()`s *before* calling
   `new_level` — the outgoing grid + `generate()`'s transient BFS buffers
@@ -445,7 +461,38 @@ v1 is **hero ↔ monster only** (nothing else has `hp`/`power`).
 *Open:* no level-up from xp (§9.1); no ranged attacks / to-hit roll (flat
 "always hits"); a "dead" hero sprite (`ART.md` §8).
 
-## 8. Field of view  *(cd-e3p.6 — open)*
+## 8. Field of view
+
+Resolves bead `cd-e3p.6`. `Chapter_7/game/fov.py` — pure, no displayio/board.
+
+- **Algorithm:** recursive shadowcasting, 8 octants (Björn Bergström /
+  RogueBasin). `fov.compute(ox, oy, blocked, mark, radius=8)` calls
+  `mark(x, y)` once per visible tile. `blocked(x, y)` must be total (out of
+  bounds = blocked). Cost ≈ radius² per octant, run once per hero move
+  (~1–4 ms on device); recursion depth ≤ radius.
+- **`RADIUS = 8`** — matches the monster `SIGHT` (§6), so it's roughly
+  symmetric: if the hero can see a tile, a monster there can see the hero.
+  Monster AI still uses the cheaper `world.los_clear` single ray, not this.
+- **State on `World`** — two **bit-packed** masks, `width·height` bits each
+  (~288 B apiece at 48×48):
+  - `world.visible` — recomputed from scratch every `world.refresh_fov()`
+    (zeroed, then re-marked). `world.is_visible(x, y)`.
+  - `world.explored` — only ever gains bits: fog-of-war memory. Reset when
+    the level is rebuilt (levels regenerate on entry — §5.4 — so there's no
+    cross-visit memory to keep). `world.is_explored(x, y)`.
+- **When it runs:** `world_from_level()` and `PlayMode.load_world()` seed it;
+  `resolve_turn()` calls `world.refresh_fov()` after upkeep (the hero may have
+  moved). Both accessors bounds-check, so callers don't have to.
+- **Rendering (`cd-oht.6`):** `PlayMode._paint_terrain` draws a cell as its
+  real tile only if `world.is_explored(x, y)`, else `VOID_TILE` (wall-top) —
+  so the dungeon reads as solid rock until the hero's FOV reveals it, and
+  stays revealed after. `_render` hides any actor sprite that isn't
+  `world.is_visible` (monsters vanish when they leave sight). `PlayMode.tick`
+  repaints the terrain after any resolved turn, not just on camera movement.
+- **Not done yet:** the **visible vs. explored** distinction is not drawn —
+  remembered-but-not-visible tiles look identical to lit ones. That needs a
+  dim tile variant from the art pass (`cd-e17.5`); the three-state model
+  (visible / explored-dim / unseen) is ready for it.
 
 ## 9. Player model
 

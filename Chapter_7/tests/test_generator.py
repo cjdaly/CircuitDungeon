@@ -53,12 +53,12 @@ def _flood(grid, start):
 
 
 class Shape(unittest.TestCase):
-    def test_grid_is_64x64_bytearrays(self):
+    def test_grid_is_level_sized_bytearrays(self):
         grid = gen.generate(1, 1)["grid"]
-        self.assertEqual(len(grid), 64)
+        self.assertEqual(len(grid), gen.LEVEL_H)
         for row in grid:
             self.assertIsInstance(row, bytearray)
-            self.assertEqual(len(row), 64)
+            self.assertEqual(len(row), gen.LEVEL_W)
 
     def test_output_dict_keys_and_types(self):
         lvl = gen.generate(7, 3)
@@ -73,14 +73,15 @@ class Shape(unittest.TestCase):
         self.assertEqual(len(lvl["down"]), 2)
 
     def test_border_stays_wall(self):
+        w, h = gen.LEVEL_W, gen.LEVEL_H
         for s in SEEDS:
             grid = gen.generate(s, 1)["grid"]
-            for x in range(64):
+            for x in range(w):
                 self.assertEqual(grid[0][x], gen.WALL, (s, "top", x))
-                self.assertEqual(grid[63][x], gen.WALL, (s, "bottom", x))
-            for y in range(64):
+                self.assertEqual(grid[h - 1][x], gen.WALL, (s, "bottom", x))
+            for y in range(h):
                 self.assertEqual(grid[y][0], gen.WALL, (s, "left", y))
-                self.assertEqual(grid[y][63], gen.WALL, (s, "right", y))
+                self.assertEqual(grid[y][w - 1], gen.WALL, (s, "right", y))
 
     def test_only_known_tiles_appear(self):
         allowed = {gen.DIRT, gen.FLAGSTONE, gen.WALL,
@@ -125,8 +126,8 @@ class Rooms(unittest.TestCase):
             for (x, y, w, h) in gen.generate(s, 1)["rooms"]:
                 self.assertGreaterEqual(x, 1, s)
                 self.assertGreaterEqual(y, 1, s)
-                self.assertLessEqual(x + w, 63, s)
-                self.assertLessEqual(y + h, 63, s)
+                self.assertLessEqual(x + w, gen.LEVEL_W - 1, s)
+                self.assertLessEqual(y + h, gen.LEVEL_H - 1, s)
 
     def test_sampled_rooms_do_not_touch(self):
         # fallback corner rooms only fire on degenerate seeds; the SEEDS range
@@ -186,15 +187,15 @@ class Connectivity(unittest.TestCase):
     def test_every_floor_tile_is_one_connected_region(self):
         for s in (0, 5, 13, 27, 39):
             grid = gen.generate(s, 1)["grid"]
-            floor = [(x, y) for y in range(64) for x in range(64)
+            floor = [(x, y) for y in range(gen.LEVEL_H) for x in range(gen.LEVEL_W)
                      if grid[y][x] != gen.WALL]
             reach = _flood(grid, floor[0])
             self.assertEqual(len(reach), len(floor), s)
 
     def test_connect_joins_a_stranded_room(self):
         # two rooms, no corridor between them -> _connect must carve one
-        grid = [bytearray([gen.WALL]) * 64 for _ in range(64)]
-        rooms = [(3, 3, 6, 6), (50, 50, 6, 6)]
+        grid = [bytearray([gen.WALL]) * gen.LEVEL_W for _ in range(gen.LEVEL_H)]
+        rooms = [(3, 3, 6, 6), (gen.LEVEL_W - 12, gen.LEVEL_H - 12, 6, 6)]
         for r in rooms:
             gen._carve_rect(grid, r, gen.FLAGSTONE)
         import random

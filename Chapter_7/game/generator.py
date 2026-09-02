@@ -20,9 +20,15 @@
 # reachable. Down-stairs then go in the room that is the most BFS steps from
 # the entry room (_farthest_room_bfs), not just Euclidean-farthest.
 #
+# cd-yl4: the BFS buffers (_DIST, _QUEUE) are allocated once at import, not per
+# call — a fragmented mid-game heap can't hand out a fresh contiguous 4 KB
+# block and descent's regeneration was crashing there. _spawn_pool samples
+# instead of building a ~1500-tile list for the same reason.
+#
 # What this module does NOT do: fill spawn_points from the spawn tables
 # (cd-dsc.4), feed the dict into the engine (cd-dsc.5).
 
+import array
 import random
 
 # Terrain tile indices — mirror game/tiles/tiles.json + LEVELGEN.md §2.
@@ -34,16 +40,21 @@ STAIRS_UP = 5
 
 _FLOOR = (DIRT, FLAGSTONE)     # what the generator treats as walkable-floor
 
-LEVEL_W = 64
-LEVEL_H = 64
+# 48×48, not 64×64: the BFS scratch (_DIST + _QUEUE) and the persistent grid
+# scale with area, and the RP2040 was running out of heap on a long run
+# (cd-yl4). 48² still scrolls plenty under the 13×13 viewport and fits ~8–10
+# rooms — better paced for the small screen than 14.
+LEVEL_W = 48
+LEVEL_H = 48
+_CELLS = LEVEL_W * LEVEL_H
 
-ROOM_TARGET = 14        # stop rolling rooms once we have this many
-ROOM_TRIES = 120        # ... or give up after this many attempts
+ROOM_TARGET = 10        # stop rolling rooms once we have this many
+ROOM_TRIES = 150        # ... or give up after this many attempts
 MIN_ROOMS = 2           # hard floor — fallback rooms guarantee it
 ROOM_MIN = 4            # room side length, inclusive
-ROOM_MAX = 11
+ROOM_MAX = 9
 EXTRA_CORRIDORS = 2     # §3.5 "loops": 1..EXTRA_CORRIDORS extra links
-SPAWN_POOL = 40         # positions handed to cd-dsc.4; capped by floor count
+SPAWN_POOL = 32         # positions handed to cd-dsc.4; capped by floor count
 
 
 def generate(seed, depth, rng=None):
@@ -157,22 +168,34 @@ def _carve_v(grid, x, y0, y1):
 
 _UNREACHED = 255       # sentinel in the flat distance grid (max real path ~128)
 
+# BFS scratch, allocated ONCE at import. When the module loads (boot, heap
+# pristine) a contiguous 4 KB + 8 KB pair places easily; mid-game — after
+# combat / AI / log churn has fragmented the heap — a fresh bytearray(4096)
+# does NOT, and descent's generate() was OOMing right here (cd-yl4). Every
+# _dist_grid() call refills and reuses these; generate() never needs two live
+# distance grids at once, so one buffer is enough.
+_DIST = bytearray(_CELLS)
+_QUEUE = array.array("H", bytes(2 * _CELLS))   # cell indices 0.._CELLS-1 fit 'H'
+
 
 def _dist_grid(grid, start):
-    """A flat bytearray[LEVEL_W*LEVEL_H] of BFS step counts from `start` over
-    non-wall tiles, `_UNREACHED` where you can't get to.
+    """Flat BFS step counts from `start` over non-wall tiles, written into the
+    shared `_DIST` buffer (`_UNREACHED` where you can't get to); returns it.
 
-    Deliberately not a {(x, y): steps} dict — on the RP2040 that dict would be
-    ~1500 tuple keys and blow the heap. This is 4 KB flat + an int queue that
-    drains. Steps are clamped at 254 (irrelevant for a 64×64 level)."""
+    Not a {(x, y): steps} dict — on the RP2040 that dict would be ~1500 tuple
+    keys and blow the heap. Steps are clamped at 254 (a level this size never
+    comes close)."""
     w, h = LEVEL_W, LEVEL_H
-    dist = bytearray([_UNREACHED]) * (w * h)
+    dist = _DIST
+    for k in range(len(dist)):
+        dist[k] = _UNREACHED
+    q = _QUEUE
     s = start[1] * w + start[0]
     dist[s] = 0
-    queue = [s]
-    head = 0
-    while head < len(queue):
-        i = queue[head]
+    q[0] = s
+    head, tail = 0, 1
+    while head < tail:
+        i = q[head]
         head += 1
         nd = dist[i] + 1
         if nd > 254:
@@ -181,16 +204,20 @@ def _dist_grid(grid, start):
         y = i // w
         if x + 1 < w and grid[y][x + 1] != WALL and dist[i + 1] == _UNREACHED:
             dist[i + 1] = nd
-            queue.append(i + 1)
+            q[tail] = i + 1
+            tail += 1
         if x > 0 and grid[y][x - 1] != WALL and dist[i - 1] == _UNREACHED:
             dist[i - 1] = nd
-            queue.append(i - 1)
+            q[tail] = i - 1
+            tail += 1
         if y + 1 < h and grid[y + 1][x] != WALL and dist[i + w] == _UNREACHED:
             dist[i + w] = nd
-            queue.append(i + w)
+            q[tail] = i + w
+            tail += 1
         if y > 0 and grid[y - 1][x] != WALL and dist[i - w] == _UNREACHED:
             dist[i - w] = nd
-            queue.append(i - w)
+            q[tail] = i - w
+            tail += 1
     return dist
 
 
@@ -262,24 +289,24 @@ def _farthest_room_bfs(grid, rooms, origin):
 
 
 def _spawn_pool(rng, grid, entry_room):
-    """~SPAWN_POOL distinct floor tiles, never in the entry room, never a
-    stair tile (stairs aren't in _FLOOR). cd-dsc.4 assigns entities to these."""
-    candidates = []
-    for y in range(LEVEL_H):
-        row = grid[y]
-        for x in range(LEVEL_W):
-            if row[x] in _FLOOR and not _in_room((x, y), entry_room):
-                candidates.append((x, y))
+    """Up to SPAWN_POOL distinct floor tiles, never in the entry room, never a
+    stair tile (stairs aren't in _FLOOR). cd-dsc.4 assigns entities to these.
 
-    want = min(SPAWN_POOL, len(candidates))
+    Random rejection sampling — deliberately does NOT materialise the full
+    ~1500-tile candidate list; that transient blew the RP2040 heap on descent
+    (cd-yl4). The level is mostly floor, so SPAWN_POOL*40 probes find
+    plenty."""
     pool, seen = [], set()
     guard = 0
-    while len(pool) < want and guard < want * 20:
+    while len(pool) < SPAWN_POOL and guard < SPAWN_POOL * 40:
         guard += 1
-        i = rng.randrange(len(candidates))
-        if i not in seen:
-            seen.add(i)
-            pool.append(candidates[i])
+        x = rng.randrange(LEVEL_W)
+        y = rng.randrange(LEVEL_H)
+        pos = (x, y)
+        if (pos not in seen and grid[y][x] in _FLOOR
+                and not _in_room(pos, entry_room)):
+            seen.add(pos)
+            pool.append(pos)
     return pool
 
 

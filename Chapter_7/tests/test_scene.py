@@ -131,9 +131,13 @@ def _install_fakes():
     adt = types.ModuleType("adafruit_display_text")
     adt_label = types.ModuleType("adafruit_display_text.label")
     adt_label.Label = _FakeLabel
+    adt_bitmap = types.ModuleType("adafruit_display_text.bitmap_label")
+    adt_bitmap.Label = _FakeLabel
     adt.label = adt_label
+    adt.bitmap_label = adt_bitmap
     sys.modules["adafruit_display_text"] = adt
     sys.modules["adafruit_display_text.label"] = adt_label
+    sys.modules["adafruit_display_text.bitmap_label"] = adt_bitmap
 
     board = types.ModuleType("board")
     board.board_id = "pimoroni_picosystem"
@@ -292,6 +296,35 @@ class Loop(unittest.TestCase):
         self.assertFalse(h.game.play._actor_sprites[0].hidden)  # hero visible
 
 
+class FogOfWar(unittest.TestCase):
+    def test_unseen_cells_are_void_seen_cells_are_real(self):
+        h = Harness()                      # 24x24 room, hero at (12,12)
+        h.tick()
+        play = h.game.play
+        # hero's own cell is at viewport (6,6) once the camera clamps
+        self.assertEqual(play._terrain[6, 6], 0)              # explored floor
+        self.assertEqual(play._terrain[0, 0], play.VOID_TILE)  # far corner, unseen
+
+    def test_a_revealed_cell_stays_explored_after_the_hero_moves_on(self):
+        h = Harness(w=40, h=24)                               # hero at (20,12)
+        self.assertTrue(h.world.is_explored(20, 12))          # start tile
+        for _ in range(40):
+            h.tick("right")
+        self.assertGreater(h.world.hero["x"], 29)             # walked well away
+        self.assertTrue(h.world.is_explored(20, 12))          # still remembered
+        self.assertFalse(h.world.is_visible(20, 12))          # but not in sight
+
+    def test_monster_outside_fov_is_hidden_even_if_on_screen(self):
+        wd = _room(24, 24)
+        # drop a monster 10 tiles from the hero — inside the 13x13 window but
+        # outside FOV radius 8
+        wd.add_actor(world_mod.make_actor(12, 2, "creatures", 1, hp=3))
+        h = Harness(world=wd)
+        h.tick()
+        spr = h.game.play._actor_sprites[-1]
+        self.assertTrue(spr.hidden)
+
+
 class ModeSwitch(unittest.TestCase):
     def test_xy_chord_opens_diag_and_swaps_root_group(self):
         h = Harness()
@@ -303,21 +336,21 @@ class ModeSwitch(unittest.TestCase):
     def test_diag_renders_text_without_error(self):
         h = Harness()
         h.tick("x", "y")
-        for _ in range(6):          # DiagMode rebuilds text at most every 4th render
+        for _ in range(6):          # DiagMode refreshes at most every 4th render
             h.tick()
-        self.assertIn("INPUT DIAG", h.game.stack.top._label.text)
+        self.assertIn("INPUT DIAG", h.game.stack.top.text)
 
     def test_diag_a_button_pages_to_system_and_shows_ram(self):
         h = Harness()
         h.tick("x", "y")           # open diag (INPUT page)
         for _ in range(6):
             h.tick()
-        self.assertIn("INPUT DIAG", h.game.stack.top._label.text)
+        self.assertIn("INPUT DIAG", h.game.stack.top.text)
         h.tick("a")                # CONFIRM cycles the page
         h.tick("a")                # a is chord-eligible: hold a second tick
         for _ in range(6):
             h.tick()
-        txt = h.game.stack.top._label.text
+        txt = h.game.stack.top.text
         self.assertIn("SYSTEM DIAG", txt)
         self.assertIn("ram  free", txt)           # CPython host: shows "-"
         self.assertIn("board  pimoroni_picosystem", txt)
@@ -354,19 +387,23 @@ class ModeSwitch(unittest.TestCase):
         self.assertEqual(h.world.turn, t)
 
 
+def _status(h):
+    # the status line is fixed-width padded (cd-yl4) — collapse runs of spaces
+    return " ".join(h.game.play._status_label.text.split())
+
+
 class StatusLine(unittest.TestCase):
     def test_initial_status_shows_hp_depth_turn_gold(self):
-        h = Harness()
-        t = h.game.play._status_label.text
+        t = _status(Harness())
         self.assertIn("HP 20/20", t)
-        self.assertIn("Depth 1", t)
+        self.assertIn("Dep 1", t)
         self.assertIn("Turn 0", t)
         self.assertIn("Gold 0", t)
 
     def test_turn_counter_updates_after_a_move(self):
         h = Harness()
         h.tick("right")
-        self.assertIn("Turn 1", h.game.play._status_label.text)
+        self.assertIn("Turn 1", _status(h))
 
     def test_hp_drops_on_the_status_line_when_the_hero_is_hit(self):
         h = Harness()
@@ -377,13 +414,13 @@ class StatusLine(unittest.TestCase):
         m["goal"] = (hero["x"], hero["y"])
         h.tick("down", "b")                       # wait -> the rat swings
         h.tick()
-        self.assertNotIn("HP 20/20", h.game.play._status_label.text)
-        self.assertIn("HP %d/20" % hero["hp"], h.game.play._status_label.text)
+        self.assertNotIn("HP 20/20", _status(h))
+        self.assertIn("HP %d/20" % hero["hp"], _status(h))
 
     def test_status_follows_a_level_change(self):
         h = Harness(world=_stair_level(1, "up"), new_level=_stair_level)
         h.tick("right")                           # descend to depth 2
-        self.assertIn("Depth 2", h.game.play._status_label.text)
+        self.assertIn("Dep 2", _status(h))
 
 
 class Combat(unittest.TestCase):
@@ -502,11 +539,14 @@ class GeneratedLevel(unittest.TestCase):
     def _world(self, seed=4):
         return world_mod.world_from_level(generator.generate(seed, 1))
 
-    def test_engine_builds_and_runs_on_a_64x64_generated_level(self):
+    def test_engine_builds_and_runs_on_a_full_generated_level(self):
         w = self._world()
         h = Harness(world=w)
-        self.assertEqual((w.width, w.height), (64, 64))
-        self.assertEqual(h.game.play._terrain.width, modes.MAP_TILES)   # viewport, not 64
+        self.assertEqual((w.width, w.height),
+                         (generator.LEVEL_W, generator.LEVEL_H))
+        # terrain grid is the viewport, not the whole level
+        self.assertEqual(h.game.play._terrain.width, modes.MAP_TILES)
+        self.assertLess(modes.MAP_TILES, generator.LEVEL_W)
         for i in range(30):
             h.tick("right" if i % 2 else "down")
         self.assertGreater(w.turn, 0)
