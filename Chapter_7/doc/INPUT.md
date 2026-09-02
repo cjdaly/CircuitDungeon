@@ -112,12 +112,11 @@ noise).
 
 ## Instrumentation
 
-Always recording from construction; kept tiny. Rendered by `DiagMode`
-(`modes.py`) — flip to it with the `X + Y` chord.
+Live state for the `DiagMode` screen (`X + Y` chord). Kept tiny — the
+32-entry per-event `trace()` ring was dropped once the wait-chord bindings
+were settled (it cost ~2 KB + an alloc per keypress — `cd-dsc.6`).
 
 ```python
-m.trace()        # -> list of (t_ms, kind, detail), oldest first, ring of 32
-                 #    kind in {press, release, repeat, chord, single, miss}
 m.snapshot()     # -> {"held": [...], "hold_ms": {btn: ms},
                  #     "chord_candidates": ["a+b", ...],  # partially-held chords
                  #     "chord_armed": [...], "queue_depth": n}

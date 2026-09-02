@@ -28,6 +28,12 @@ import modes
 TICK_SECONDS = 1 / 20
 
 
+def _mem_free():
+    """gc.mem_free() on CircuitPython, -1 on desktop CPython (no such attr)."""
+    fn = getattr(gc, "mem_free", None)
+    return fn() if fn else -1
+
+
 class Game:
     def __init__(self, display, world, restart=None, new_level=None):
         self.display = display          # a hardware.GameDisplay
@@ -76,6 +82,7 @@ class Game:
         self.play.world = None
         self.diag.world = None
         gc.collect()
+        before = _mem_free()
 
         new_world = self._new_level(depth, arrive)
         new_world.turn = carry_turn
@@ -83,6 +90,14 @@ class Game:
         self.world = new_world
         self.play.load_world(new_world)
         self.diag.world = new_world
+
+        # cd-dsc.6: watch this across a long run — if `after` trends down
+        # descent-over-descent, something is retained per level. (Device only;
+        # -1 off-device where gc.mem_free() doesn't exist.)
+        gc.collect()
+        after = _mem_free()
+        if after >= 0:
+            print("Ch7 %-7s depth %d   free %d -> %d" % (verb, depth, before, after))
 
     def run(self):
         screen = self.display.screen

@@ -72,11 +72,18 @@ class _FakeTileGrid:
         self.hidden = False
         self._cells = {}
 
+    def _key(self, key):
+        # real displayio.TileGrid takes (x, y) or a flat int index — match that
+        if isinstance(key, tuple):
+            x, y = key
+            return y * self.width + x
+        return key
+
     def __setitem__(self, key, value):
-        self._cells[key] = value
+        self._cells[self._key(key)] = value
 
     def __getitem__(self, key):
-        return self._cells.get(key, 0)
+        return self._cells.get(self._key(key), 0)
 
 
 class _FakeBitmap:
@@ -333,28 +340,18 @@ class ModeSwitch(unittest.TestCase):
         self.assertIs(h.game.stack.top, diag)
         self.assertIs(h.display.screen.root_group, diag.group)
 
-    def test_diag_renders_text_without_error(self):
+    def test_diag_one_screen_shows_ram_and_input(self):
         h = Harness()
         h.tick("x", "y")
         for _ in range(6):          # DiagMode refreshes at most every 4th render
             h.tick()
-        self.assertIn("INPUT DIAG", h.game.stack.top.text)
-
-    def test_diag_a_button_pages_to_system_and_shows_ram(self):
-        h = Harness()
-        h.tick("x", "y")           # open diag (INPUT page)
-        for _ in range(6):
-            h.tick()
-        self.assertIn("INPUT DIAG", h.game.stack.top.text)
-        h.tick("a")                # CONFIRM cycles the page
-        h.tick("a")                # a is chord-eligible: hold a second tick
-        for _ in range(6):
-            h.tick()
         txt = h.game.stack.top.text
-        self.assertIn("SYSTEM DIAG", txt)
+        self.assertIn("DIAG", txt)
         self.assertIn("ram  free", txt)           # CPython host: shows "-"
         self.assertIn("board  pimoroni_picosystem", txt)
         self.assertIn("actors ", txt)
+        self.assertIn("held:", txt)               # input state on the same screen
+        self.assertIn("b+down", txt)              # per-chord counts
         # the engine loop's RAM sampler ran (values are None off-device)
         self.assertGreater(h.game.metrics.ram_samples, 0)
 

@@ -181,23 +181,6 @@ class Queue(unittest.TestCase):
 
 
 class Instrumentation(unittest.TestCase):
-    def test_trace_is_oldest_first_and_has_kinds(self):
-        m = im.InputModel()
-        feed(m, [({"a": True, "b": True}, 0.0), ({}, 0.05)])
-        kinds = [rec[1] for rec in m.trace()]
-        self.assertEqual(kinds[0], "press")
-        self.assertIn("chord", kinds)
-        self.assertIn("release", kinds)
-        # timestamps non-decreasing
-        ts = [rec[0] for rec in m.trace()]
-        self.assertEqual(ts, sorted(ts))
-
-    def test_trace_ring_wraps_and_stays_bounded(self):
-        m = im.InputModel()
-        for t in range(200):
-            feed(m, [({"up": True}, t / 10.0), ({}, t / 10.0 + 0.05)])
-        self.assertEqual(len(m.trace()), 32)
-
     def test_snapshot_reports_held_and_candidates(self):
         m = im.InputModel()
         m.tick({k: (k == "a") for k in _KEYS}, 1.0)

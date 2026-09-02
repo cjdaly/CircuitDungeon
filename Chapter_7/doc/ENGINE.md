@@ -191,9 +191,9 @@ the `.lvl` exit/event trigger system · pixel-scroll camera.
 - FOV is drawn as fog of war (§8, `cd-e3p.6` / `cd-oht.6`): unseen cells are
   rock, seen cells stay revealed, out-of-sight monsters are hidden. The
   dim-vs-lit shading of remembered tiles waits on a dim tile from `cd-e17.5`.
-- `MenuMode` is a stub overlay — real screen is `cd-e3p.13`. `DiagMode` has
-  INPUT + SYSTEM pages (§4.4, `cd-e3p.14` / `cd-89o.6`); the always-on
-  diagnostic event-log ring buffer is still open (`cd-89o.10`).
+- `MenuMode` is a stub overlay — real screen is `cd-e3p.13`. `DiagMode` is a
+  single RAM/perf/input screen (§4.4, `cd-89o.6`); the always-on diagnostic
+  event-log ring buffer is still open (`cd-89o.10`).
 
 ### 2.4 Actor representation
 
@@ -219,7 +219,8 @@ Resolves bead `cd-e3p.11`. Full spec in [`INPUT.md`](INPUT.md); in brief:
   **A+B → `menu`** — consumed by the mode dispatch (§4).
 - Repeat timing is instance config (settings-tunable); `repeat_paused` is set
   by the engine per §1.3. Output queue bounded at 4, drop-oldest.
-- `trace()` / `snapshot()` expose input timing for the `cd-89o.6` diag page.
+- `snapshot()` / `chord_stats()` feed the `cd-89o.6` diag screen. (The old
+  per-event `trace()` ring is gone — `cd-dsc.6`.)
 
 ## 4. Screen / mode dispatch
 
@@ -234,7 +235,7 @@ A **mode** is an object with `tick(events, now)`, `render()`, and a `.group`
 |---|---|---|---|
 | play | `PlayMode` | Option-G scene: 13×13 terrain viewport + camera + actor layer + empty HUD region groups (`LAYOUT.md`, `cd-oht.2`) | — (base) |
 | menu | `MenuMode` → `_StubOverlay` | centred label; real screen is `cd-e3p.13` | `A+B` chord |
-| diag | `DiagMode` | two pages, `A` cycles (§4.4): **INPUT** — `chord_stats()` / held / trace (`cd-e3p.14`); **SYSTEM** — RAM / flash / frame-time / board+CP / actor counts (`cd-89o.6`) | `X+Y` chord |
+| diag | `DiagMode` | one screen (§4.4): RAM / flash / frame-time / board+CP / actor counts, then held buttons + per-chord fire/miss (`cd-89o.6`) | `X+Y` chord |
 | game-over | `GameOverMode` | "YOU DIED" — `CONFIRM` calls the restart callback (§9.2) | `stack.show()` on death |
 
 `tick()` returns `"exit"` to ask the stack to drop back to play (the menu/diag
@@ -278,27 +279,30 @@ each ~20fps tick:
 
 ### 4.4 Diagnostics (`cd-89o.6`)
 
-`DiagMode` has two pages; `CONFIRM` (A) cycles, `CANCEL` (B) or the `X+Y`
-chord exits. RAM notes (all `cd-yl4`):
+`DiagMode` is **one screen**; `CANCEL` (B) or the `X+Y` chord exits. It was
+two pages (SYSTEM / INPUT) toggled with `A`, but the INPUT page's per-event
+trace was a wait-chord tuning tool retired with `cd-e3p.14`/`.15` — one screen
+is less code and less RAM (`cd-dsc.6`).
+
+Layout / RAM notes (all `cd-yl4`):
 
 - All labels are `bitmap_label.Label` (`util.init_label`), not `label.Label`
   (a Group of one TileGrid per glyph, freed and rebuilt on every `.text =` —
   the status line does that every turn and it shredded the heap over ~1000
   turns).
-- The page is **16 per-line labels**, each a small constant-width
+- The screen is **≤ 14 per-line labels**, each a small constant-width
   `bitmap_label` that rewrites its own bitmap in place. A single
   `bitmap_label` for the whole page wanted one ~9 KB contiguous Bitmap and
   OOM'd on open. The lines are built **lazily on first open** (so an unused
   diag costs nothing) and every allocation is `MemoryError`-guarded — a
-  tight open gives a short page, never a crash.
+  tight open gives a short screen, never a crash.
 - Content is diffed per line; only changed lines touch a label. The
   frame-time readout is rounded to 10 ms so jitter isn't a change. Refresh is
   throttled to every 4th render.
 
-- **INPUT** — `chord_stats()` (per-binding fired / missed / spread), held
-  buttons, in-flight chord candidates, and the tail of the input trace.
-  Built to evaluate the wait-chord bindings on real hardware (`cd-e3p.14`).
-- **SYSTEM** — from `game/metrics.py` (pure: `gc` / `os` / `sys` / `time`):
+The screen shows, top to bottom:
+
+- **RAM / perf** — from `game/metrics.py` (pure: `gc` / `os` / `sys` / `time`):
   - **RAM** — `gc.mem_free()` / `gc.mem_alloc()` read *after* `gc.collect()`,
     since raw `mem_free()` counts not-yet-collected garbage as used. The
     engine loop calls `metrics.maybe_sample_ram(now)` every tick, but it
@@ -306,10 +310,14 @@ chord exits. RAM notes (all `cd-yl4`):
     costs a few ms. `free_low` is the low-water mark since boot: the number
     that says how close to the edge you actually got.
   - **flash** — `os.statvfs("/")` free / total.
-  - **frame time** — last and max ms (`metrics.note_frame`).
+  - **frame time** — last / max ms (`metrics.note_frame`), on the gc line.
   - board id, CircuitPython version, actor / turn / depth counts.
   - Off-device (`gc` has no `mem_free`) the RAM fields read `None` → shown
     as `-`; `metrics` still runs, tested headless in `test_metrics.py`.
+- **input** — `held:` buttons (+ any forming chord in parens), then one row
+  per chord binding: `fire` / `miss` / last `sp`read ms from
+  `input.chord_stats()`. No per-event trace — `input.py` dropped its 32-entry
+  ring (`~2 KB` + an alloc per keypress) once the bindings were settled.
 
 The always-on diagnostic **event-log ring buffer** (compact codes recorded
 from boot, so a bug is captured before you go looking) is a follow-up,

@@ -200,20 +200,28 @@ class PlayMode:
         """Repaint the 13×13 terrain window. Fog of war (cd-oht.6): a cell is
         drawn as its real tile only once the hero has seen it
         (`world.is_explored`); everything else is `VOID_TILE`. No dim/lit
-        distinction yet — that needs a darker tile row from the art pass."""
+        distinction yet — that needs a darker tile row from the art pass.
+
+        Runs every turn (FOV moves), so it uses a flat `tg[i]` index — the
+        `tg[col, row]` form builds a throwaway tuple per cell, 169 per turn,
+        and that churn fragments the heap on a non-compacting GC (cd-dsc.6)."""
         wd = self.world
         g = wd.grid
         w, h = wd.width, wd.height
         explored = wd.is_explored
+        tg = self._terrain
+        void = self.VOID_TILE
+        i = 0
         for row in range(MAP_TILES):
             wy = self.cam_y + row
             in_y = 0 <= wy < h
             for col in range(MAP_TILES):
                 wx = self.cam_x + col
                 if in_y and 0 <= wx < w and explored(wx, wy):
-                    self._terrain[col, row] = g[wy][wx]
+                    tg[i] = g[wy][wx]
                 else:
-                    self._terrain[col, row] = self.VOID_TILE
+                    tg[i] = void
+                i += 1
 
     # -- actor sprites (presentation half of ENGINE.md 1.4) --------
 
@@ -386,27 +394,23 @@ def _round10(x):
 
 
 class DiagMode:
-    """On-device diagnostics (bead cd-89o.6). Two pages; `CONFIRM` (A) cycles,
-    `CANCEL` (B) or the X+Y chord exits:
+    """On-device diagnostics (bead cd-89o.6). One screen; `CANCEL` (B) or the
+    X+Y chord exits. RAM (free / low-water / used / heap), gc + frame time,
+    flash, board + CP version, actor / turn / depth, then held buttons and the
+    per-chord fire/miss counts. (Was two pages — the input page's trace was a
+    wait-chord tuning tool, retired with cd-e3p.14/.15; one screen is less
+    code and less RAM — cd-dsc.6.)
 
-      INPUT   per-chord effectiveness, held state, recent input trace
-              (cd-e3p.14 — evaluate the wait-chord bindings on real hardware)
-      SYSTEM  RAM (free / low-water / heap), flash, frame time, board + CP
-              version, actor / turn / depth counts
+    Drawn as a grid of per-line labels, each a small constant-width
+    `bitmap_label` that reuses its bitmap on every update — zero allocation
+    once built. Built **lazily on first open** (and kept), so a game that
+    never opens diag never pays for them, and each is `MemoryError`-guarded so
+    a low-memory open degrades to a partial screen instead of crashing. A
+    `label.Label` reallocated every frame had shredded the heap; one
+    `bitmap_label` for the whole page wanted a ~9 KB contiguous Bitmap and
+    OOM'd on open (cd-yl4)."""
 
-    The always-on diagnostic event-log ring buffer is a follow-up (cd-89o.10).
-
-    The page is drawn as a grid of per-line labels, each a small
-    constant-width `bitmap_label` that reuses its bitmap on every update —
-    zero allocation once built. They're built **lazily on first open** (and
-    kept), so a game that never opens diag never pays for them, and each is
-    guarded so a low-memory open degrades to a partial page instead of
-    crashing. A `label.Label` reallocated every frame had shredded the heap;
-    one `bitmap_label` for the whole page wanted a ~9 KB contiguous Bitmap
-    and OOM'd on open (cd-yl4)."""
-
-    PAGES = ("INPUT", "SYSTEM")
-    _MAX_LINES = 16
+    _MAX_LINES = 14
     _LINE_W = 38          # ~terminalio chars across 240 px
     _LINE_H = 11          # px between line baselines
     _BLANK = " " * _LINE_W
@@ -424,12 +428,11 @@ class DiagMode:
         self._shown = []
         self._every = 4             # lower bound on renders between refreshes
         self._n = 0
-        self._page = 0
 
     def _ensure_lines(self):
-        """Allocate the per-line labels the first time the page is drawn. If
-        memory is too tight to fit all 16, take what we can and never retry —
-        a short diag page beats a dead game."""
+        """Allocate the per-line labels the first time the screen is drawn. If
+        memory is too tight to fit them all, take what we can and never retry
+        — a short diag screen beats a dead game."""
         if self._built:
             return
         self._built = True
@@ -449,9 +452,6 @@ class DiagMode:
     def tick(self, events, now):
         if im.CANCEL in events:
             return "exit"
-        if im.CONFIRM in events:
-            self._page = (self._page + 1) % len(self.PAGES)
-            self._repaint()                       # page flip — new content now
         return None
 
     def render(self):
@@ -461,7 +461,7 @@ class DiagMode:
 
     def _repaint(self):
         self._ensure_lines()
-        want = self._page_lines()
+        want = self._screen_lines()
         for i in range(len(self._lines)):
             row = want[i] if i < len(want) else ""
             row = ("%-*s" % (self._LINE_W, row))[: self._LINE_W]
@@ -479,54 +479,42 @@ class DiagMode:
 
     @property
     def text(self):
-        """The visible page as one string — for tests / logging, not render."""
+        """The screen as one string — for tests / logging, not render."""
         return "\n".join(s.rstrip() for s in self._shown).rstrip()
 
-    def _page_lines(self):
-        if self.PAGES[self._page] == "SYSTEM":
-            return self._lines_system()
-        return self._lines_input()
-
-    def _lines_input(self):
-        inp = self.input
-        lines = ["INPUT DIAG   A:page B:exit", "chord        fire miss sprd"]
-        for row in inp.chord_stats():
-            spread = row["last_spread_ms"]
-            lines.append(
-                "%-12s %4d %4d %4s"
-                % (row["combo"], row["fired"], row["missed"],
-                   "-" if spread is None else spread)
-            )
-        snap = inp.snapshot()
-        lines.append("held: " + (" ".join(snap["held"]) or "-"))
-        if snap["chord_candidates"]:
-            lines.append("forming: " + " ".join(snap["chord_candidates"]))
-        lines.append("--- trace (newest last) ---")
-        for t_ms, kind, detail in inp.trace()[-6:]:
-            lines.append("%7d %-7s %s" % (t_ms, kind, detail if detail else ""))
-        return lines
-
-    def _lines_system(self):
-        lines = ["SYSTEM DIAG  A:page B:exit"]
+    def _screen_lines(self):
+        lines = ["DIAG                    B:exit"]
         m = self.metrics
         if m is None:
             lines.append("(no metrics)")
         else:
             lines.append("ram  free %-6s low %s" % (_kib(m.free), _kib(m.free_low)))
             lines.append("ram  used %-6s heap %s" % (_kib(m.alloc), _kib(m.heap)))
-            lines.append("gc.collect %d ms  (n=%d)" % (m.collect_ms, m.ram_samples))
+            # round frame ms to 10 so jitter doesn't force a rebuild
+            lines.append("gc %d ms n=%d  frame %d/%d ms"
+                         % (m.collect_ms, m.ram_samples,
+                            _round10(m.frame_ms), _round10(m.frame_ms_max)))
             ff, ft = m.flash()
-            lines.append("flash free %s / %s" % (_kib(ff), _kib(ft)))
+            lines.append("flash %s / %s" % (_kib(ff), _kib(ft)))
             ver, osname = m.environment()
             lines.append("cpy  %s  %s" % (ver, osname))
-            # round to 10 ms so a jittering frame time doesn't force a rebuild
-            lines.append("frame %d ms  max %d ms"
-                         % (_round10(m.frame_ms), _round10(m.frame_ms_max)))
         lines.append("board  %s" % _board_id())
         w = self.world
         if w is not None:
             lines.append("actors %d  turn %d  depth %d"
                          % (len(w.actors), w.turn, w.depth))
+
+        inp = self.input
+        snap = inp.snapshot()
+        held = " ".join(snap["held"]) or "-"
+        if snap["chord_candidates"]:
+            held += "  (" + " ".join(snap["chord_candidates"]) + ")"
+        lines.append("held: " + held)
+        for row in inp.chord_stats():
+            sp = row["last_spread_ms"]
+            lines.append("%-8s fire %d  miss %d  sp %s"
+                         % (row["combo"], row["fired"], row["missed"],
+                            "-" if sp is None else sp))
         return lines
 
 

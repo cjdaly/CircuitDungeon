@@ -376,6 +376,19 @@ remaining question — its win over `label.Label` here is churn, not footprint.
 ![Depth 7, turn 1153: a lit flagstone room with two slime sprites and a corpse, the hero centred, a dark wall band on the right, message "The slime dies."](../pics/test5/t5-depth7-play.jpg)
 ![SYSTEM diag, stable at turn 1153 / depth 7: ram free 22k / low 22k, used 137k / heap 159k, gc.collect 9 ms (n=319), flash free 14994k / 15328k, frame 0 ms max 1770 ms, actors 4.](../pics/test5/t5-diag-stable.jpg)
 
+**RAM housekeeping since** (`cd-dsc.6`, not yet re-tested on device):
+
+- diag is **one screen** now, not two half-pages, and `input.py` dropped its
+  32-entry per-event trace ring (~2 KB resident + an alloc per keypress) —
+  the trace was a wait-chord tuning tool, and that's done.
+- `_paint_terrain` writes the TileGrid by flat index (`tg[i]`), not
+  `tg[col, row]` — the tuple form built 169 throwaway tuples per turn, and on
+  a non-compacting GC that churn is the most likely source of the slow
+  decline.
+- `engine._change_level` prints `free NNN -> NNN` on every stair traversal —
+  watch it descent-over-descent on the next long run to see if a level is
+  actually being retained.
+
 ## Troubleshooting
 
 - **Blank screen, no serial** — likely still in the UF2 bootloader (check for

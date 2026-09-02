@@ -9,6 +9,11 @@
 #
 # Governed by doc/INPUT.md and doc/ENGINE.md section 1.
 # Beads cd-e3p.11 (model), cd-e3p.14 (wait chords + per-chord stats).
+#
+# The per-event ring trace that fed the old two-page diag was dropped once the
+# wait-chord bindings were settled (cd-e3p.14/.15 closed) — it was ~2 KB
+# resident plus an allocation per keypress (cd-dsc.6). `chord_stats()` and
+# `snapshot()` stay; they're what the one-screen diag still shows.
 
 # -- event names ----------------------------------------------------------
 # d-pad (edge-triggered, then auto-repeated while held)
@@ -45,8 +50,6 @@ DEFAULT_CHORDS = {
 # UP / LEFT / RIGHT fire immediately.
 CHORD_WINDOW = 0.05
 
-_TRACE_SIZE = 32
-
 
 class InputModel:
     def __init__(self, chords=None, repeat_delay=0.28, repeat_interval=0.13):
@@ -82,9 +85,6 @@ class InputModel:
             combo: {"name": name, "fired": 0, "missed": 0, "last_spread_ms": None}
             for combo, name in self.chords.items()
         }
-
-        self._trace = []               # ring of (t_ms, kind, detail)
-        self._trace_i = 0
         self._last_now = 0.0
 
     # -- main entry point -------------------------------------------------
@@ -129,14 +129,12 @@ class InputModel:
         its auto-repeat from here."""
         out.append(_EVENT[b])
         self._singled.add(b)
-        self._trace_add(now, "single", b)
         if b in _DPAD:
             self._repeat_at[b] = now + self.repeat_delay
 
     def _on_press(self, b, now, out):
         self._held_since[b] = now
         self._singled.discard(b)          # fresh hold
-        self._trace_add(now, "press", b)
         if b in self._chord_buttons:
             # defer the single-press — a chord may still form within the window.
             # Applies to d-pad and face buttons alike (the wait chords make
@@ -148,7 +146,6 @@ class InputModel:
     def _on_release(self, b, now, out):
         self._held_since.pop(b, None)
         self._repeat_at.pop(b, None)
-        self._trace_add(now, "release", b)
 
         pend = self._pending.pop(b, None)
         if pend is not None and not pend[2]:
@@ -175,12 +172,10 @@ class InputModel:
                     # squeeze was too slow / the pad rocked. Count it once.
                     self._chord_stats[combo]["missed"] += 1
                     self._chord_missed.add(combo)
-                    self._trace_add(now, "miss", name)
                 continue
             if all_held:
                 out.append(name)
                 self._chord_fired.add(combo)
-                self._trace_add(now, "chord", name)
                 self._record_fire(combo, now)
                 for x in combo:
                     if x in self._pending:
@@ -217,7 +212,6 @@ class InputModel:
             if buttons.get(b) and b in self._repeat_at and now >= self._repeat_at[b]:
                 out.append(_DPAD[b])
                 self._repeat_at[b] = now + self.repeat_interval
-                self._trace_add(now, "repeat", b)
 
     # -- queue -----------------------------------------------------
 
@@ -226,21 +220,7 @@ class InputModel:
         if len(self._queue) > self._queue_max:
             self._queue.pop(0)
 
-    # -- trace / instrumentation (rendered by cd-89o.6) ------------
-
-    def _trace_add(self, now, kind, detail):
-        rec = (int(now * 1000) & 0xFFFFFF, kind, detail)
-        if len(self._trace) < _TRACE_SIZE:
-            self._trace.append(rec)
-        else:
-            self._trace[self._trace_i] = rec
-        self._trace_i = (self._trace_i + 1) % _TRACE_SIZE
-
-    def trace(self):
-        """Recent input records, oldest first: list of (t_ms, kind, detail)."""
-        if len(self._trace) < _TRACE_SIZE:
-            return list(self._trace)
-        return self._trace[self._trace_i:] + self._trace[: self._trace_i]
+    # -- instrumentation (rendered by the diag screen, cd-89o.6) ----------
 
     @staticmethod
     def _combo_label(combo):
