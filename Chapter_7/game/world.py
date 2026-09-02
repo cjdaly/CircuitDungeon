@@ -212,13 +212,20 @@ def resolve_turn(world, scheduler, action, monster_turn):
     """One turn: hero acts, then every monster acts once, then upkeep
     (ENGINE.md 1.1). `monster_turn(world, actor)` is the per-monster AI.
     Returns True if a turn actually passed."""
+    # Snapshot the actor order BEFORE anyone moves (ENGINE.md 1.1). A monster
+    # the hero kills this turn is dropped by the `not in world.actors` check
+    # below; a corpse created this turn is simply not in the snapshot, so it
+    # never gets an AI turn — corpses are scenery, not actors that act.
+    roster = scheduler.actors_for_turn()
     if not _apply_player_action(world, action):
         return False
-    for actor in scheduler.actors_for_turn():
+    for actor in roster:
         if actor is world.hero:
             continue
         if actor not in world.actors:
             continue                       # died earlier this turn (corpse)
+        if actor.get("corpse"):
+            continue                       # scenery, not something that acts
         if not world.hero_alive():
             break                          # nothing swings at a dead hero
         monster_turn(world, actor)
@@ -265,8 +272,12 @@ def resolve_attack(world, attacker, defender):
         return
     world.log.add("%s dies." % _cap(_mob_name(defender)))
     world.remove_actor(defender)
+    # A corpse is scenery: non-blocking, and `corpse` keeps resolve_turn from
+    # ever handing it an AI turn (it was waking up and trailing the hero —
+    # cd-yl4 sibling bug).
     world.add_actor(
-        make_actor(defender["x"], defender["y"], "objects", CORPSE_TILE, blocks=False)
+        make_actor(defender["x"], defender["y"], "objects", CORPSE_TILE,
+                   blocks=False, corpse=True)
     )
     if attacker is world.hero:
         world.hero["xp"] = world.hero.get("xp", 0) + defender.get("xp", 0)

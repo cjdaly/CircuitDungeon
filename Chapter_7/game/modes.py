@@ -18,6 +18,8 @@
 #
 # Governed by doc/ENGINE.md section 4.
 
+import gc
+
 import ai
 import input as im
 import world as world_mod
@@ -135,7 +137,13 @@ class PlayMode:
             MAP_TILES, MAP_TILES, TILE, TILE,
         )
         self._map_group.append(self._terrain)
-        self._actor_sheets = {}
+        # Load every sprite sheet up front, while the heap is clean and
+        # unfragmented — the alternative (lazy-load in _sheet()) put the first
+        # `objects.bmp` load in the middle of a fight and it OOM'd (cd-yl4).
+        self._actor_sheets = {
+            name: util.load_bitmap(name)
+            for name in ("heroes", "creatures", "objects")
+        }
         self._actor_sprites = []                # parallel to world.actors
         self.group.append(self._map_group)
 
@@ -208,7 +216,10 @@ class PlayMode:
         return pair
 
     def _sync_actor_sprites(self):
-        """Match the sprite list to world.actors after a spawn/death."""
+        """Match the sprite list to world.actors after a spawn/death. Rebuilds
+        every sprite TileGrid, so defrag first — it runs only on a roster
+        change, never per frame (cd-yl4)."""
+        gc.collect()
         for spr in self._actor_sprites:
             self._map_group.remove(spr)
         self._actor_sprites = []
@@ -354,6 +365,10 @@ def _kib(n):
     return "-" if n is None else "%dk" % (n // 1024)
 
 
+def _round10(x):
+    return int(x + 5) // 10 * 10
+
+
 class DiagMode:
     """On-device diagnostics (bead cd-89o.6). Two pages; `CONFIRM` (A) cycles,
     `CANCEL` (B) or the X+Y chord exits:
@@ -364,7 +379,11 @@ class DiagMode:
               version, actor / turn / depth counts
 
     The always-on diagnostic event-log ring buffer is a follow-up (cd-89o.10).
-    Text is rebuilt only every 3rd render (Label churn is costly)."""
+
+    Assigning `Label.text` rebuilds the whole glyph bitmap and needs a ~2 KB
+    contiguous block — which OOM'd mid-game (cd-yl4). So the label is rebuilt
+    only when the rendered text actually changes (and at most every Nth
+    render), with a gc.collect() right before the allocation."""
 
     PAGES = ("INPUT", "SYSTEM")
 
@@ -380,8 +399,9 @@ class DiagMode:
         self.group = displayio.Group()
         self._label = util.init_label(terminalio.FONT, 0x33FF33, x=2, y=6, text="")
         self.group.append(self._label)
-        self._every = 3        # refresh the text every N ticks (Label churn is costly)
+        self._every = 4        # lower bound on renders between label rebuilds
         self._n = 0
+        self._shown = None     # last text pushed to the label
         self._page = 0
 
     def tick(self, events, now):
@@ -389,14 +409,21 @@ class DiagMode:
             return "exit"
         if im.CONFIRM in events:
             self._page = (self._page + 1) % len(self.PAGES)
-            self._label.text = self._text()      # repaint immediately on a page flip
+            self._repaint()                       # page flip — new content now
         return None
 
     def render(self):
         self._n += 1
-        if self._n % self._every:
+        if self._n % self._every == 0:
+            self._repaint()
+
+    def _repaint(self):
+        txt = self._text()
+        if txt == self._shown:
             return
-        self._label.text = self._text()
+        gc.collect()                              # defrag before the ~2 KB alloc
+        self._label.text = txt
+        self._shown = txt
 
     def _text(self):
         if self.PAGES[self._page] == "SYSTEM":
@@ -436,7 +463,9 @@ class DiagMode:
             lines.append("flash free %s / %s" % (_kib(ff), _kib(ft)))
             ver, osname = m.environment()
             lines.append("cpy  %s  %s" % (ver, osname))
-            lines.append("frame %d ms  max %d ms" % (m.frame_ms, m.frame_ms_max))
+            # round to 10 ms so a jittering frame time doesn't force a rebuild
+            lines.append("frame %d ms  max %d ms"
+                         % (_round10(m.frame_ms), _round10(m.frame_ms_max)))
         lines.append("board  %s" % _board_id())
         w = self.world
         if w is not None:

@@ -13,6 +13,7 @@
 #
 # Governed by doc/ENGINE.md.
 
+import gc
 import time
 
 import input as im
@@ -63,14 +64,25 @@ class Game:
             return
         depth = world.depth + (1 if direction == "down" else -1)
         arrive = "up" if direction == "down" else "down"
-        self.world = self._new_level(depth, arrive)
-        self.world.turn = world.turn        # turn count is a running total, not per-level
-        self.world.log.add(
-            "You %s to depth %d." % (
-                "descend" if direction == "down" else "climb", depth)
-        )
-        self.play.load_world(self.world)
-        self.diag.world = self.world
+        carry_turn = world.turn             # turn count is a running total, not per-level
+        verb = "descend" if direction == "down" else "climb"
+
+        # Release the old level before building the new one. Its grid plus
+        # generator.generate()'s transient BFS buffers would otherwise peak
+        # together on a heap that's already tight (cd-yl4). load_world() sets
+        # play/diag.world again a few lines down — nothing runs in between.
+        world = None
+        self.world = None
+        self.play.world = None
+        self.diag.world = None
+        gc.collect()
+
+        new_world = self._new_level(depth, arrive)
+        new_world.turn = carry_turn
+        new_world.log.add("You %s to depth %d." % (verb, depth))
+        self.world = new_world
+        self.play.load_world(new_world)
+        self.diag.world = new_world
 
     def run(self):
         screen = self.display.screen

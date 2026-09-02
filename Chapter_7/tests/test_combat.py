@@ -141,6 +141,25 @@ class BumpWiring(unittest.TestCase):
         self.assertNotIn(killed, seen)                 # corpse-skip in resolve_turn
         self.assertEqual(self.hero["xp"], 2)
 
+    def test_corpse_never_gets_a_turn_and_never_follows_the_hero(self):
+        # cd-yl4 sibling: corpses were waking to "hunt" and trailing the hero.
+        ai.WANDER_CHANCE = 1.0                         # would move it if it acted
+        m = mob(self.w, 4, 3, hp=1)                    # dies to the hero's bump
+        self.turn(("move", 1, 0))                      # hero bumps m at (4,3), kills it
+        corpse = self.w.actors[-1]
+        self.assertTrue(corpse.get("corpse"))
+        self.assertEqual((corpse["x"], corpse["y"]), (4, 3))   # left where m fell
+        self.assertEqual((self.hero["x"], self.hero["y"]), (3, 3))  # bump, no move
+
+        seen = []
+        for _ in range(6):
+            world_mod.resolve_turn(
+                self.w, self.sched, ("wait",), lambda w, a: seen.append(a)
+            )
+        self.assertNotIn(corpse, seen)                 # never handed to the AI
+        self.assertEqual((corpse["x"], corpse["y"]), (4, 3))   # stayed put
+        self.assertIsNone(corpse.get("ai"))            # never woke to "hunt"
+
 
 class CircuitPythonStr(unittest.TestCase):
     """CircuitPython's `str` is a subset of CPython's — no `.capitalize()`

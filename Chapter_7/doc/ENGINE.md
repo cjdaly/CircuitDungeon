@@ -27,6 +27,15 @@ One **turn** is:
 Every actor acts exactly once per turn, at the same rate. No initiative, no
 per-actor speed in v1.
 
+The actor list is **snapshotted before step 1** (`resolve_turn` calls
+`scheduler.actors_for_turn()` first thing): turn order is fixed at the start
+of the turn, a monster the player kills mid-turn is filtered out (it's no
+longer in `world.actors`), and a **corpse created this turn is not in the
+snapshot** so it never gets an AI turn. Corpses also carry `corpse=True` and
+`resolve_turn` skips any actor with it — belt-and-suspenders for corpses that
+outlive the turn they were made in (without it they woke to `"hunt"` and
+trailed the hero).
+
 **Built for a later swap.** Actor turn-taking goes through a small scheduler
 seam, not a bare `for m in monsters` in the turn loop:
 
@@ -188,7 +197,10 @@ Actors are **plain dicts in `world.actors`**, not classes (CircuitPython has
 no `__slots__`; Ch6 `PLAN.md` "State"). `actors[0]` is the hero. Shape:
 `{"x", "y", "sheet", "tile", "blocks", ...}` — `make_actor()` builds one.
 Sprites are a parallel list in `PlayMode`, re-synced by `_sync_actor_sprites()`
-when the roster changes.
+when the roster changes (it `gc.collect()`s first — it rebuilds every sprite
+TileGrid). All four tile sheets (`terrain` / `heroes` / `creatures` /
+`objects`) load in `PlayMode.__init__`, not on first use: the lazy path put
+the first `objects.bmp` load in the middle of a fight and it OOM'd (`cd-yl4`).
 
 ## 3. Button input model
 
@@ -263,8 +275,11 @@ each ~20fps tick:
 ### 4.4 Diagnostics (`cd-89o.6`)
 
 `DiagMode` has two pages; `CONFIRM` (A) cycles, `CANCEL` (B) or the `X+Y`
-chord exits. The text rebuilds only every 3rd render — `Label` churn is the
-expensive part.
+chord exits. Assigning `Label.text` rebuilds the whole glyph bitmap and wants
+a ~2 KB contiguous block — it OOM'd mid-game (`cd-yl4`). So the label is
+rebuilt only when the rendered text *changes* (and at most every 4th render),
+with a `gc.collect()` immediately before the allocation. The frame-time
+readout is rounded to 10 ms so ordinary jitter doesn't count as a change.
 
 - **INPUT** — `chord_stats()` (per-binding fired / missed / spread), held
   buttons, in-flight chord candidates, and the tail of the input trace.
@@ -308,10 +323,14 @@ rate-capped in `input.py`, so >1 move per ~50 ms tick is nearly impossible).
 ### 5.2 `world.resolve_turn(world, scheduler, action, monster_turn)`
 
 ```
+roster = scheduler.actors_for_turn()          # §1.1 — snapshot BEFORE anyone acts
 if not _apply_player_action(world, action):   # move → move_actor(); "moved" spends
     return False                              #   a turn, "blocked"/"bump"/None don't
-for actor in scheduler.actors_for_turn():     # §1.1 — round-robin, hero first
+for actor in roster:                          # hero first, then each monster once
     if actor is world.hero: continue
+    if actor not in world.actors: continue    # killed by the hero this turn
+    if actor.get("corpse"): continue          # scenery — never gets an AI turn
+    if not world.hero_alive(): break
     monster_turn(world, actor)                # per-monster AI — ai.take_turn (§6)
 _upkeep(world)                                # status ticks / regen — empty until cd-e3p.7
 world.turn += 1
@@ -351,6 +370,10 @@ play.load_world(world);  diag.world = world
 - **Regenerate on entry.** `generator.generate(seed, depth)` is deterministic,
   so re-entering a depth gives the *same layout* with *fresh* monsters — no
   level state is persisted (RAM: one 64×64 level is enough).
+- **Release the old level first.** `_change_level` nulls `self.world` /
+  `play.world` / `diag.world` and `gc.collect()`s *before* calling
+  `new_level` — the outgoing grid + `generate()`'s transient BFS buffers
+  would otherwise peak together on an already-tight heap (`cd-yl4`).
 - `PlayMode.load_world(world)` reuses the displayio scene (viewport, HUD
   groups) and just re-points + repaints — no mode rebuild.
 - Ascending from depth 1 is sealed (a log line, no transition).
@@ -407,8 +430,9 @@ v1 is **hero ↔ monster only** (nothing else has `hp`/`power`).
   `resolve_attack` instead of moving, and the bump **spends the turn** (§1.2).
 - **Damage:** `max(1, attacker.power - defender.defense)` — always at least 1.
 - **Monster death:** removed from `world.actors`; a non-blocking corpse
-  (`objects` tile `CORPSE_TILE`) takes its place; if the killer is the hero,
-  `hero["xp"] += monster["xp"]`.
+  (`objects` tile `CORPSE_TILE`, `corpse=True`) takes its place; if the killer
+  is the hero, `hero["xp"] += monster["xp"]`. The `corpse` flag keeps
+  `resolve_turn` from ever handing it to the AI (§1.1).
 - **Hero death:** `hp ≤ 0`, but the hero **stays at `actors[0]`** — no corpse.
   `engine.Game.run()` sees `not world.hero_alive()` and shows `GameOverMode`
   (§9.2). `resolve_turn` also `break`s its monster loop once the hero is dead,

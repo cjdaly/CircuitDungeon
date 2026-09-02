@@ -303,7 +303,7 @@ class ModeSwitch(unittest.TestCase):
     def test_diag_renders_text_without_error(self):
         h = Harness()
         h.tick("x", "y")
-        for _ in range(6):          # DiagMode refreshes text every 3rd render
+        for _ in range(6):          # DiagMode rebuilds text at most every 4th render
             h.tick()
         self.assertIn("INPUT DIAG", h.game.stack.top._label.text)
 
