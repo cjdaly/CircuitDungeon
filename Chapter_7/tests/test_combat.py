@@ -142,5 +142,30 @@ class BumpWiring(unittest.TestCase):
         self.assertEqual(self.hero["xp"], 2)
 
 
+class CircuitPythonStr(unittest.TestCase):
+    """CircuitPython's `str` is a subset of CPython's — no `.capitalize()`
+    or `.title()` (only `.upper()`/`.lower()`). CPython has them, so a unit
+    test of the message text can't catch a regression; scan the source of
+    every deployed module instead. This is why world._cap exists — the first
+    on-device combat hit crashed on `_mob_name(attacker).capitalize()`."""
+
+    def test_no_capitalize_or_title_in_game_source(self):
+        import re
+
+        # a value the method is called on ends in a word char, ) or ] — this
+        # skips prose mentions in docstrings ("no `.capitalize()`").
+        call = re.compile(r"[\w\)\]]\.(?:capitalize|title)\(")
+        game_dir = os.path.join(os.path.dirname(__file__), "..", "game")
+        offenders = []
+        for name in sorted(os.listdir(game_dir)):
+            if not name.endswith(".py"):
+                continue
+            with open(os.path.join(game_dir, name)) as fh:
+                for lineno, line in enumerate(fh, 1):
+                    if call.search(line):
+                        offenders.append("%s:%d %s" % (name, lineno, line.strip()))
+        self.assertEqual(offenders, [], "CircuitPython str has no such method")
+
+
 if __name__ == "__main__":
     unittest.main()

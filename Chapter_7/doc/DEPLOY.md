@@ -157,12 +157,12 @@ labels for the lighter `bitmap_label`.
 
 | | |
 |---|---|
-| ![Ch7 play screen: the 13×13 map viewport with the hero, wall border and interior cross; dark status/message bands top and bottom.](../pics/smoke-play-viewport.jpg) | ![Same, camera scrolled — a monster sprite near the room edge.](../pics/smoke-play-scrolled.jpg) |
-| ![The DIAG input page: the `chord_stats` table, `held:` line, and the newest-last input trace showing `press x / press y / chord diag / release x / release y`.](../pics/smoke-diag-input.jpg) | ![The MENU stub overlay — "MENU / (CANCEL / chord to exit)".](../pics/smoke-menu-stub.jpg) |
+| ![Ch7 play screen: the 13×13 map viewport with the hero, wall border and interior cross; dark status/message bands top and bottom.](../pics/test1/smoke-play-viewport.jpg) | ![Same, camera scrolled — a monster sprite near the room edge.](../pics/test1/smoke-play-scrolled.jpg) |
+| ![The DIAG input page: the `chord_stats` table, `held:` line, and the newest-last input trace showing `press x / press y / chord diag / release x / release y`.](../pics/test1/smoke-diag-input.jpg) | ![The MENU stub overlay — "MENU / (CANCEL / chord to exit)".](../pics/test1/smoke-menu-stub.jpg) |
 
 **Wait-chord data** (`cd-e3p.15`) — after mashing each binding:
 
-![DIAG chord_stats after the wait-chord test: b+down fired 4 / missed 0; x+y 2/0; a+b 2/0; up+down 0/1; left+right 0/1.](../pics/smoke-diag-chord-stats.jpg)
+![DIAG chord_stats after the wait-chord test: b+down fired 4 / missed 0; x+y 2/0; a+b 2/0; up+down 0/1; left+right 0/1.](../pics/test1/smoke-diag-chord-stats.jpg)
 
 | chord | fired | missed |
 |---|---|---|
@@ -173,6 +173,69 @@ labels for the lighter `bitmap_label`.
 `Down + B` lands every time; the opposing-d-pad squeezes never formed a chord
 and each logged a miss. Confirms Chris's hunch — narrow to `Down + B` in
 `cd-e3p.15`.
+
+## Second playtest — 2026-09-01
+
+First on-device run of the procedural build (generator + `world_from_level`,
+combat, message log, SYSTEM diag, stair descent). Deployed the post-`4e5c6d3`
+tree.
+
+**Boots, renders, scrolls.** The 64×64 generated level draws correctly — dirt
+corridors, flagstone rooms, wall border, the hero on the up-stairs — and the
+camera scrolls the full level with the hero clamped to the viewport centre.
+Both diag pages work; `A` flips INPUT ⇄ SYSTEM.
+
+**One crash — fixed.** The first monster-on-hero hit threw:
+
+```
+File "world.py", line 253, in resolve_attack
+AttributeError: 'str' object has no attribute 'capitalize'
+```
+
+CircuitPython's `str` has no `.capitalize()` / `.title()` (only
+`.upper()`/`.lower()`), and CPython does, so the desktop suite never caught it
+(`cd-icp`). Fixed with `world._cap()` + a source-scan regression test
+(`test_combat.CircuitPythonStr`). **Not yet re-verified on hardware** — next
+deploy.
+
+**RAM — margin has shrunk, watch it.** SYSTEM diag mid-game (depth 1, 4
+actors, after opening/closing diag a few times):
+
+| | |
+|---|---|
+| free | **47 KB** |
+| low-water (`free_low`) | **42 KB** |
+| used / heap | 111 KB / 159 KB |
+| `gc.collect` | 16 ms (n=32) |
+| flash free | 15010 KB / 15328 KB |
+| env | CircuitPython 10.2.1 · rp2040 |
+
+Still clear of the ~20 KB danger line, but the 2026-08-30 smoke test had
+~97 KB free right after construction — the generator (the transient
+`_dist_grid` bytearray + int BFS queue), combat, the log ring and the diag
+labels have eaten ~50 KB. `cd-dsc.6` (RAM pass) should now be treated as
+due, not optional — `bitmap_label` swap + a look at whether the BFS queue can
+be capped.
+
+**`frame max` reads ~7.8 s** on the SYSTEM page — almost certainly the
+first-frame cost (initial full terrain paint / first `gc.collect`), not a
+steady-state stall; `frame` (current) sits at ~30 ms. Worth confirming on the
+next run whether descent triggers a second multi-second hitch (regenerate +
+repaint). The frame line ghosts in the photo because it repaints ~7×/s over a
+slow LCD — not a rendering bug.
+
+**Stair descent:** stepping onto the depth-1 up-stairs correctly shows
+*"The way out has sealed behind you."* Down-stairs descent not exercised this
+run (didn't reach them).
+
+![PicoSystem running the generated level: status band "HP 20/20  Depth 1  Turn 2  Gold 0", the 13×13 viewport showing flagstone room and dirt corridors, hero centred, a monster two tiles south.](../pics/test2/t2-play-generated.jpg)
+![Camera scrolled across the 64×64 level — the hero off-centre near unexplored dark tiles, message band still reading "The way out has sealed behind you."](../pics/test2/t2-play-scrolled.jpg)
+
+![SYSTEM diag page: ram free 47k / low 42k, ram used 111k / heap 159k, gc.collect 16 ms (n=32), flash free 15010k / 15328k, cpy 10.2.1 rp2040, frame 30 ms max 7783 ms, board pimoroni_picosystem, actors 4 turn 2 depth 1.](../pics/test2/t2-diag-system.jpg)
+![INPUT diag page: chord table (x+y, b+down, a+b) with fire/miss/spread columns, "held: -", and the newest-last input trace of press/release/single a events.](../pics/test2/t2-diag-input.jpg)
+
+![The message band reads "The way out has sealed behind you." after the hero stepped onto the depth-1 up-stairs; status band "HP 20/20  Depth 1  Turn 31  Gold 0".](../pics/test2/t2-stairs-sealed.jpg)
+![The on-screen traceback: modes.py:91 handle → modes.py:272 tick → world.py:224 resolve_turn → modes.py:285 _monster_turn → ai.py:54 take_turn → ai.py:90 _step_toward → world.py:253 resolve_attack, ending "AttributeError: 'str' object has no attribute 'capitalize'".](../pics/test2/t2-hit-crash.jpg)
 
 ## Troubleshooting
 

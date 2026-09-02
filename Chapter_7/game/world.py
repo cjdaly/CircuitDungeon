@@ -243,6 +243,12 @@ def _mob_name(actor):
     return "the " + actor.get("name", "creature")
 
 
+def _cap(s):
+    """Capitalize the first letter. CircuitPython's str has no .capitalize()
+    (nor .title()) — only .upper()/.lower() — so do it by hand."""
+    return s[:1].upper() + s[1:] if s else s
+
+
 def resolve_attack(world, attacker, defender):
     dmg = max(1, attacker.get("power", 1) - defender.get("defense", 0))
     defender["hp"] = defender.get("hp", 0) - dmg
@@ -250,14 +256,14 @@ def resolve_attack(world, attacker, defender):
     if attacker is world.hero:
         world.log.add("You hit %s for %d." % (_mob_name(defender), dmg))
     else:
-        world.log.add("%s hits you for %d." % (_mob_name(attacker).capitalize(), dmg))
+        world.log.add("%s hits you for %d." % (_cap(_mob_name(attacker)), dmg))
 
     if defender["hp"] > 0:
         return
     if defender is world.hero:
         world.log.add("You die.")
         return
-    world.log.add("%s dies." % _mob_name(defender).capitalize())
+    world.log.add("%s dies." % _cap(_mob_name(defender)))
     world.remove_actor(defender)
     world.add_actor(
         make_actor(defender["x"], defender["y"], "objects", CORPSE_TILE, blocks=False)
