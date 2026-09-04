@@ -136,6 +136,22 @@ margin, more in the corners) or they'll be clipped by the bezel.
   fetches; a mirror (spotpear.com) confirms the chip names but not pin
   numbers or this sleep behavior — this section is the only write-up of it.
 
+## Power / battery — no physical power switch
+
+- Battery: 3.7V Li-ion/LiPo on an onboard **MX1.25 2-pin** connector (not
+  JST). Charge/discharge managed by an onboard **ETA6098** chip. USB-C
+  handles both programming and power.
+- **There is no separate physical power switch on the board.** Only `BOOT`
+  and `RESET` buttons, both covered by the stock backplate.
+- This matters for recovering the touch-controller bus wedge above: `RESET`
+  only pulses the RP2350's reset line (same effect as
+  `microcontroller.reset()`, confirmed **not** to clear the wedge). With no
+  switch, the only full power-cycle on battery power is unplugging the
+  MX1.25 connector itself. See `cd-bp3.6` (custom backplate) — button access
+  alone won't solve this; a way to fully cut power without disassembly
+  (inline switch, or an accessible battery connector) needs to be part of
+  that design.
+
 ## Libraries needed on `CIRCUITPY/lib/`
 
 None of these are frozen into the firmware except `adafruit_bus_device` and
