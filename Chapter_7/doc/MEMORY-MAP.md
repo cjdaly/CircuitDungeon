@@ -95,10 +95,14 @@ These are momentary allocations, not footprint. On a **non-compacting GC**
 
 ## 4. The unexplained part
 
-At depth 7 / turn 1153 (~640 s, 7 descents): `free 22 KB`, and
-`free == free_low`. No crash, but the low-water mark tracking the current
-free number means the heap is still **slowly declining**, not oscillating
-around a steady state.
+Pre-RAM-pass, depth 7 / turn 1153 (~640 s, 7 descents): `free 22 KB`,
+`free == free_low`. Post-RAM-pass, depth 4 / turn 342: `free 57 KB`,
+`free == free_low` (diag was opened during the run, so ~12 KB of the
+~76 → 57 KB drop is the diag page). No crash either time. The low-water
+mark still tracks the current free number — the heap is **slowly
+declining**, not oscillating around a steady state — but from a much
+healthier start. Whether the decline flattens deeper in a run is the open
+question; needs a longer playtest.
 
 Open suspects (`cd-dsc.6`):
 
