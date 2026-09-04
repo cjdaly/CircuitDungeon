@@ -37,9 +37,18 @@ echo "deploy: $SRC/  ->  $TARGET/"
 # --delete removes stale game modules from a prior deploy, but the anchored
 # excludes protect everything CircuitPython owns (lib/, boot_out.txt,
 # settings.toml) and the macOS FAT turds (.Trashes, .fseventsd, ...).
+# Build-tree artifacts that the device never reads at runtime are excluded too
+# (with --delete they're also pruned from the drive on the next deploy):
+#   level_loader.py         - not imported on-device; tests/ only (Ch6 fork leftover)
+#   tiles/{tiles,palette}.json, tiles/palette.py
+#                           - build inputs/outputs for tools/build_tiles.py;
+#                             util.load_bitmap only ever opens the .bmp files
 rsync -rtv --delete \
   --exclude '__pycache__/' --exclude '*.pyc' --exclude '.*' \
   --exclude '/lib/' --exclude '/boot_out.txt' --exclude '/settings.toml' \
+  --exclude '/level_loader.py' \
+  --exclude '/tiles/tiles.json' --exclude '/tiles/palette.json' \
+  --exclude '/tiles/palette.py' \
   "$SRC"/ "$TARGET"/
 
 # --- lib check (warn only) --- PicoSystem needs these; neopixel is not used

@@ -63,12 +63,20 @@ class Palette:
                 f"known: {', '.join(self.names)}"
             ) from None
 
-    def flat_256(self) -> list[int]:
-        """RGB triples padded to 256 entries, for an 8-bit BMP palette table."""
+    def flat_table(self) -> list[int]:
+        """Flat RGB triples for the BMP palette table — exactly one entry per
+        master-palette colour, no 256-padding.
+
+        PIL writes `biClrUsed` = the number of entries handed here, and
+        adafruit_imageload then allocates `displayio.Palette(biClrUsed)`. A
+        padded 256-entry table cost a ~2 KB Palette per sheet on the RP2040
+        (~8 KB for four sheets) for a 40-colour palette — see
+        doc/MEMORY-MAP.md §5 / cd-dsc.6.1. The table stays index-stable
+        (slot N is the same colour on every sheet), so tile indices,
+        tiles.json, and the engine's `*_TILE` constants are unaffected."""
         flat: list[int] = []
         for r, g, b in self.rgb:
             flat += [r, g, b]
-        flat += [0, 0, 0] * (256 - len(self.rgb))
         return flat
 
 
@@ -139,7 +147,7 @@ class Sheet:
 def write_bmp(sheet: Sheet, pal: Palette, out_dir: Path = TILES_DIR) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     img = Image.fromarray(sheet.index_array(), mode="P")
-    img.putpalette(pal.flat_256())
+    img.putpalette(pal.flat_table())
     path = out_dir / f"{sheet.name}.bmp"
     img.save(path)  # 'P' -> 8-bit BMP, 256-entry table, BITMAPINFOHEADER
     return path

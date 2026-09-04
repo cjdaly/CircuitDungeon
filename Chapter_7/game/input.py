@@ -39,9 +39,11 @@ _EVENT.update(_FACE)
 # the opposing-d-pad squeezes never form on the real rocker, so they're gone.
 DEFAULT_CHORDS = {
     frozenset(("x", "y")): "diag",
-    frozenset(("a", "b")): "menu",
     frozenset(("down", "b")): "wait",
 }
+# A+B -> "menu" was here; dropped with the menu stub (cd-dsc.6). Without it,
+# A (CONFIRM) is no longer chord-eligible and fires on press with no window
+# delay. Restore the entry when cd-e3p.13 builds the real menu.
 
 # A chord-participating button holds its single-press this long (seconds) to
 # see whether the other half of a chord arrives. ~50 ms — one tick at 20 fps,

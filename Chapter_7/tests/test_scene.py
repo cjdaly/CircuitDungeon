@@ -363,17 +363,14 @@ class ModeSwitch(unittest.TestCase):
         self.assertIs(h.game.stack.top, h.game.play)
         self.assertIs(h.display.screen.root_group, h.game.play.group)
 
-    def test_menu_chord_and_cancel(self):
+    def test_ab_press_is_inert_now_the_menu_is_gone(self):
+        # A+B used to open the menu stub (cd-dsc.6 dropped it). It must not
+        # sneak through as a play action or an overlay switch.
         h = Harness()
-        menu = h.game.stack._overlays["menu"]
-        h.tick("a", "b")
-        self.assertIs(h.game.stack.top, menu)
-        h.tick()                    # release both
-        # b is chord-eligible, so its lone CANCEL press sits in the chord
-        # window one tick before firing (INPUT.md) — hold it two ticks.
-        h.tick("b")
-        h.tick("b")
+        for _ in range(3):
+            h.tick("a", "b")
         self.assertIs(h.game.stack.top, h.game.play)
+        self.assertEqual(h.world.turn, 0)
 
     def test_no_turn_passes_while_an_overlay_is_up(self):
         h = Harness()

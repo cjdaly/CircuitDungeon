@@ -108,9 +108,16 @@ class FaceButtons(unittest.TestCase):
         self.assertEqual(evs, [im.AUX_X])  # exactly one, no LONG_* ever
 
 
+# A generic two-face-button chord for exercising the chord engine. The app's
+# real table (input.DEFAULT_CHORDS) only chords X+Y and Down+B now that the
+# menu stub is gone (cd-dsc.6); these tests declare their own so they test the
+# mechanism, not the bindings.
+_AB = {frozenset(("a", "b")): "menu"}
+
+
 class Chords(unittest.TestCase):
     def test_simultaneous_pair_fires_chord_not_singles(self):
-        m = im.InputModel()
+        m = im.InputModel(chords=_AB)
         evs = feed(m, [
             ({"a": True}, 0.00),
             ({"a": True, "b": True}, 0.02),  # both down within the window
@@ -127,13 +134,13 @@ class Chords(unittest.TestCase):
         self.assertEqual(evs, ["diag"])
 
     def test_chord_fires_once_per_hold(self):
-        m = im.InputModel()
+        m = im.InputModel(chords=_AB)
         steps = [({"a": True, "b": True}, t / 100.0) for t in range(0, 50, 2)]
         evs = feed(m, steps)
         self.assertEqual(evs, ["menu"])
 
     def test_chord_rearms_after_releasing_one_member(self):
-        m = im.InputModel()
+        m = im.InputModel(chords=_AB)
         evs = feed(m, [
             ({"a": True, "b": True}, 0.00),  # menu
             ({"b": True}, 0.05),             # release a -> re-arm
@@ -145,7 +152,7 @@ class Chords(unittest.TestCase):
     def test_late_second_button_does_not_form_chord(self):
         # hold A past its window (CONFIRM fires), then press B — that's two
         # separate presses, not a chord.
-        m = im.InputModel()
+        m = im.InputModel(chords=_AB)
         evs = feed(m, [
             ({"a": True}, 0.00),
             ({"a": True}, 0.07),            # window passed -> CONFIRM, a is "singled"
@@ -182,13 +189,13 @@ class Queue(unittest.TestCase):
 
 class Instrumentation(unittest.TestCase):
     def test_snapshot_reports_held_and_candidates(self):
-        m = im.InputModel()
+        m = im.InputModel(chords=_AB)
         m.tick({k: (k == "a") for k in _KEYS}, 1.0)
         m.tick({k: (k == "a") for k in _KEYS}, 1.1)
         snap = m.snapshot()
         self.assertEqual(snap["held"], ["a"])
         self.assertGreaterEqual(snap["hold_ms"]["a"], 90)
-        self.assertIn("a+b", snap["chord_candidates"])  # a down, b not -> menu forming
+        self.assertIn("a+b", snap["chord_candidates"])  # a down, b not -> chord forming
 
 
 class WaitChords(unittest.TestCase):

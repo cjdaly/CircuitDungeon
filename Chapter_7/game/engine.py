@@ -41,16 +41,14 @@ class Game:
         # new_level(depth, start) -> a fresh World for that depth (cd-e3p.10);
         # None disables descent (some tests don't need it).
         self._new_level = new_level
-        self.input = im.InputModel()    # chords: X+Y -> "diag", A+B -> "menu"
+        self.input = im.InputModel()    # chords: X+Y -> "diag", Down+B -> "wait"
         self.metrics = metrics_mod.Metrics()
 
         self.play = modes.PlayMode(display, world)
         self.gameover = modes.GameOverMode(display, restart or (lambda: None))
         self.diag = modes.DiagMode(display, self.input, self.metrics, world)
-        self.stack = modes.ModeStack(
-            self.play,
-            {"menu": modes.MenuMode(display), "diag": self.diag},
-        )
+        # One overlay for now; the "menu" seam returns with cd-e3p.13.
+        self.stack = modes.ModeStack(self.play, {"diag": self.diag})
 
         display.screen.auto_refresh = False
         self.stack.render(display.screen)   # sets root_group to the play scene
@@ -112,7 +110,7 @@ class Game:
                 self.stack.show(self.gameover)   # ENGINE.md §9
             elif self.world.transition:
                 self._change_level(self.world.transition)   # ENGINE.md §5.4
-            # no d-pad auto-repeat while an overlay (menu/diag) is up
+            # no d-pad auto-repeat while an overlay (diag) is up
             self.input.repeat_paused = self.stack.overlay_active()
 
             self.stack.render(screen)

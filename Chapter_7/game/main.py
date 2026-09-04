@@ -55,5 +55,5 @@ print("Ch7 level  seed=%d depth=%d  free=%d" % (RUN_SEED, world.depth, gc.mem_fr
 
 game = engine.Game(display, world, restart=_restart, new_level=_new_game)
 gc.collect()
-print("Ch7 ready  free=%d  X+Y=diag  A+B=menu" % gc.mem_free())
+print("Ch7 ready  free=%d  X+Y=diag" % gc.mem_free())
 game.run()

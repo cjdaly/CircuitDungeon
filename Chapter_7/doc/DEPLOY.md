@@ -13,13 +13,15 @@ drive (not into a `game/` subdir — `util.py` loads tiles from `/tiles/`):
 CIRCUITPY/
   boot.py                       # turns auto-reload OFF (see "Deploy" below)
   main.py  engine.py  modes.py  input.py  world.py  ai.py  hardware.py
-  util.py  level_loader.py
+  util.py  fov.py  generator.py  metrics.py  log.py
   tiles/  terrain.bmp creatures.bmp heroes.bmp objects.bmp
-          (palette.* / tiles.json copied too; not imported yet)
   lib/  adafruit_display_text/  adafruit_imageload/  adafruit_ticks.mpy
 ```
 
-`doc/`, `tools/`, and `tests/` stay on the desktop.
+`doc/`, `tools/`, and `tests/` stay on the desktop. `deploy.sh` also skips
+`level_loader.py` (tests-only, not imported on-device) and the
+`tiles/{tiles,palette}.json` + `tiles/palette.py` build artifacts — the device
+only ever opens the four `.bmp` files. See `doc/MEMORY-MAP.md` §6.
 
 `adafruit_ticks.mpy` is a dependency of `adafruit_display_text.bitmap_label`
 (which `util.py` uses instead of `label` — `cd-yl4`). Missing it gives

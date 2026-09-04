@@ -8,13 +8,14 @@
 #
 # v1 modes:
 #   play  - the roguelike (PlayMode here; the turn loop is cd-e3p.3)
-#   menu  - main menu / settings (stub; cd-e3p.13)
-#   diag  - on-device diagnostics: INPUT + SYSTEM pages (cd-e3p.14, cd-89o.6)
+#   diag  - on-device diagnostics: RAM + input, one screen (cd-89o.6)
+#   menu  - main menu / settings — not built yet (cd-e3p.13); the stack still
+#           supports N overlays, engine.Game just wires one for now
 #
-# The two chord events from input.py, "menu" and "diag", toggle their overlay
-# over play. ModeStack imports nothing hardware-side (displayio et al. are
-# imported lazily inside the mode classes), so its routing is tested
-# off-device in tests/test_modes.py.
+# A chord event from input.py ("diag", later "menu") toggles its overlay over
+# play. ModeStack imports nothing hardware-side (displayio et al. are imported
+# lazily inside the mode classes), so its routing is tested off-device in
+# tests/test_modes.py (which still exercises a two-overlay stack).
 #
 # Governed by doc/ENGINE.md section 4.
 
@@ -30,7 +31,9 @@ MAP_TILES = 13                 # odd → hero on the exact centre tile
 MAP_PX = MAP_TILES * TILE       # 208 — map viewport is 208×208
 BAND_H = TILE                   # 16 — one terminalio line, top and bottom
 
-# input events that switch modes; consumed by the stack, never seen by a mode
+# input events that switch modes; consumed by the stack, never seen by a mode.
+# "menu" stays listed so it's a no-op (not a stray play action) if a binding
+# ever emits it before cd-e3p.13 wires the overlay.
 _TOGGLE_EVENTS = ("menu", "diag")
 
 # play-mode input event -> turn action (world.resolve_turn). 4-way only.
@@ -323,36 +326,12 @@ class PlayMode:
         self._render()
 
 
-class _StubOverlay:
-    """Placeholder overlay — a centred label so the mode switch is visible and
-    testable before the real screen (cd-e3p.13) is built."""
-
-    def __init__(self, display, title):
-        import displayio
-        import terminalio
-        import util
-
-        self.display = display
-        self.group = displayio.Group()
-        screen = display.screen
-        lbl = util.init_label(
-            terminalio.FONT, 0xFFFFFF, text=title + "\n(CANCEL / chord to exit)"
-        )
-        lbl.anchor_point = (0.5, 0.5)
-        lbl.anchored_position = (screen.width // 2, screen.height // 2)
-        self.group.append(lbl)
-
-    def tick(self, events, now):
-        if im.CANCEL in events:
-            return "exit"
-        return None
-
-    def render(self):
-        pass
-
-
-def MenuMode(display):
-    return _StubOverlay(display, "MENU")   # cd-e3p.13
+# The main-menu overlay (cd-e3p.13) is not built yet. Its ModeStack seam is
+# still here — engine.Game just passes a one-entry overlay dict — so bringing
+# it back is a matter of adding {"menu": RealMenuMode(...)} and restoring the
+# a+b chord in input.DEFAULT_CHORDS. The stub that used to live here (a lone
+# "MENU" label) cost ~2.4 KB resident at boot for no gameplay value and was
+# dropped in cd-dsc.6 (the RAM pass).
 
 
 class GameOverMode:
@@ -401,19 +380,22 @@ class DiagMode:
     wait-chord tuning tool, retired with cd-e3p.14/.15; one screen is less
     code and less RAM — cd-dsc.6.)
 
-    Drawn as a grid of per-line labels, each a small constant-width
-    `bitmap_label` that reuses its bitmap on every update — zero allocation
-    once built. Built **lazily on first open** (and kept), so a game that
-    never opens diag never pays for them, and each is `MemoryError`-guarded so
-    a low-memory open degrades to a partial screen instead of crashing. A
-    `label.Label` reallocated every frame had shredded the heap; one
-    `bitmap_label` for the whole page wanted a ~9 KB contiguous Bitmap and
-    OOM'd on open (cd-yl4)."""
+    Drawn as **one** whole-page `bitmap_label` of fixed geometry
+    (`_MAX_LINES` rows × `_LINE_W` cols, every row space-padded), built
+    **lazily on first open** and kept. Because the bounding box never
+    changes, `.text =` rewrites the existing Bitmap in place — zero
+    allocation after the first. Measured on-device (cd-dsc.6.3): one page
+    label ≈ 8 KB vs ≈ 21 KB for 14 separate line-labels, the layout this
+    replaced. The build is `MemoryError`-guarded and never retried — if the
+    heap is too tight to open diag, `render()` no-ops and `.text` still
+    reports (the observer effect cuts both ways: not opening diag is the
+    right move when you're that close to the edge). One page label was
+    rejected in cd-yl4 for wanting its ~9 KB *contiguous* deep in a
+    fragmented run; the guard makes that a graceful miss, not a crash, and
+    "ready" free is now ~73 KB."""
 
-    _MAX_LINES = 14
-    _LINE_W = 38          # ~terminalio chars across 240 px
-    _LINE_H = 11          # px between line baselines
-    _BLANK = " " * _LINE_W
+    _MAX_LINES = 12     # 10 lines used today (2 chords); slack for a metric or two
+    _LINE_W = 36        # ~terminalio chars across 240 px (longest real line ~35)
 
     def __init__(self, display, game_input, metrics=None, world=None):
         import displayio
@@ -423,31 +405,33 @@ class DiagMode:
         self.metrics = metrics
         self.world = world
         self.group = displayio.Group()
-        self._lines = []            # built lazily by _ensure_lines()
+        self._page = None           # the one bitmap_label, built by _ensure_page()
         self._built = False
-        self._shown = []
+        self._shown = ""            # last string composed (kept even if _page is None)
         self._every = 4             # lower bound on renders between refreshes
         self._n = 0
 
-    def _ensure_lines(self):
-        """Allocate the per-line labels the first time the screen is drawn. If
-        memory is too tight to fit them all, take what we can and never retry
-        — a short diag screen beats a dead game."""
+    def _blank_page(self):
+        return "\n".join([" " * self._LINE_W] * self._MAX_LINES)
+
+    def _ensure_page(self):
+        """Build the single page label the first time the screen is drawn.
+        On MemoryError, leave `_page` None and never retry — a game that
+        can't spare ~8 KB should not be opening diag."""
         if self._built:
             return
         self._built = True
         import terminalio
         import util
         gc.collect()
-        for i in range(self._MAX_LINES):
-            try:
-                lbl = util.init_label(terminalio.FONT, 0x33FF33,
-                                      x=2, y=6 + i * self._LINE_H, text=self._BLANK)
-            except MemoryError:
-                break
-            self.group.append(lbl)
-            self._lines.append(lbl)
-        self._shown = [self._BLANK] * len(self._lines)
+        try:
+            self._page = util.init_label(terminalio.FONT, 0x33FF33,
+                                         x=2, y=8, text=self._blank_page())
+        except MemoryError:
+            self._page = None
+            return
+        self.group.append(self._page)
+        self._shown = self._blank_page()
 
     def tick(self, events, now):
         if im.CANCEL in events:
@@ -460,30 +444,34 @@ class DiagMode:
             self._repaint()
 
     def _repaint(self):
-        self._ensure_lines()
-        want = self._screen_lines()
-        for i in range(len(self._lines)):
-            row = want[i] if i < len(want) else ""
-            row = ("%-*s" % (self._LINE_W, row))[: self._LINE_W]
-            if row == self._shown[i]:
-                continue
+        self._ensure_page()
+        page = self._compose()
+        if page == self._shown:
+            return
+        self._shown = page                       # `.text` stays truthful even if...
+        if self._page is None:
+            return                               # ...the label never allocated
+        try:
+            self._page.text = page               # constant box -> bitmap reused
+        except MemoryError:
+            gc.collect()
             try:
-                self._lines[i].text = row        # constant width -> bitmap reused
+                self._page.text = page
             except MemoryError:
-                gc.collect()
-                try:
-                    self._lines[i].text = row
-                except MemoryError:
-                    return                       # skip this pass; game lives on
-            self._shown[i] = row
+                pass                             # skip this pass; game lives on
+
+    def _compose(self):
+        rows = self._screen_lines()[: self._MAX_LINES]
+        rows += [""] * (self._MAX_LINES - len(rows))
+        return "\n".join(("%-*s" % (self._LINE_W, r))[: self._LINE_W] for r in rows)
 
     @property
     def text(self):
         """The screen as one string — for tests / logging, not render."""
-        return "\n".join(s.rstrip() for s in self._shown).rstrip()
+        return "\n".join(s.rstrip() for s in self._shown.split("\n")).rstrip()
 
     def _screen_lines(self):
-        lines = ["DIAG                    B:exit"]
+        lines = ["DIAG                B:exit"]
         m = self.metrics
         if m is None:
             lines.append("(no metrics)")
