@@ -6,14 +6,17 @@ OpenSCAD models for the custom backplate / case work.
 |---|---|
 | `stock_backplate.scad` | Parametric model of the **stock** Waveshare RP2350-Touch-LCD-1.28 backplate. Baseline for the custom part. **All dims are photo estimates** — see the header and `../doc/CASE.md`. |
 
-## Rendering — done on `arc-1` (the fleet Pi assigned to this repo)
+## Rendering — done on `arc-1` (a networked Linux box)
 
 `arc-1.local` has `openscad` **2021.01** (Debian trixie) + `xvfb` (installed
 2026-09-05; OpenSCAD needs an X server for PNG export, none for STL).
 
-Login details are **not in this (public) repo** — see `arc1.local.env`
-(gitignored, next to this file) or `../../../rpi-fleet/INVENTORY.md` (a
-private, non-pushed repo). The fleet is LAN-only behind a home router.
+Rendering runs on a separate networked Linux box over SSH. The connection
+setup (host, user, SSH key) is local machine config, not part of this repo.
+`arc1.local.env` (gitignored, next to this file) holds the `ARC1_HOST` /
+`ARC1_USER` vars the commands below `source`; key auth is already configured,
+so `ssh`/`scp` need no password. **If you cloned CircuitDungeon just for the
+games, skip this section** — none of it is needed to build or run them.
 
 ```bash
 source Chapter_8/cad/arc1.local.env   # sets ARC1_USER / ARC1_HOST
@@ -28,10 +31,6 @@ xvfb-run -a openscad -o preview.png --imgsize=1100,1100 \
   --colorscheme=Tomorrow --viewall --autocenter --projection=o \
   --camera=0,0,0,55,0,25,0 stock_backplate.scad
 ```
-
-The fleet uses password SSH (creds in `arc1.local.env` / `../../../rpi-fleet`).
-From this Mac there's no `sshpass`; wrap it with `expect`, or just type the
-password when prompted.
 
 ## Status
 
