@@ -4,6 +4,10 @@
 downloads/
 pics-raw/
 
+# Local-only secrets / machine config (fleet logins, etc.) — never commit
+*.local.env
+*.local.secret
+
 
 # Beads / Dolt files (added by bd init)
 .dolt/
