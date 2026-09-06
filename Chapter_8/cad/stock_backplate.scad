@@ -4,81 +4,70 @@
 // PURPOSE
 //   1. Baseline reference geometry the custom (bigger-battery) backplate will
 //      be derived from.
-//   2. Toolchain smoke test: authored on macOS, rendered to STL with OpenSCAD
-//      on arc-1.
+//   2. A printable clone to compare against the real part before modifying it.
 //
-// ACCURACY — READ THIS
-//   EVERY dimension below is an EYEBALL ESTIMATE off the 2026-09-04 photos in
-//   ../pics (PCB ruler in frame, ~7 px/mm). NOTHING here is caliper-verified.
-//   See ../doc/CASE.md "Measurement checklist". Grep this file for "EST" to
-//   find every guessed value — expect all of them to move once real numbers
-//   land.
+// ACCURACY
+//   2026-09-06: rebuilt from Chris's caliper readings (see ../doc/CASE.md
+//   "Caliper readings"). Values tagged MEAS are measured; EST are still
+//   guesses. The outline is now a flatted disc (circle sliced top + bottom),
+//   not a plain circle.
+//
+//   Known simplifications in this clone (expect these to show in the print):
+//     - side profile modeled as a single circular arc (d = width_lr); the
+//       straight edges then come out ~20 mm vs. 19.15 mm measured
+//     - notch is a plain rectangular tab; closeups hint at a step/slot
+//     - NO inner locating lip (unverified on the real part)
+//     - holes are a straight cone with no cylindrical throat
+//     - wall 2.0 vs. 2.15 measured
 //
 // COORDINATE FRAME / PRINT ORIENTATION
-//   Origin at the plate center. The flat OUTER (convex, label) face sits on
-//   the Z=0 plane — i.e. the model is oriented outer-face-DOWN, ready to print
-//   flat on the bed. Material fills Z=0..plate_th. The inner locating lip and
-//   the mounting bosses grow in +Z (into the case). Screw countersinks open
-//   downward on the Z=0 face.
-//
-// The stock backplate design constraint (Chris, 2026-09-04): the 4 mounting
-// points reach FIXED-height standoffs on the PCB, so in the custom part they
-// must stay recessed bosses at THIS depth while the shell bulges out around
-// them. This file models the stock (flat) baseline only.
+//   Origin at the plate center. X = left-right (width). Y = top-bottom, with
+//   the notch on +Y ("top", opposite the USB-C edge). The flat OUTER (convex,
+//   label) face sits on Z=0 — model is outer-face-DOWN, ready to print flat.
+//   Material fills Z = 0..plate_th; the inner (concave) face is at Z=plate_th.
+//   Screw cones open wide on the Z=0 (outer) face.
 
-$fn = 160;
+$fn = 200;
 
-/* ================= ESTIMATED PARAMETERS (replace with caliper data) ======= */
+/* ============================ PARAMETERS ================================= */
 
-// ---- plate body ----
-plate_od        = 40.5;   // EST overall outer diameter (backplate rim)
-plate_th        = 2.0;    // EST flat wall thickness, outer face -> inner face
-// Photos show the outer face is essentially FLAT (no dome). If a real crown
-// turns up, add a shallow spherical cap on the -Z side here.
+// ---- plate body (MEAS 2026-09-06) ----
+width_lr   = 46.5;   // MEAS overall left-right width (widest point of the sides)
+flat_tb    = 42.0;   // MEAS top-flat -> bottom-flat, excludes notch (meas 42.4)
+plate_th   = 2.0;    // MEAS wall thickness (meas 2.15; set to 2.15 for a truer clone)
+edge_len_ref = 19.15; // MEAS straight-edge length — REFERENCE ONLY (see echo below)
 
-// ---- inner locating lip (nests inside the case shell) ----
-// UNVERIFIED that this exists / its size — inner face is hard to read in the
-// photos. Set lip_on=false if the stock plate is just flat.
-lip_on          = true;
-lip_h           = 0.8;    // EST height above the inner face
-lip_th          = 1.0;    // EST radial wall thickness
-lip_gap         = 0.6;    // EST inset of lip outer dia from plate_od
+// ---- rim notch: centered on the top (+Y) edge ----
+notch_on   = true;
+notch_w    = 4.5;    // MEAS width along the edge (meas 4.8)
+notch_out  = 1.0;    // MEAS protrusion beyond the top flat
 
-// ---- mounting holes: 4, rectangular pattern, symmetric about center ----
-// Long axis (dy) ~ USB-C <-> LCD-FPC ; short axis (dx) ~ BOOT <-> BAT.
-hole_dx         = 22.0;   // EST center-to-center, short axis
-hole_dy         = 28.0;   // EST center-to-center, long axis
-screw_clear_d   = 2.3;    // EST screw-shank through clearance (heads look ~M2)
-csink_top_d     = 4.2;    // EST countersink major dia at the outer face
-csink_depth     = 1.5;    // EST countersink depth (flat / countersunk head)
+// ---- mounting holes: TRUE rectangle, confirmed symmetric (MEAS) ----
+hole_dx    = 25.0;   // MEAS c-c of the top pair (== bottom pair), left-right
+hole_dy    = 33.0;   // MEAS c-c of the left pair (== right pair), top-bottom
+hole_d_out = 4.0;    // MEAS cone dia at the OUTER face
+hole_d_in  = 2.0;    // MEAS cone dia at the INNER face
 
-// ---- inner bosses around each hole (raised rings on the concave face) ----
-boss_on         = true;
-boss_d          = 5.0;    // EST outer dia
-boss_h          = 1.5;    // EST height above the inner face (lands on PCB standoff)
-
-// ---- rim notch ----
-// A small stepped feature is visible at one point on the rim in the screw-hole
-// closeups. Purpose unknown (strap lug? tool-pry slot? molding parting mark?).
-// Modeled as a plain rectangular bite so it's at least represented.
-notch_on        = true;
-notch_w         = 4.0;    // EST width along the rim
-notch_depth     = 1.5;    // EST radial bite depth
-notch_angle     = 90;     // EST angular position (deg; 90 = +Y)
+// ---- inner-face ribs: shallow grooves running along Y (MEAS pitch) ----
+ribs_on    = true;
+rib_pitch  = 2.1;    // MEAS (9 gaps measured over 18.9 mm)
+rib_depth  = 0.3;    // EST — not measured
+rib_w      = 0.6;    // EST — not measured
 
 /* ============================ derived / helpers ========================== */
 
-eps = 0.01;
+eps = 0.02;
 
 module hole_positions() {
     for (sx = [-1, 1], sy = [-1, 1])
         translate([sx * hole_dx / 2, sy * hole_dy / 2, 0]) children();
 }
 
-module ring(od, wall, h) {
-    difference() {
-        cylinder(d = od, h = h);
-        translate([0, 0, -eps]) cylinder(d = od - 2 * wall, h = h + 2 * eps);
+// plate outline as a 2D shape: circle of dia width_lr, sliced flat top+bottom
+module outline_2d() {
+    intersection() {
+        circle(d = width_lr);
+        square([width_lr + 2, flat_tb], center = true);
     }
 }
 
@@ -87,37 +76,28 @@ module ring(od, wall, h) {
 module stock_backplate() {
     difference() {
         union() {
-            // main disc
-            cylinder(d = plate_od, h = plate_th);
+            // main flatted disc
+            linear_extrude(height = plate_th) outline_2d();
 
-            // inner locating lip
-            if (lip_on)
-                translate([0, 0, plate_th - eps])
-                    ring(plate_od - 2 * lip_gap, lip_th, lip_h + eps);
-
-            // inner bosses
-            if (boss_on)
-                hole_positions()
-                    translate([0, 0, plate_th - eps])
-                        cylinder(d = boss_d, h = boss_h + eps);
+            // top-edge notch (plain rectangular tab, overlapping into the body)
+            if (notch_on)
+                translate([-notch_w / 2, flat_tb / 2 - 1, 0])
+                    cube([notch_w, notch_out + 1, plate_th]);
         }
 
-        // screw through-holes (all the way through disc + boss)
+        // screw cones — wide on the Z=0 outer face, narrow at the inner face
         hole_positions()
             translate([0, 0, -eps])
-                cylinder(d = screw_clear_d, h = plate_th + boss_h + 4 * eps);
+                cylinder(d1 = hole_d_out, d2 = hole_d_in, h = plate_th + 2 * eps);
 
-        // countersinks, opening on the Z=0 (outer) face
-        hole_positions()
-            translate([0, 0, -eps])
-                cylinder(d1 = csink_top_d, d2 = screw_clear_d,
-                         h = csink_depth + eps);
-
-        // rim notch
-        if (notch_on)
-            rotate([0, 0, notch_angle])
-                translate([plate_od / 2 - notch_depth, -notch_w / 2, -eps])
-                    cube([notch_depth + 2, notch_w, plate_th + 2 * eps]);
+        // inner-face ribs (grooves cut into the Z=plate_th face)
+        if (ribs_on) {
+            n = floor((width_lr - 4) / rib_pitch / 2);
+            for (i = [-n : n])
+                translate([i * rib_pitch - rib_w / 2, -flat_tb / 2 - 1,
+                           plate_th - rib_depth])
+                    cube([rib_w, flat_tb + 2, rib_depth + eps]);
+        }
     }
 }
 
@@ -125,9 +105,13 @@ stock_backplate();
 
 /* ============================ sanity echoes ============================= */
 
-echo(str("plate: OD ", plate_od, " mm  x thickness ", plate_th, " mm"));
+// straight-edge length implied by the circle-arc side profile
+implied_edge = 2 * sqrt(pow(width_lr / 2, 2) - pow(flat_tb / 2, 2));
+
+echo(str("plate: ", width_lr, " (L-R) x ", flat_tb, " (T-B, +", notch_out,
+         " notch) x ", plate_th, " thick  [mm]"));
+echo(str("implied straight-edge length: ", implied_edge,
+         " mm   (measured ", edge_len_ref, " mm)"));
 echo(str("hole rectangle: ", hole_dx, " x ", hole_dy, " mm  (diagonal ",
          sqrt(hole_dx * hole_dx + hole_dy * hole_dy), " mm)"));
-echo(str("inner face -> top of boss: ", plate_th + boss_h, " mm above outer face"));
-echo(str("edge margin at nearest hole (short axis): ",
-         (plate_od - hole_dx) / 2 - boss_d / 2, " mm to boss edge"));
+echo(str("hole center -> top/bottom flat: ", (flat_tb - hole_dy) / 2, " mm"));

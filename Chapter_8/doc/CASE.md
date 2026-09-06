@@ -29,6 +29,51 @@ pads reaching in to the same height the stock screws expect), while the
 surrounding shell bulges outward around them for the bigger cavity. Capture
 this as a real constraint in the `.scad` model, not just an afterthought.
 
+## Measurement conventions (Chris, 2026-09-06)
+
+Orientation terms for the caliper notes, looking at the **outer (convex,
+label) face**:
+
+- **Bottom** — the edge that lines up with the USB-C connector and the
+  bottom of the round display. Straight across the middle, curving away at
+  the rounded sides.
+- **Top** — the opposite edge, also straight across the middle, with a
+  small **notch** (stepped tab) protruding outward at its center. Clearest
+  in `../pics/screw-holes-closeup-1.jpg` / `-2.jpg`.
+- **Top–bottom axis** = the line between those two straight edges.
+  **Left / right** = the perpendicular (rounded) sides.
+
+So the plate outline is a **disc with two parallel flats** (top and
+bottom), not a full circle. In `../cad/stock_backplate.scad`, `plate_od`
+as a plain circle has to become circle ∩ slab, with the notch added at
+top center.
+
+## Caliper readings — 2026-09-06
+
+| feature | reading | model value | notes |
+|---|---|---|---|
+| top flat → bottom flat (excl. notch) | 42.4 mm | **42.0** | flatted axis (Y) |
+| left → right overall width | 46.5 mm | **46.5** | widest point of the curved sides (X) |
+| top / bottom straight-edge length | 19.15 mm | (derived ≈20) | falls out of circle(46.5) ∩ slab(42); check on the print |
+| wall thickness (outer → inner face) | 2.15 mm | **2.0** | uniform; stock plate is flat, no crown per photos |
+| notch protrusion past top flat | ~1.0 mm | **1.0** | notch tip → bottom flat ≈ 43 mm |
+| notch width along top edge | 4.8 mm | **4.5** | centered on the top edge; modeled as a plain rect tab (closeups hint at a step/slot — unmodeled) |
+| mounting-hole pattern | TRUE rectangle | — | confirmed symmetric |
+| hole c-c, top pair = bottom pair (X) | ~25 mm | **25.0** | |
+| hole c-c, left pair = right pair (Y) | ~33 mm | **33.0** | diagonal ≈ 41.4 mm |
+| hole profile | cone, no throat | **d 4.0 → 2.0** | 4 mm at outer face tapering to 2 mm at inner face, straight through |
+| inner-face ribs | 9 gaps = 18.9 mm | pitch **2.1**, depth 0.3 (est) | shallow grooves running along Y (top–bottom); cosmetic, don't affect fit |
+
+### Still open (needed before the *custom* part, not the clone)
+
+- Inner locating lip / rim on the concave face — exists? size? (clone models it as **absent**)
+- Standoff gap: outer face of plate → PCB underside when screwed down (the
+  stock battery's available thickness; the number the custom part must beat)
+- Screw: head dia, thread dia (looks M2), thread length, overall length;
+  self-tap into plastic standoffs or brass inserts?
+- Any raised boss around each hole on the inner face (clone: none)
+- USB-C / MX1.25 / SH1.0-GPIO connector positions vs. a hole → shell cutouts
+
 ## Measurement checklist (calipers — pending, target: this weekend)
 
 From the chat discussion: LiDAR/photogrammetry (Scaniverse/Polycam on the
@@ -47,8 +92,10 @@ caliper numbers once Chris has borrowed one.
 **Board & stock backplate**
 - [ ] Overall board diameter (or length×width)
 - [ ] PCB thickness
-- [ ] Stock backplate: outer dimensions, wall thickness, internal cavity
-      depth (the number the new design needs to beat)
+- [~] Stock backplate: wall thickness **2.15 mm** (using 2.0); top–bottom
+      **42.4 mm** excl. notch (using 42.0) + notch **~1.0 mm**. Still need:
+      left–right width, side-arc radius, internal cavity depth. See the
+      "Caliper readings" table above.
 - [ ] Total assembled thickness, front glass to back of case
 
 **Buttons (BOOT/RESET) — for extender design**

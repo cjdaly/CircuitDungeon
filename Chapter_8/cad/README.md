@@ -4,7 +4,7 @@ OpenSCAD models for the custom backplate / case work.
 
 | file | what |
 |---|---|
-| `stock_backplate.scad` | Parametric model of the **stock** Waveshare RP2350-Touch-LCD-1.28 backplate. Baseline for the custom part. **All dims are photo estimates** — see the header and `../doc/CASE.md`. |
+| `stock_backplate.scad` | Parametric model of the **stock** Waveshare RP2350-Touch-LCD-1.28 backplate. Baseline for the custom part. Body + hole pattern + notch are **caliper-measured** (2026-09-06, see `../doc/CASE.md`); inner lip, standoff gap, and screw dims still TBD. |
 
 ## Rendering — done on `arc-1` (a networked Linux box)
 
@@ -35,5 +35,10 @@ xvfb-run -a openscad -o preview.png --imgsize=1100,1100 \
 ## Status
 
 - 2026-09-05: toolchain validated end-to-end (author on macOS → render on
-  arc-1). `stock_backplate.scad` is a **rough first pass from photos only** —
-  every dimension is a guess pending calipers (`../doc/CASE.md` checklist).
+  arc-1).
+- 2026-09-06: `stock_backplate.scad` rebuilt from Chris's caliper readings —
+  outline is now a flatted disc (46.5 L-R × 42 T-B × 2), true-rectangle hole
+  pattern 25 × 33, cone holes 4→2, notch + inner ribs. STL regenerated. This
+  is a **fit-check clone**: print it and compare to the real part before
+  deriving the deeper custom backplate. Open items in `../doc/CASE.md`
+  ("Still open"): inner locating lip, standoff/battery gap, screw dims.
