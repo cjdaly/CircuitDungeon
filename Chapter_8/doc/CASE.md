@@ -64,15 +64,36 @@ top center.
 | hole profile | cone, no throat | **d 4.0 → 2.0** | 4 mm at outer face tapering to 2 mm at inner face, straight through |
 | inner-face ribs | 9 gaps = 18.9 mm | pitch **2.1**, depth 0.3 (est) | shallow grooves running along Y (top–bottom); cosmetic, don't affect fit |
 
-### Still open (needed before the *custom* part, not the clone)
+### Still open
 
-- Inner locating lip / rim on the concave face — exists? size? (clone models it as **absent**)
-- Standoff gap: outer face of plate → PCB underside when screwed down (the
-  stock battery's available thickness; the number the custom part must beat)
+- Inner locating lip / rim on the concave face — exists? size? (models treat it as **absent**)
+- Standoff gap: outer face of plate → PCB underside when screwed down. NOT
+  actually needed to *add* depth (the deep model keeps the screw path
+  unchanged and just adds a well above the head), but it's the reference
+  for "how much battery room did we start with".
 - Screw: head dia, thread dia (looks M2), thread length, overall length;
-  self-tap into plastic standoffs or brass inserts?
-- Any raised boss around each hole on the inner face (clone: none)
-- USB-C / MX1.25 / SH1.0-GPIO connector positions vs. a hole → shell cutouts
+  self-tap into plastic standoffs or brass inserts? — and whether a #0/#00
+  driver reaches the head down the ~7 mm well (`well_d` opens to 4.5 if tight)
+- USB-C / MX1.25 / SH1.0-GPIO connector positions vs. a hole → cutout in the
+  deep shell for the battery lead + the Adafruit 3922 pigtail
+- Deep part: does any back-side PCB component foul the seat-plane ring or the
+  6 bosses? (all held at Z ≤ stock inner face, so no worse than stock — but
+  unverified)
+
+## Battery plan (Chris, 2026-09-06)
+
+Several batteries on hand, all with the **wrong connector**. Plan: an
+Adafruit **3922**-style pigtail (ordered, not yet received) + soldering,
+with a +/- polarity double-check against the board's MX1.25 BAT input.
+Until the battery is chosen, `extra_depth` in `deep_backplate.scad` is just
+a knob — 6 mm for now, expected to land somewhere in 3–8 mm.
+
+## BOOT / RESET on the deep part
+
+The flat-part poke-holes would open straight into the battery compartment,
+so `deep_backplate.scad` runs each button hole up a **sealed poke-tube**
+(Ø `btn_hole_d` bore in a Ø `btn_boss_d` boss) from the outer face to the
+seat plane. Open tubes for now; printed extenders are a later option.
 
 ## Measurement checklist (calipers — pending, target: this weekend)
 
@@ -99,9 +120,14 @@ caliper numbers once Chris has borrowed one.
 - [ ] Total assembled thickness, front glass to back of case
 
 **Buttons (BOOT/RESET) — for extender design**
-- [ ] Each button's X/Y position relative to a fixed reference point
+- [~] Each button's X/Y position: **5.0 mm toward the bottom (−Y) and
+      1.5 mm toward center (X) from its neighbouring top screw hole.**
+      With the 25×33 hole pattern that puts the centers at (±11.0, +11.5),
+      i.e. 5.22 mm from the top screw hole, 9.5 mm from the top flat.
+      Access holes modeled at Ø3.0 straight-through in
+      `../cad/custom_backplate.scad` (pass 1) — pending print-test.
 - [ ] Button diameter, recess depth below the board's top surface, and
-      travel distance
+      travel distance (only needed if we go to printed extenders)
 
 **Ports/connectors the case must clear**
 - [ ] USB-C port position + size

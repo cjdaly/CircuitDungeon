@@ -101,7 +101,10 @@ module stock_backplate() {
     }
 }
 
-stock_backplate();
+// Render only when this file is opened directly. custom_backplate.scad sets
+// as_include=true before `include <stock_backplate.scad>` to reuse the
+// params + modules without also drawing the stock part.
+if (is_undef(as_include) || !as_include) stock_backplate();
 
 /* ============================ sanity echoes ============================= */
 
