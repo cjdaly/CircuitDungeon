@@ -6,7 +6,8 @@ OpenSCAD models for the custom backplate / case work.
 |---|---|
 | `stock_backplate.scad` | Parametric model of the **stock** Waveshare RP2350-Touch-LCD-1.28 backplate. Baseline for the custom part. Body + hole pattern + notch are **caliper-measured** (2026-09-06, see `../doc/CASE.md`); inner lip, standoff gap, and screw dims still TBD. Verified: printed replica screws on cleanly. |
 | `custom_backplate.scad` | Flat stock body + BOOT/RESET Ø3 through-holes. Button positions **print-tested & confirmed** 2026-09-06 (`btn_down` 5.0→6.0). `include`s `stock_backplate.scad`. |
-| `deep_backplate.scad` | The bigger-battery part. `include`s `custom_backplate.scad`; pushes the interior floor out by `extra_depth` (6mm now, tunable), wraps it in a `shell`-thick (3mm) box, holds the 4 screws at the stock plane via recessed `well_d` (4.2) counterbores, and runs sealed BOOT/RESET poke-tubes (`btn_tube_up` past the seat plane, `btn_wall` thick). STL: `deep_backplate_6mm.stl`. **Print outer-face-down (cavity up), no supports.** Printed & screw-fitted 2026-09-07. Not yet: battery-connector cutout, power-cut feature, extenders. |
+| `deep_backplate.scad` | The bigger-battery part. `include`s `custom_backplate.scad`; pushes the interior floor out by `extra_depth` (6mm now, tunable), wraps it in a `shell`-thick (3mm) box, holds the 4 screws at the stock plane via recessed `well_d` (4.2) counterbores. BOOT/RESET bore: round Ø`btn_hole_d` for the first `btn_bore_lip` (1mm) at the back face, then a wider D (`btn_bore_wide_d` 4.5, keyed by a flat) the rest of the way, to fit `button_extender.scad` rods. STL: `deep_backplate_6mm.stl`. **Print outer-face-down (cavity up), no supports.** Body confirmed screw-fitted 2026-09-07; extender bore **confirmed working with both extender variants 2026-09-10.** Not yet: battery-connector cutout, power-cut feature. |
+| `button_extender.scad` | Printed BOOT/RESET push-rods: a narrow D tip (fits the round lip, pokes out the back to press) + a wider D body (slides the wide bore; the tip→body shoulder can't pass back through the lip, so it's captured — drop in from the cavity side). `include`s `deep_backplate.scad` for the shared `d2d()` profile + fit dims. **Both current variants (`variants` list) print-tested and confirmed working 2026-09-10** — A snug/exact, B has slight play but works. STL: `button_extender.stl`. |
 
 ## Rendering — done on `arc-1` (a networked Linux box)
 
@@ -47,5 +48,11 @@ xvfb-run -a openscad -o preview.png --imgsize=1100,1100 \
   `shell`=3mm. Poke-tubes then lengthened `btn_tube_up`=2mm toward the PCB.
 - 2026-09-07: deep part **printed and screw-fitted — everything lines up.**
   `extra_depth` still expected to move (3–8mm) once the battery + Adafruit
-  3922 pigtail are in hand. Still open (`../doc/CASE.md`): standoff gap,
-  inner lip, battery-connector cutout, power-cut feature.
+  3922 pigtail are in hand.
+- 2026-09-10: first extender attempt (flange + counterbore + slot) **didn't
+  fit — reverted.** Replaced with a simpler two-diameter bore (round lip +
+  wider D) and a matching two-diameter rod (`button_extender.scad`), tuned
+  over two print rounds. **Both current variants confirmed working** — one
+  snug/exact-length, one with slight play but functional. Still open
+  (`../doc/CASE.md`): standoff gap, inner lip, battery-connector cutout,
+  power-cut feature.

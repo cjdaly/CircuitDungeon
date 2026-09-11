@@ -91,9 +91,29 @@ a knob — 6 mm for now, expected to land somewhere in 3–8 mm.
 ## BOOT / RESET on the deep part
 
 The flat-part poke-holes would open straight into the battery compartment,
-so `deep_backplate.scad` runs each button hole up a **sealed poke-tube**
-(Ø `btn_hole_d` bore in a Ø `btn_boss_d` boss) from the outer face to the
-seat plane. Open tubes for now; printed extenders are a later option.
+so `deep_backplate.scad` runs each button hole up a sealed poke-tube from
+the outer face, `btn_tube_up` past the seat plane toward the PCB (clears a
+nearby connector).
+
+**Printed push-rod extenders** (`button_extender.scad`) — working design as
+of 2026-09-10, after one reverted attempt:
+
+- First attempt used a retention flange riding in a counterbore + a "-"
+  press tab — didn't fit when printed, scrapped.
+- **Current design:** the bore is round Ø`btn_hole_d` for the first
+  `btn_bore_lip` (1mm) at the back face, then widens to a D shape
+  (`btn_bore_wide_d`, keyed by a flat) the rest of the way to the tube top.
+  The rod matches: a narrow D **tip** (fits the round lip, pokes
+  `tip_out` past the back surface — this is just the external press nub,
+  it doesn't affect reach) then a wider D **body** (slides the wide bore,
+  runs `over` mm past the tube top toward the switch — this sets the actual
+  contact point). The tip→body shoulder can't pass back through the round
+  lip, so the rod is self-captured: drop it into the tube from the cavity
+  side before the PCB goes on.
+- Reach is tuned via `over` (contact point) and `tip_out` (external nub),
+  independently. **Two variants confirmed working 2026-09-10** (both in
+  `button_extender.scad`'s `variants` list): one lands snug/exact, the
+  other has slight play but actuates fine. Kept both as-is for now.
 
 ## Measurement checklist (calipers — pending, target: this weekend)
 

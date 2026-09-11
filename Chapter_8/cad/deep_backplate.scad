@@ -49,7 +49,14 @@ btn_wall    = 1.5;   // poke-tube wall thickness (-> OD = btn_hole_d + 2*btn_wal
 btn_tube_up = 2.0;   // extra poke-tube length ABOVE the seat plane, toward the
                      //   PCB — reaches past a nearby cable connector to the
                      //   button. Watch for a PCB/connector clash on the print.
-btn_boss_d  = btn_hole_d + 2 * btn_wall;   // = 6.0 with the defaults
+
+// BOOT/RESET bore: a short round lip at the back surface, then a WIDER,
+// D-shaped bore the rest of the way up.
+btn_bore_lip    = 1.0;   // round Ø btn_hole_d kept at the outer (back) face
+btn_bore_wide_d = 4.5;   // round part of the wider D bore past the lip
+btn_bore_flat   = 1.0;   // how far the D's flat is cut in from the round edge
+
+btn_boss_d  = btn_bore_wide_d + 2 * btn_wall;   // sized to the wide bore
 
 deep_ribs   = false; // stock inner-face ribs are dropped on the deep part
 
@@ -58,8 +65,21 @@ deep_ribs   = false; // stock inner-face ribs are dropped on the deep part
 floor_top  = plate_th - extra_depth;        // Z, cavity floor top surface
 outer_face = floor_top - shell;             // Z, device outer back face
 box_h      = plate_th - outer_face;         // total wall height (Z span)
+btn_bore_flat_at = btn_bore_wide_d / 2 - btn_bore_flat;  // flat offset from axis
 
 module cavity_2d() offset(r = -shell) outline_2d();
+
+// D profile: a circle with one side flattened to a chord `flat_at` from the
+// axis (flat faces -Y). Shared with button_extender.scad so bore and rod mate.
+module d2d(dia, flat_at) {
+    intersection() {
+        circle(d = dia);
+        translate([-dia, -flat_at]) square([2 * dia, 2 * dia]);
+    }
+}
+
+// wider D bore past the lip
+module btn_bore_wide_2d() d2d(btn_bore_wide_d, btn_bore_flat_at);
 
 /* ================================ part ================================== */
 
@@ -116,16 +136,22 @@ module deep_backplate() {
             translate([0, 0, outer_face - eps])
                 cylinder(d = well_d, h = -outer_face + eps);
 
-        // ---- BOOT/RESET through-bores: outer face -> top of the tube ----
+        // ---- BOOT/RESET bores: round lip at the back face, then wider D ----
         if (buttons_on)
-            button_positions()
+            button_positions() {
+                // round Ø btn_hole_d lip at the outer (back) surface
                 translate([0, 0, outer_face - eps])
-                    cylinder(d = btn_hole_d,
-                             h = box_h + btn_tube_up + 2 * eps);
+                    cylinder(d = btn_hole_d, h = btn_bore_lip + eps);
+                // wider D bore the rest of the way to the tube top
+                translate([0, 0, outer_face + btn_bore_lip])
+                    linear_extrude(box_h + btn_tube_up - btn_bore_lip + eps)
+                        btn_bore_wide_2d();
+            }
     }
 }
 
-deep_backplate();
+// button_extender.scad sets as_include_deep=true to reuse the params + d2d()
+if (is_undef(as_include_deep) || !as_include_deep) deep_backplate();
 
 /* ============================ sanity echoes ============================= */
 
@@ -139,6 +165,8 @@ echo(str("screw well: dia ", well_d, " x ", -outer_face,
 echo(str("battery-area rough clearance between the 4 wells: ",
          hole_dx - well_boss_d, " x ", hole_dy - well_boss_d,
          " mm  x ", extra_depth, " mm deep"));
-echo(str("poke-tube: OD ", btn_boss_d, " (bore ", btn_hole_d, ", wall ",
-         btn_wall, "), top at Z = ", plate_th + btn_tube_up,
-         "  (", btn_tube_up, " mm past the seat plane toward the PCB)"));
+echo(str("poke-tube: OD ", btn_boss_d, ", top at Z = ", plate_th + btn_tube_up));
+echo(str("  bore: round ", btn_hole_d, " for the first ", btn_bore_lip,
+         " mm, then D ", btn_bore_wide_d, " (flat ", btn_bore_flat_at,
+         " off axis) -> boss wall ", (btn_boss_d - btn_bore_wide_d) / 2,
+         " round / ", btn_boss_d / 2 - btn_bore_flat_at, " flat side"));
