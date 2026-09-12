@@ -14,8 +14,11 @@ SafeTouch instead connects lazily: construction never raises, poll() attempts
 a (re)connect at most once per _RETRY_INTERVAL and otherwise just reports "no
 touch" -- the rest of the diagnostic HUD runs fine whether or not touch has
 come up yet. Check .connected if you want to show that state explicitly.
+
+adafruit_cst8xx is imported lazily inside SafeTouch.poll() rather than at
+module level, so GestureTracker (pure logic, no hardware) stays importable
+under plain desktop Python -- see tests/test_touch.py and edge_gesture.py.
 """
-import adafruit_cst8xx
 
 _RETRY_INTERVAL = 1.0  # seconds between reconnect attempts while not connected
 
@@ -51,6 +54,8 @@ class SafeTouch:
             if now < self._next_attempt:
                 return None
             try:
+                import adafruit_cst8xx
+
                 self._ctp = adafruit_cst8xx.Adafruit_CST8XX(self._i2c, address=self._address)
             except (ValueError, OSError):
                 self._next_attempt = now + self._retry_interval

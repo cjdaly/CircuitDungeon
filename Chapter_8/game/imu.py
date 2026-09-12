@@ -24,6 +24,7 @@ class ImuGestures:
         ax, ay, az = self.imu.acceleration
         gx, gy, gz = self.imu.gyro
 
+        jerk = 0.0
         if self._prev_accel is not None:
             px, py, pz = self._prev_accel
             jerk = abs(ax - px) + abs(ay - py) + abs(az - pz)
@@ -41,4 +42,5 @@ class ImuGestures:
             "pitch": pitch,
             "roll": roll,
             "shake": now < self._shake_until,
+            "jerk": jerk,  # raw frame-to-frame delta, 0.0 on the first sample
         }
