@@ -141,6 +141,12 @@ margin, more in the corners) or they'll be clipped by the bezel.
 - Battery: 3.7V Li-ion/LiPo on an onboard **MX1.25 2-pin** connector (not
   JST). Charge/discharge managed by an onboard **ETA6098** chip. USB-C
   handles both programming and power.
+- `board.BAT_ADC` exists (see pin list above) but there's no fuel-gauge IC on
+  this board — the ETA6098 is charge/discharge management only, and I2C
+  probing has only ever found the touch (0x15) and IMU (0x6B) addresses, no
+  third device. No library gives a battery-percentage API; `game/battery.py`
+  estimates one from `BAT_ADC` (voltage divider ratio unconfirmed, see its
+  docstring) — untested on-device as of 2026-09-12.
 - **There is no separate physical power switch on the board.** Only `BOOT`
   and `RESET` buttons, both covered by the stock backplate.
 - This matters for recovering the touch-controller bus wedge above: `RESET`

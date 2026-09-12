@@ -1,5 +1,7 @@
-// deep_backplate.scad — Chapter 8 / cd-bp3.6
+// deep_backplate_20mm.scad — Chapter 8 / cd-bp3.6
 // The custom backplate with a DEEPER interior for a bigger battery.
+// This is the 20mm-extra-depth variant; see deep_backplate_6mm.scad for the
+// shallower one. Both share this file's structure — only `extra_depth` differs.
 //
 // Builds on custom_backplate.scad (-> stock_backplate.scad): same
 // caliper-verified outline, mounting-hole rectangle, rim notch, and
@@ -7,22 +9,26 @@
 //
 // WHAT THIS ADDS over the flat custom plate
 //   - the interior (PCB-facing) floor is pushed OUT by `extra_depth`
-//     (6 mm now; a knob to tune later — 3..8 mm expected) to make room
-//     for a thicker battery + an Adafruit 3922-style pigtail once it
-//     arrives and gets soldered on
+//     (20 mm here) to make room for a thicker battery + an Adafruit
+//     3922-style pigtail once it arrives and gets soldered on
 //   - a `shell`-thick wall + floor around that new cavity
 //   - 4 recessed screw wells: the screw drops down a `well_d` counterbore
 //     to the ORIGINAL countersink + hole at the ORIGINAL plane, so the
 //     same screws still reach the same PCB standoffs — nothing about the
 //     screw path itself changes, only the material around it moved out
+//     (untested at this depth: a longer driver shaft may be needed to
+//     reach the counterbore bottom)
 //   - BOOT/RESET poke-tubes: sealed `btn_hole_d` channels from the outer
 //     face up to the seat plane, so a tool reaches the buttons without
 //     passing through the battery compartment
 //
 // NOT MODELED YET (later passes, see ../doc/CASE.md)
 //   - battery-connector / wire cutout + a no-disassembly power-cut feature
-//   - printed button extenders (these are just open poke-tubes for now)
+//   - printed button extenders (these are just open poke-tubes for now) —
+//     see button_extender_20mm.scad
 //   - exact standoff gap, any inner locating lip, outer-edge chamfer
+//   - print-testing at this depth (untested as of creation; the 6mm
+//     variant is the print-confirmed one)
 //
 // COORDINATE FRAME  (same as stock_backplate.scad)
 //   +Z points INTO the device (toward the PCB). The seat plane region is
@@ -38,7 +44,7 @@ include <custom_backplate.scad>
 
 /* ============================ PARAMETERS ================================= */
 
-extra_depth = 6.0;   // extra interior depth vs. the flat stock plate. TUNABLE.
+extra_depth = 20.0;  // extra interior depth vs. the flat stock plate. TUNABLE.
 shell       = 3.0;   // new wall + floor thickness. TUNABLE.
 
 well_d      = 4.2;   // screw-well counterbore dia (driver + head clearance;
@@ -70,7 +76,7 @@ btn_bore_flat_at = btn_bore_wide_d / 2 - btn_bore_flat;  // flat offset from axi
 module cavity_2d() offset(r = -shell) outline_2d();
 
 // D profile: a circle with one side flattened to a chord `flat_at` from the
-// axis (flat faces -Y). Shared with button_extender.scad so bore and rod mate.
+// axis (flat faces -Y). Shared with button_extender_20mm.scad so bore and rod mate.
 module d2d(dia, flat_at) {
     intersection() {
         circle(d = dia);
@@ -150,7 +156,7 @@ module deep_backplate() {
     }
 }
 
-// button_extender.scad sets as_include_deep=true to reuse the params + d2d()
+// button_extender_20mm.scad sets as_include_deep=true to reuse the params + d2d()
 if (is_undef(as_include_deep) || !as_include_deep) deep_backplate();
 
 /* ============================ sanity echoes ============================= */

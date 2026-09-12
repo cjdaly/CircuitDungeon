@@ -80,22 +80,43 @@ top center.
   6 bosses? (all held at Z ≤ stock inner face, so no worse than stock — but
   unverified)
 
-## Battery plan (Chris, 2026-09-06)
+## Battery plan (Chris, 2026-09-06; parts confirmed 2026-09-12)
 
-Several batteries on hand, all with the **wrong connector**. Plan: an
-Adafruit **3922**-style pigtail (ordered, not yet received) + soldering,
-with a +/- polarity double-check against the board's MX1.25 BAT input.
-Until the battery is chosen, `extra_depth` in `deep_backplate.scad` is just
-a knob — 6 mm for now, expected to land somewhere in 3–8 mm.
+Two batteries on hand, both JST-PH (2-pin), which the board's onboard MX1.25
+BAT connector doesn't accept directly:
+
+- [Adafruit 4236](https://www.adafruit.com/product/4236) — 3.7V 420mAh,
+  35 × 24 × 5.2mm, 25mm lead. **Fits `deep_backplate_20mm.scad`** — printed
+  and confirmed 2026-09-12, the biggest of the two the case has been sized
+  around.
+- [Adafruit 1317](https://www.adafruit.com/product/1317) — 3.7V 150mAh,
+  19.75 × 26.02 × 3.8mm, 127.5mm lead. Sized for `deep_backplate_6mm.scad`
+  (not yet confirmed in-case).
+
+Adapter: [Adafruit 3922](https://www.adafruit.com/product/3922) — a 200mm,
+28AWG **Molex PicoBlade (1.25mm pitch)** cable, connector on one end, bare
+leads on the other. **Confirmed 2026-09-12: the 3922's connector plugs
+straight into the board's BAT input** — no re-termination needed on that
+side. **Polarity confirmed against the board's silkscreen: red = +, black =
+-.** Chris has several 3922 units on hand, one per battery. Remaining solder
+work: splice/solder each 3922's bare red/black leads to the matching
+red/black leads on the 4236 and the 1317 (both JST-PH, but the JST-PH
+connector itself is being bypassed — no need to source a mating JST-PH part,
+just join the wires directly, red-to-red/black-to-black per the confirmed
+polarity above).
+
+`extra_depth` is now fixed at two variants rather than a single tunable
+knob: `deep_backplate_6mm.scad` (sized for the 1317) and
+`deep_backplate_20mm.scad` (sized for the 4236, confirmed 2026-09-12).
 
 ## BOOT / RESET on the deep part
 
 The flat-part poke-holes would open straight into the battery compartment,
-so `deep_backplate.scad` runs each button hole up a sealed poke-tube from
+so `deep_backplate_6mm.scad`/`deep_backplate_20mm.scad` run each button hole up a sealed poke-tube from
 the outer face, `btn_tube_up` past the seat plane toward the PCB (clears a
 nearby connector).
 
-**Printed push-rod extenders** (`button_extender.scad`) — working design as
+**Printed push-rod extenders** (`button_extender_6mm.scad`) — working design as
 of 2026-09-10, after one reverted attempt:
 
 - First attempt used a retention flange riding in a counterbore + a "-"
@@ -112,7 +133,7 @@ of 2026-09-10, after one reverted attempt:
   side before the PCB goes on.
 - Reach is tuned via `over` (contact point) and `tip_out` (external nub),
   independently. **Two variants confirmed working 2026-09-10** (both in
-  `button_extender.scad`'s `variants` list): one lands snug/exact, the
+  `button_extender_6mm.scad`'s `variants` list): one lands snug/exact, the
   other has slight play but actuates fine. Kept both as-is for now.
 
 ## Measurement checklist (calipers — pending, target: this weekend)

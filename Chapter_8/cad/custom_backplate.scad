@@ -9,7 +9,7 @@
 //   BOOT/RESET through-holes on the flat stock body. Positions print-tested
 //   and confirmed good (btn_down 5.0 -> 6.0 after the first check). This
 //   file stays the flat "buttons only" variant; the deeper cavity lives in
-//   deep_backplate.scad, which includes this one.
+//   deep_backplate_6mm.scad / deep_backplate_20mm.scad, which include this one.
 //
 // Reuses every parameter + module from stock_backplate.scad. Set
 // as_include_custom=true before `include <custom_backplate.scad>` to reuse

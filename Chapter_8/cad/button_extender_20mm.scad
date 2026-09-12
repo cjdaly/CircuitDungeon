@@ -1,5 +1,5 @@
-// button_extender.scad — Chapter 8 / cd-bp3.6
-// Printed BOOT/RESET push-rods for deep_backplate.scad's poke-tubes.
+// button_extender_20mm.scad — Chapter 8 / cd-bp3.6
+// Printed BOOT/RESET push-rods for deep_backplate_20mm.scad's poke-tubes.
 //
 // Matches the two-diameter bore in the deep part:
 //   - the case bore is round Ø btn_hole_d for the first btn_bore_lip mm at
@@ -22,13 +22,17 @@
 //
 // D shaft => prints flat-side-down, no supports, no bed knife-edge.
 
-as_include_deep = true;   // deep_backplate.scad sets the custom/stock guards
-include <deep_backplate.scad>
+as_include_deep = true;   // deep_backplate_20mm.scad sets the custom/stock guards
+include <deep_backplate_20mm.scad>
 
 /* ============================ PARAMETERS ================================= */
 
-// 2026-09-10: the over=1/tip_out=1.0 rod (previous shortest) was very close
-// but a little too long. Two variations on it:
+// Starting point only, carried over from button_extender_6mm.scad's
+// print-confirmed [over, tip_out] pairs (2026-09-10) — UNTESTED at this
+// depth. `body_top - seam_z` (the printed length) grows automatically with
+// `extra_depth` (see deep_backplate_20mm.scad), since seam_z tracks
+// outer_face; over/tip_out only need retuning if the fit itself is off,
+// same as the 6mm print-test process.
 //   A: body 0.5 mm shorter                              -> over 0.5
 //   B: body 1.0 mm shorter, tip (press nub) 0.5 mm longer -> over 0, tip_out 1.5
 variants = [
