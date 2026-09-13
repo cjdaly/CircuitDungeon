@@ -27,6 +27,16 @@ class TestRoom(unittest.TestCase):
         for direction in rooms_mod.DIRECTIONS:
             self.assertIsNone(room.exit_toward(direction))
 
+    def test_description_and_items_default_empty(self):
+        room = rooms_mod.Room("A")
+        self.assertEqual(room.description, "")
+        self.assertEqual(room.items, [])
+
+    def test_description_and_items_stored(self):
+        room = rooms_mod.Room("A", description="A room.", items=["a lamp"])
+        self.assertEqual(room.description, "A room.")
+        self.assertEqual(room.items, ["a lamp"])
+
 
 class TestWorld(unittest.TestCase):
     def _linear_world(self):
@@ -75,6 +85,46 @@ class TestWorld(unittest.TestCase):
         self.assertEqual(world.current, "C")
         world.move(rooms_mod.DOWN)
         self.assertEqual(world.current, "B")
+
+
+class TestMakeWorld(unittest.TestCase):
+    def test_starts_in_living_room(self):
+        world = rooms_mod.make_world()
+        self.assertEqual(world.current, "Living Room")
+
+    def test_living_room_has_expected_items(self):
+        world = rooms_mod.make_world()
+        items = world.room.items
+        self.assertIn("a Christmas tree", items)
+        self.assertIn("wrapped presents under the tree", items)
+
+    def test_every_exit_has_a_matching_return_exit(self):
+        # Every room in this roster is meant to round-trip both ways --
+        # catches a typo'd/one-way exit if the roster is ever edited.
+        world = rooms_mod.make_world()
+        by_name = {room.name: room for room in world.all_rooms()}
+        for room in world.all_rooms():
+            for direction, dest_name in room.exits.items():
+                dest = by_name[dest_name]
+                back = rooms_mod.OPPOSITE[direction]
+                self.assertEqual(
+                    dest.exit_toward(back), room.name,
+                    "{} --{}--> {} has no return exit".format(room.name, direction, dest_name),
+                )
+
+    def test_every_room_reachable_from_start(self):
+        world = rooms_mod.make_world()
+        by_name = {room.name: room for room in world.all_rooms()}
+        seen = {world.current}
+        frontier = [world.current]
+        while frontier:
+            name = frontier.pop()
+            for direction in rooms_mod.DIRECTIONS:
+                dest = by_name[name].exit_toward(direction)
+                if dest is not None and dest not in seen:
+                    seen.add(dest)
+                    frontier.append(dest)
+        self.assertEqual(seen, set(by_name))
 
 
 if __name__ == "__main__":

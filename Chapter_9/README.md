@@ -14,6 +14,13 @@ beads under `cd-zw2`; design notes will land in `doc/` as they solidify.
 * **Room-graph model** (`game/rooms.py`, `cd-zw2.1`) -- ported from
   Chapter 8's `cd-45v.4` prototype, same `Room`/`World` API. Pure data +
   movement logic, no hardware deps. Off-device tests in `tests/`.
+* **Room roster** (`rooms.make_world()`, `cd-zw2.6`) -- the real Ch9
+  content: 10 rooms (Living Room start, Kitchen, Basement, Entryway,
+  Bedroom, Kids' Bedroom, Yard, Pond, Tree House, Cave). Only the Living
+  Room has detailed `items` content so far (tree, fireplace, cookies/milk,
+  presents) -- the rest are placeholder rooms pending further content/art.
+  Tests check every exit has a matching return exit and every room is
+  reachable from the start, not just the specific room content.
 * **Edge-gesture navigation** (`game/touch.py`, `game/edge_gesture.py`,
   `cd-zw2.4`) -- ported from Chapter 8's `cd-45v.2` prototype (touch
   controller wrapper + tap/swipe classifier + edge-margin gesture
@@ -50,6 +57,19 @@ beads under `cd-zw2`; design notes will land in `doc/` as they solidify.
   idle stretch and wakes on being handled. `ornament.py` is the scene only
   -- no `main()`/hardware calls; wiring it all together into an actual
   on-device entry point is future integration work.
+* **Critter mechanic** (`game/critters.py`, `cd-zw2.3`) -- `Critter` state
+  machine (`in_box` -> `hiding` -> `returned`, `returned` is terminal) and
+  `CritterRoster` (lookup by name / by current room). Retrieval requires
+  finding the critter in the right room AND holding its preferred item
+  together, not either alone. New design work, not a Ch8 port -- no prior
+  prototype existed. Deliberately doesn't decide the escape *trigger*
+  (time-based? player-action-based? -- still unspecified per the design
+  notes) or "holding an item" (`try_retrieve` takes any `held_items`
+  collection, decoupled from `rooms.py`'s `Room.items`); those are left to
+  a future game loop. No real critter roster (names/preferred items)
+  either -- placeholder critters only exist in tests, same as room content
+  waited for `cd-zw2.6` once the room model existed. Fully unit tested, 15
+  tests, pure state logic.
 
 ## Layout
 
@@ -57,9 +77,10 @@ beads under `cd-zw2`; design notes will land in `doc/` as they solidify.
 game/      copied to CIRCUITPY once on-device code exists; for now, plain
            Python modules testable off-device (rooms.py, touch.py's
            GestureTracker, edge_gesture.py, sprite_scale.py's
-           clamp_actor_position, stillness.py, screen_blanker.py);
-           room_banner.py, sprite_scale.py's TileGrid builders, and
-           ornament.py need displayio so they're desk-checked only
+           clamp_actor_position, stillness.py, screen_blanker.py,
+           critters.py); room_banner.py, sprite_scale.py's TileGrid
+           builders, and ornament.py need displayio so they're desk-checked
+           only
 tests/     off-device unit tests -- `python3 tests/test_<name>.py`, no
            hardware or CircuitPython needed
 ```
