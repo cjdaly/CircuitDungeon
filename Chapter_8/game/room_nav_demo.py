@@ -118,7 +118,7 @@ def _update_markers(markers, now, active_zone, live_exits):
 
 
 def main():
-    display = hardware.init_display()
+    display, _backlight = hardware.init_display()
     i2c = hardware.init_i2c()
     touch = hardware.init_touch(i2c)
     tracker = edge_gesture.EdgeGestureTracker(hardware.WIDTH, hardware.HEIGHT)

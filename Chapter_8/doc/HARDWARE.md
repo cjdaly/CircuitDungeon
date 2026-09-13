@@ -1,8 +1,10 @@
 # Chapter 8 — Waveshare RP2350-Touch-LCD-1.28 hardware notes
 
 Findings from probing the board live over the USB serial REPL (`screen` /
-raw-REPL scripting), 2026-09-04. See `doc/VISION.md` for the chapter pitch and
-`doc/DEPLOY.md` for how to get code onto the device.
+raw-REPL scripting), 2026-09-04. See `doc/VISION.md` for the chapter pitch,
+`doc/DEPLOY.md` for how to get code onto the device, and `doc/SERIAL.md` for
+how to script that REPL probing (and the I2C-wedge gotcha below) without a
+human at a terminal.
 
 ## Identity
 
@@ -132,6 +134,11 @@ margin, more in the corners) or they'll be clipped by the bezel.
   screen goes black because `main.py` now throws `RuntimeError: No pull up
   found on SDA or SCL; check your wiring` out of `busio.I2C(...)` before it
   draws anything. **If that happens: unplug and replug, don't just reset.**
+  **Confirmed 2026-09-13 on a battery-equipped unit (`ws-2`): USB unplug/
+  replug alone did NOT clear the wedge, because the battery kept the board
+  powered through the USB disconnect** — the RP2350 never actually lost
+  power, so nothing reset. Had to disconnect the battery too. See "Power /
+  battery" below.
 - The Waveshare wiki page (`waveshare.com/wiki/...`) 403s to automated
   fetches; a mirror (spotpear.com) confirms the chip names but not pin
   numbers or this sleep behavior — this section is the only write-up of it.
@@ -157,6 +164,14 @@ margin, more in the corners) or they'll be clipped by the bezel.
   alone won't solve this; a way to fully cut power without disassembly
   (inline switch, or an accessible battery connector) needs to be part of
   that design.
+- **Confirmed 2026-09-13, now that batteries are actually wired (`cd-bp3.6.1`)**:
+  on a unit with its battery connected, unplugging USB is **not** a power
+  cycle — the board keeps running off the battery the whole time. To fully
+  power down a battery-equipped unit (e.g. to clear the I2C wedge above),
+  the battery's MX1.25 connector has to come out too, not just USB. This is
+  also the underlying reason `cd-ork` (power management) exists at all —
+  the board runs continuously on battery with no way to turn it off in
+  software either, short of unplugging that connector.
 
 ## Libraries needed on `CIRCUITPY/lib/`
 

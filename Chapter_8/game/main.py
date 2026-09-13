@@ -5,6 +5,11 @@ One combined HUD (not paged -- v1 keeps it all on screen at once): system
 info, a live touch marker + tap/swipe gesture readout, and a live
 accelerometer/gyro readout with tilt + shake detection. See
 doc/HARDWARE.md for the board notes and doc/VISION.md for the chapter pitch.
+
+Screen blanks after DEFAULT_TIMEOUT seconds of no touch (screen_blanker.py,
+cd-ork.1 -- this board has no physical power switch) and wakes instantly on
+the next touch; that waking touch is swallowed rather than also treated as
+a gesture.
 """
 import gc
 import os
@@ -19,6 +24,7 @@ from adafruit_display_text.bitmap_label import Label
 import hardware
 import imu as imu_gestures
 import touch as touch_gestures
+from screen_blanker import ScreenBlanker
 
 _BG_COLOR = 0x101018
 _TEXT_COLOR = 0xC0C0C0
@@ -76,13 +82,14 @@ def main():
     # once at startup, it doesn't change while running.
     device_id = os.getenv("DEVICE_ID") or "no-id"
 
-    display = hardware.init_display()
+    display, backlight = hardware.init_display()
     i2c = hardware.init_i2c()
     imu = hardware.init_imu(i2c)
     touch = hardware.init_touch(i2c)
 
     tracker = touch_gestures.GestureTracker()
     gestures = imu_gestures.ImuGestures(imu)
+    blanker = ScreenBlanker(backlight)
 
     group = _make_group(display)
     l_title = _add_line(group, _ROW_TITLE)
@@ -120,6 +127,8 @@ def main():
         # unhandled exception leaving a silent black screen.
         try:
             point = touch.poll(now)
+            if blanker.update(point is not None, now):
+                point = None  # this tick's touch only woke the screen
             gesture = tracker.update(point, now)
             if gesture:
                 last_gesture = gesture

@@ -79,6 +79,9 @@ screen /dev/tty.usbmodem*        # find the exact name with: ls /dev/tty.usbmode
 ```
 
 - `Ctrl-C` → REPL, `Ctrl-D` → restart · Detach: `Ctrl-A` then `d`
+- Scripting this instead of watching interactively (checking for a crash,
+  capturing a traceback)? See `doc/SERIAL.md` — and its one hard rule:
+  never send repeated resets back-to-back, that's what wedges the I2C bus.
 
 `main.py` prints on start:
 

@@ -50,7 +50,7 @@ game/      copied to CIRCUITPY, plus a couple of off-device-testable
            prototype modules (rooms.py, edge_gesture.py)
 tests/     off-device unit tests -- `python3 tests/test_<name>.py`, no
            hardware or CircuitPython needed
-tools/     deploy.sh, set_device_config.py
+tools/     deploy.sh, set_device_config.py, serial_check.py
 vendor/    third-party drivers not in the Adafruit bundle (qmi8658c.py)
 pics/      reference photos
 ```

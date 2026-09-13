@@ -154,7 +154,7 @@ def _blend(color_a, color_b, t):
 
 
 def main():
-    display = hardware.init_display()
+    display, _backlight = hardware.init_display()
     i2c = hardware.init_i2c()
     imu = hardware.init_imu(i2c)
     gestures = imu_gestures.ImuGestures(imu)

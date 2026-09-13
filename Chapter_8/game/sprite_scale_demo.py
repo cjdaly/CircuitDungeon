@@ -131,7 +131,7 @@ def _make_actor(bitmap, palette, frame, x, y):
 
 
 def main():
-    display = hardware.init_display()
+    display, _backlight = hardware.init_display()
 
     group = displayio.Group()
     display.root_group = group

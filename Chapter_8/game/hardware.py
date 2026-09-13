@@ -27,6 +27,11 @@ def init_display():
     release_displays() must run BEFORE touching LCD_CLK/LCD_DIN: CircuitPython
     auto-configures this board's built-in status display on every boot (for
     its own splash/error screens), which holds those pins until released.
+
+    Returns (display, backlight) -- backlight is a plain digitalio.DigitalInOut
+    on board.LCD_BL, independent of the GC9A01A driver, so callers can turn it
+    off/on directly (e.g. screen_blanker.py, cd-ork.1) without touching the
+    display driver at all.
     """
     displayio.release_displays()
 
@@ -41,7 +46,8 @@ def init_display():
         reset=board.LCD_RST,
         baudrate=24_000_000,
     )
-    return GC9A01A(bus, width=WIDTH, height=HEIGHT)
+    display = GC9A01A(bus, width=WIDTH, height=HEIGHT)
+    return display, backlight
 
 
 def init_i2c():
