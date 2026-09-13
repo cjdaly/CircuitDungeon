@@ -18,12 +18,18 @@ the twinkling pauses while "handled", as a first cut at the kind of thing
 that signal could drive. A bottom debug line shows the raw state -- that
 line is a prototype aid, not part of the eventual no-UI ornament mode.
 
-STATUS: UNTESTED ON DEVICE as of 2026-09-12 -- written and desk-checked
-against hardware.py/imu.py/stillness.py's APIs, not yet run on the board;
-the visual layout hasn't been checked against the round bezel's actual
-clipping, and vectorio.Polygon's availability on this board's build hasn't
-been confirmed (see doc/HARDWARE.md's frozen-modules list, which does
-include plain `vectorio`).
+Screen blanking (screen_blanker.py, cd-ork.2) uses a much longer timeout
+than main.py's normal-mode default (cd-ork.1) -- the whole point of
+ornament mode is to be glanced at across a room, so a short touch-style
+timeout would defeat it. There's no touchscreen input to treat as
+"activity" here, so being picked up (StillnessDetector reporting "handled")
+stands in for it instead: the screen wakes the instant it's handled, and
+only blanks after a long stretch of continuous "still".
+
+STATUS: scene + stillness-driven dimming confirmed on-device 2026-09-13
+(ws-2); the new screen-blanking addition (cd-ork.2) is untested on-device
+as of this write-up. _BLANK_TIMEOUT is a first guess pending on-device
+feel/battery-life testing.
 """
 import random
 import time
@@ -36,6 +42,7 @@ from adafruit_display_text.bitmap_label import Label
 import hardware
 import imu as imu_gestures
 import stillness
+from screen_blanker import ScreenBlanker
 
 _BG_COLOR = 0x05050C
 _TREE_COLOR = 0x1E7A34
@@ -61,6 +68,12 @@ _SNOW_COUNT = 6
 _SNOW_SPEED = 22  # px/second
 
 _DEBUG_Y = 216
+
+# Much longer than main.py's normal-mode default (cd-ork.1, 20s) -- the
+# point of ornament mode is to be visible across a room, not just while
+# someone's actively touching it. Being "handled" (picked up/moved) stands
+# in for touch-as-activity, since there's no touchscreen input here.
+_BLANK_TIMEOUT = 300.0  # 5 minutes of continuous stillness before blanking
 
 
 def _make_group(display):
@@ -154,11 +167,12 @@ def _blend(color_a, color_b, t):
 
 
 def main():
-    display, _backlight = hardware.init_display()
+    display, backlight = hardware.init_display()
     i2c = hardware.init_i2c()
     imu = hardware.init_imu(i2c)
     gestures = imu_gestures.ImuGestures(imu)
     detector = stillness.StillnessDetector()
+    blanker = ScreenBlanker(backlight, timeout=_BLANK_TIMEOUT)
 
     group = _make_group(display)
     tree = Tree(group)
@@ -181,6 +195,8 @@ def main():
             is_still = detector.update(sample["jerk"], now)
         except (OSError, ValueError, RuntimeError):
             is_still = detector.is_still  # hold last-known mode on a read glitch
+
+        blanker.update(not is_still, now)  # "handled" counts as activity
 
         tree.update(now, lit=is_still)
         snow.update(now)
