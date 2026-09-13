@@ -26,10 +26,12 @@ timeout would defeat it. There's no touchscreen input to treat as
 stands in for it instead: the screen wakes the instant it's handled, and
 only blanks after a long stretch of continuous "still".
 
-STATUS: scene + stillness-driven dimming confirmed on-device 2026-09-13
-(ws-2); the new screen-blanking addition (cd-ork.2) is untested on-device
-as of this write-up. _BLANK_TIMEOUT is a first guess pending on-device
-feel/battery-life testing.
+STATUS: scene, stillness-driven dimming, and screen-blanking (cd-ork.2)
+all confirmed on-device 2026-09-13 (ws-2 for the scene, ws-1 for blanking
+-- tested with a temporarily shortened timeout, then restored to the real
+300s). Blanks after continuous stillness, wakes instantly on being
+handled, as designed. The 300s figure itself is still a first guess, not
+tuned against real battery-life data.
 """
 import random
 import time

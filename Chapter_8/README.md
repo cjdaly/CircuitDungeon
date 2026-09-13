@@ -78,6 +78,7 @@ Tracked under label `ch8`. Epics:
 * `cd-bp3` -- Round touch/IMU diagnostic demo (bring-up, HUD, backplate/case)
 * `cd-45v` -- Sprite/room/navigation prototyping for Ch9 (**closed** --
   all 5 prototypes verified on-device and ported into Ch9)
-* `cd-ork` -- Power management (no physical power switch)
+* `cd-ork` -- Power management (no physical power switch) (**closed** --
+  backlight blanking confirmed working for normal + ornament modes)
 
 `bd show cd-bp3` / `bd show cd-ork` for current status.

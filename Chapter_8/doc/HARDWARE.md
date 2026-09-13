@@ -173,6 +173,22 @@ margin, more in the corners) or they'll be clipped by the bezel.
   also the underlying reason `cd-ork` (power management) exists at all —
   the board runs continuously on battery with no way to turn it off in
   software either, short of unplugging that connector.
+- **`BOOT` is not usable as a general-purpose input (`cd-bp3.9`,
+  investigated 2026-09-13).** It isn't a normal GPIO -- on RP2350 (same as
+  RP2040) BOOTSEL is wired to the onboard flash chip's QSPI chip-select
+  line, sampled by the boot ROM at power-on, not exposed as a regular pin.
+  Confirmed on `ws-1`: `board`'s full pin list (`GP0`-`GP28`, `A0`-`A3`,
+  `BAT_ADC`, `LCD_*`, `IMU_*`) has nothing named `BOOT`/`SEL`, and
+  `help('modules')` has no bootsel-style helper. This isn't just a gap in
+  this board's `board` module -- it's a known RP2350 platform limitation:
+  even MicroPython's official `rp2.bootsel_button()` helper is
+  [broken/unreliable specifically on RP2350](https://github.com/micropython/micropython/issues/16908)
+  (works on RP2040), and CircuitPython has no equivalent helper at all. A
+  GPIO scan (RP2040 forums) found no detectable state change when pressing
+  BOOTSEL either. Reading it would need a hardware mod (wiring the QSPI_SS
+  line out to a spare GPIO) -- not worth it for a secondary input; use
+  touch/edge-gesture or IMU-based signals (stillness detection) instead,
+  as the rest of this project already does.
 
 ## Libraries needed on `CIRCUITPY/lib/`
 
