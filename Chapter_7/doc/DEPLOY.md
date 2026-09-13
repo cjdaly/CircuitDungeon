@@ -72,6 +72,17 @@ really just: does the Ch7 code run, and what's the RAM headroom.
    ```
    (or hand-copy those folders + `adafruit_ticks.mpy` from the matching bundle's `lib/`.
    `neopixel.mpy` is not used on this board — see above.)
+3. **Device identity** (`cd-89o.11`) — a `DEVICE_ID` written into
+   `settings.toml`, mirroring Chapter 8's per-device config (`cd-bp3.7`).
+   This board is `ps-1`:
+   ```
+   Chapter_7/tools/set_device_config.py --id ps-1
+   ```
+   `settings.toml` is CircuitPython's own config file and is never touched
+   by `deploy.sh` — set once, survives every later code deploy. Check
+   what's currently set with `set_device_config.py --show`. Unlike Ch8's
+   Waveshare units, there's no per-unit battery to track here (PicoSystem
+   has a sealed, non-user-selected battery), so no `BATTERY_*` fields.
 
 ## Why deploying isn't just "copy the files"
 
@@ -129,6 +140,11 @@ Ch7 ready  free=NNNNNN  X+Y=diag  A+B=menu
 Then the screen shows the Option-G layout: a status band on top, the 13×13
 map viewport (hero centred, flagstone floor, a wall border + interior cross),
 the icon-rail strip on the right, a message band on the bottom.
+
+**Opening the diag overlay (`X`+`Y`) also prints its screen to serial**
+(`Ch7 diag   ...`, one line per row, once per entry — not continuously)
+— `cd-dsc.6` follow-up, so the RAM/actor/chord readout can be captured
+from `screen`'s scrollback instead of read off the physical display.
 
 ## What to check (cd-89o.8)
 

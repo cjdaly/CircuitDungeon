@@ -155,24 +155,23 @@ class World:
             vis[k] = 0
         if h is None:
             return
-        exp = self.explored
-        w = self.width
-        grid = self.grid
-        walls = self.wall_tiles
-        in_bounds = self.in_bounds
+        fov_mod.compute(h["x"], h["y"], self._fov_blocked, self._fov_mark)
 
-        def _blocked(x, y):
-            return not in_bounds(x, y) or grid[y][x] in walls
+    def _fov_blocked(self, x, y):
+        # fov_mod.compute's `blocked` callback. A real method (defined once at
+        # class-body time) rather than a closure rebuilt inside refresh_fov()
+        # every hero move -- that was 2 fresh function objects + 5-6 captured
+        # free-variable cells per turn, a steady RAM churn source (cd-dsc.6).
+        return not self.in_bounds(x, y) or self.grid[y][x] in self.wall_tiles
 
-        def _mark(x, y):
-            if not in_bounds(x, y):
-                return
-            i = y * w + x
-            bit = 1 << (i & 7)
-            vis[i >> 3] |= bit
-            exp[i >> 3] |= bit
-
-        fov_mod.compute(h["x"], h["y"], _blocked, _mark)
+    def _fov_mark(self, x, y):
+        # fov_mod.compute's `mark` callback -- see _fov_blocked.
+        if not self.in_bounds(x, y):
+            return
+        i = y * self.width + x
+        bit = 1 << (i & 7)
+        self.visible[i >> 3] |= bit
+        self.explored[i >> 3] |= bit
 
     # -- movement (the logical half of ENGINE.md 1.4) --------------------
 

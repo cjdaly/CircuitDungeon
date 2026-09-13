@@ -73,6 +73,13 @@ class ModeStack:
             self._stack = [self._base]
         else:
             self._stack = [self._base, mode]
+            # Optional lifecycle hook, fired once on entry only (not on every
+            # render, not on the way back out to base) -- DiagMode uses this
+            # to print its screen to serial, so it can be captured without
+            # reading the physical display (cd-dsc.6 follow-up).
+            on_enter = getattr(mode, "on_enter", None)
+            if on_enter is not None:
+                on_enter()
 
     def show(self, mode):
         """Force `mode` over base — for game-over and other non-chord overlays.
@@ -432,6 +439,14 @@ class DiagMode:
             return
         self.group.append(self._page)
         self._shown = self._blank_page()
+
+    def on_enter(self):
+        """Called once by ModeStack.toggle() when diag is switched to (not on
+        every render). Prints the same lines the screen shows to serial, so
+        the diag readout can be captured (screen /dev/tty.usbmodem*, or
+        pasted from there) without needing to read the physical display."""
+        for line in self._screen_lines():
+            print("Ch7 diag   %s" % line)
 
     def tick(self, events, now):
         if im.CANCEL in events:

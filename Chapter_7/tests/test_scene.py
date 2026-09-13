@@ -30,6 +30,8 @@
 #
 #   python3 Chapter_7/tests/test_scene.py
 
+import contextlib
+import io
 import os
 import sys
 import types
@@ -354,6 +356,28 @@ class ModeSwitch(unittest.TestCase):
         self.assertIn("b+down", txt)              # per-chord counts
         # the engine loop's RAM sampler ran (values are None off-device)
         self.assertGreater(h.game.metrics.ram_samples, 0)
+
+    def test_entering_diag_prints_the_screen_once_to_serial(self):
+        # cd-dsc.6 follow-up: Chris wants the diag readout on serial too, so
+        # it can be captured (screen /dev/tty.usbmodem*) without reading the
+        # physical display. Printed once on entry, not continuously.
+        h = Harness()
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            h.tick("x", "y")
+        printed = out.getvalue()
+        self.assertIn("Ch7 diag   DIAG", printed)
+        self.assertIn("Ch7 diag   ram  free", printed)
+        self.assertEqual(printed.count("Ch7 diag   DIAG"), 1)  # once, not per-render
+
+    def test_leaving_diag_does_not_reprint(self):
+        h = Harness()
+        h.tick("x", "y")   # enter -- already printed once
+        h.tick()           # release
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            h.tick("x", "y")   # toggle back to play
+        self.assertNotIn("Ch7 diag", out.getvalue())
 
     def test_diag_toggles_back_to_play(self):
         h = Harness()
