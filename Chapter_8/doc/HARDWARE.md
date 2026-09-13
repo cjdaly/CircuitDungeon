@@ -2,9 +2,10 @@
 
 Findings from probing the board live over the USB serial REPL (`screen` /
 raw-REPL scripting), 2026-09-04. See `doc/VISION.md` for the chapter pitch,
-`doc/DEPLOY.md` for how to get code onto the device, and `doc/SERIAL.md` for
+`doc/DEPLOY.md` for how to get code onto the device, `doc/SERIAL.md` for
 how to script that REPL probing (and the I2C-wedge gotcha below) without a
-human at a terminal.
+human at a terminal, and `doc/POWER.md` for why this board sticks with
+backlight-only power savings rather than real CPU sleep.
 
 ## Identity
 
