@@ -40,8 +40,21 @@ CIRCUITPY/
    ```
    cp Chapter_8/vendor/qmi8658c.py /Volumes/CIRCUITPY/lib/
    ```
+4. **Device identity + battery info** (`cd-bp3.7`) — every unit gets a
+   `DEVICE_ID` (Chris tells you which one when unboxing — `ws-1`, `ws-2`,
+   or a name like `ws-monica`) and its battery's Adafruit product number +
+   mAh capacity, written into `settings.toml`:
+   ```
+   Chapter_8/tools/set_device_config.py --id ws-monica \
+       --battery-product adafruit-4236 --battery-mah 420
+   ```
+   `settings.toml` is CircuitPython's own config file (read on-device with
+   `os.getenv()`) and is never touched by `deploy.sh` — set once, survives
+   every later code deploy. Check what's currently set on a unit with
+   `set_device_config.py --show`. Also record the unit in `../rpi-fleet`'s
+   `INVENTORY.md`.
 
-`Chapter_8/tools/deploy.sh` warns (but doesn't fail) if any of the above are
+`Chapter_8/tools/deploy.sh` warns (but doesn't fail) if any of steps 2-3 are
 missing from `lib/`.
 
 ## Deploy
@@ -77,6 +90,22 @@ The screen then shows the combined diagnostic HUD (`doc/VISION.md` /
 `cd-bp3.5`): a title/RAM line, live touch position + last tap/swipe gesture
 (with a marker dot that follows your finger), and a live accel/gyro readout
 with a derived tilt (pitch/roll) and shake flag.
+
+## Running a prototype demo instead of the diagnostic HUD
+
+`game/` also has a growing set of standalone `*_demo.py` prototypes (room
+navigation, mixed sprite scales, ornament mode, ...) that are not `main.py`.
+Use `deploy.sh --demo NAME` to try one on the device without touching the
+checked-in `main.py`:
+
+```
+Chapter_8/tools/deploy.sh --demo room_nav_demo
+```
+
+This deploys `game/` as usual, then overwrites the **device's** `main.py`
+with `game/room_nav_demo.py`. Reset to run it; re-run `deploy.sh` with no
+`--demo` to put the diagnostic HUD back. Each demo has a walkthrough —
+what to do, what to expect — in [`doc/demos/`](demos/README.md).
 
 ## Troubleshooting
 

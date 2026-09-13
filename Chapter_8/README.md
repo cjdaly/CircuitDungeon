@@ -27,10 +27,18 @@ game, [`Christmas Critters`](../Chapter_9) (tracked in beads under `cd-zw2`).
 * **Battery monitoring** (`game/battery.py`) -- a first pass at reading
   `board.BAT_ADC` for a rough charge estimate. This board has no fuel-gauge
   IC, so it's a voltage-to-percent guess, not exact -- untested on-device.
+* **Per-device config** (`tools/set_device_config.py`, `cd-bp3.7`) -- writes
+  a device id (`ws-1`, `ws-monica`, ...) and battery product/mAh into the
+  device's `settings.toml`, set once at unboxing and untouched by later
+  deploys. Fleet-level record lives in `../rpi-fleet`'s `INVENTORY.md`.
 * **Ch9 prototyping** (`game/rooms.py`, `game/edge_gesture.py`,
-  `game/room_nav_demo.py`) -- a minimal room-graph + edge-gesture navigation
-  prototype, proving out Ch9's room-to-room movement design before any real
-  content or art exists. Off-device unit tests live in `tests/`.
+  `game/room_nav_demo.py`, `game/sprite_scale_demo.py`, `game/stillness.py`,
+  `game/ornament_demo.py`) -- standalone experiments de-risking Ch9 design
+  elements (room-to-room navigation, mixed sprite scales, ornament idle
+  mode) before any real content or art exists. Off-device unit tests live in
+  `tests/`. Each on-device demo has a walkthrough in
+  [`doc/demos/`](doc/demos/README.md) -- deploy with `tools/deploy.sh --demo
+  NAME` (see [`doc/DEPLOY.md`](doc/DEPLOY.md)).
 
 ## Layout
 
@@ -42,7 +50,7 @@ game/      copied to CIRCUITPY, plus a couple of off-device-testable
            prototype modules (rooms.py, edge_gesture.py)
 tests/     off-device unit tests -- `python3 tests/test_<name>.py`, no
            hardware or CircuitPython needed
-tools/     deploy.sh
+tools/     deploy.sh, set_device_config.py
 vendor/    third-party drivers not in the Adafruit bundle (qmi8658c.py)
 pics/      reference photos
 ```

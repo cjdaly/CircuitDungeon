@@ -2,7 +2,7 @@
 # Copy Chapter_8/game/ onto a CircuitPython device (the Waveshare RP2350-Touch-LCD-1.28).
 # The CONTENTS of game/ go to the drive root. See Chapter_8/doc/DEPLOY.md.
 #
-#   Chapter_8/tools/deploy.sh [--no-eject] [CIRCUITPY_PATH]
+#   Chapter_8/tools/deploy.sh [--no-eject] [--demo NAME] [CIRCUITPY_PATH]
 #
 # Default target: /Volumes/CIRCUITPY
 #
@@ -13,15 +13,33 @@
 #   2. this script ejects the drive at the end, which forces the macOS FAT
 #      write cache to flush. Re-mount by resetting / power-cycling the board;
 #      it then runs the freshly-written code. Pass --no-eject to skip.
+#
+# --demo NAME deploys game/ as usual, then overwrites the DEVICE's main.py
+# with game/NAME.py (e.g. --demo sprite_scale_demo) so a *_demo.py prototype
+# runs on reset instead of the diagnostic HUD. The desktop copy of main.py is
+# untouched -- re-run deploy.sh with no --demo to put the HUD back on the
+# device. See doc/demos/ for the walkthrough that goes with each demo.
 
 set -euo pipefail
 
 EJECT=1
-if [ "${1:-}" = "--no-eject" ]; then EJECT=0; shift; fi
+DEMO=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --no-eject) EJECT=0; shift ;;
+    --demo) DEMO="$2"; shift 2 ;;
+    *) break ;;
+  esac
+done
 
 TARGET="${1:-/Volumes/CIRCUITPY}"
 HERE="$(cd "$(dirname "$0")/.." && pwd)"   # Chapter_8/
 SRC="$HERE/game"
+
+if [ -n "$DEMO" ] && [ ! -f "$SRC/$DEMO.py" ]; then
+  echo "deploy: no such demo: $SRC/$DEMO.py" >&2
+  exit 1
+fi
 
 if [ ! -d "$TARGET" ]; then
   echo "deploy: target not found: $TARGET" >&2
@@ -42,6 +60,11 @@ rsync -rtv --delete \
   --exclude '/lib/' --exclude '/boot_out.txt' --exclude '/settings.toml' \
   --exclude '/sd/' \
   "$SRC"/ "$TARGET"/
+
+if [ -n "$DEMO" ]; then
+  cp "$SRC/$DEMO.py" "$TARGET/main.py"
+  echo "deploy: running demo '$DEMO' as main.py (desktop main.py unchanged)"
+fi
 
 # --- lib check (warn only) ---
 # adafruit_ticks is a dependency of adafruit_display_text.bitmap_label.
