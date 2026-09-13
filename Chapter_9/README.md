@@ -29,14 +29,37 @@ beads under `cd-zw2`; design notes will land in `doc/` as they solidify.
   `RoomLabel` (persistent), while `RoomBanner` (the original toast) is kept
   for genuinely transient messages. Font is plain `terminalio.FONT` for
   now -- see `cd-bp3.11` (investigating a comic-book-style font instead).
+* **Mixed sprite-scale rendering** (`game/sprite_scale.py`, `cd-zw2.2`) --
+  generic helpers for a 16x16 scenery `TileGrid` from a tile sheet + layout,
+  and free-positioned 32x32 actor sprites kept clear of the round bezel
+  (`clamp_actor_position`). Generalized from Chapter 8's `cd-45v.1`
+  prototype (which hardcoded one demo scene) into reusable building blocks
+  -- no room content or actual hero/critter art lives here, that's separate
+  content/art work. `clamp_actor_position` is pure arithmetic and unit
+  tested; the `TileGrid`-building functions need displayio (lazy-imported,
+  same trick as `touch.py`'s `adafruit_cst8xx`) so they're desk-checked
+  only.
+* **Ornament mode** (`game/ornament.py`, `game/stillness.py`,
+  `game/screen_blanker.py`, `cd-zw2.7`) -- a non-interactive ambient scene
+  (tree, pulsing star, twinkling ornaments, drifting snow) for hanging the
+  device on a real tree, no gameplay/input expected. Ported from Chapter
+  8's `cd-45v.5` prototype (confirmed on real hardware 2026-09-13).
+  `stillness.StillnessDetector` tells "hanging still" apart from "being
+  handled" from IMU jerk alone; `screen_blanker.ScreenBlanker` (also ported,
+  general-purpose, not ornament-specific) blanks the backlight after a long
+  idle stretch and wakes on being handled. `ornament.py` is the scene only
+  -- no `main()`/hardware calls; wiring it all together into an actual
+  on-device entry point is future integration work.
 
 ## Layout
 
 ```
 game/      copied to CIRCUITPY once on-device code exists; for now, plain
            Python modules testable off-device (rooms.py, touch.py's
-           GestureTracker, edge_gesture.py); room_banner.py needs displayio
-           so it's desk-checked only, not unit-tested
+           GestureTracker, edge_gesture.py, sprite_scale.py's
+           clamp_actor_position, stillness.py, screen_blanker.py);
+           room_banner.py, sprite_scale.py's TileGrid builders, and
+           ornament.py need displayio so they're desk-checked only
 tests/     off-device unit tests -- `python3 tests/test_<name>.py`, no
            hardware or CircuitPython needed
 ```
