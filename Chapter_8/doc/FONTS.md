@@ -36,9 +36,11 @@ renders in the same caps style, there's no true lowercase glyph design.
 Fine for short room-name/banner text (this project's actual use case), not
 suited to anything needing real mixed-case.
 
-`Luckiest Guy` (also Google Fonts, also OFL) is a fallback candidate if
-Bangers doesn't read well small — rounder, more a 1950s-advertisement look
-than comic-lettering specifically.
+`Luckiest Guy` (also Google Fonts, but **Apache License 2.0, not OFL** --
+see "A second candidate" below, this was wrong in the original research)
+was tried too — rounder, bolder, upright, more a 1950s-advertisement look
+than comic-lettering specifically. Now used alongside Bangers rather than
+as a fallback -- see "On-device verdict" below.
 
 ## Converting TTF -> BDF
 
@@ -133,17 +135,50 @@ kept as a reference baseline) and `bangers-spaced45-24.bdf` (the winner,
 +45 was picked — the `.pe` recipe above reproduces any of them again if
 needed.
 
+## A second candidate: Luckiest Guy (`cd-bp3.12`)
+
+Same 24px+45 recipe applied to
+[Luckiest Guy](https://fonts.google.com/specimen/Luckiest+Guy) — rounder,
+bolder, upright (not slanted like Bangers). **License correction**:
+`cd-bp3.11`'s desk research assumed OFL like Bangers; Google's own download
+manifest (`fonts.google.com/download/list?family=Luckiest+Guy`) says
+**Apache License 2.0** instead — still fully free/permissive, just a
+different license text to ship (`fonts/LuckiestGuy-LICENSE.txt`, not
+`OFL.txt`). Not every Google Font is OFL; check per-font next time rather
+than assuming.
+
+The TTF wasn't reachable at the `github.com/googlefonts/<name>` or
+`github.com/google/fonts/ofl/<name>` paths that worked for Bangers (404 on
+both) — Google's font family/version naming doesn't map predictably to
+either repo layout. Fetched instead via Google's own download-manifest API
+(`fonts.google.com/download/list?family=<Name>`), which returns a JSON
+manifest with text-file contents inline and a `fileRefs` array of
+`{filename, url}` for the actual binary font files (served from
+`fonts.gstatic.com`) — more reliable than guessing repo paths.
+
+## On-device verdict (2026-09-13, ws-1)
+
+Both read well — this became a **role split, not a single winner**:
+Bangers is slanted and more horizontally compact (reads as "shouted",
+comic-speech-bubble energy); Luckiest Guy is thicker/bolder and upright
+(reads more like signage/a title). Chris's call: **Luckiest Guy for
+titles/names** (room names — `RoomLabel`, `cd-zw2.5`) and **Bangers for
+in-character dialogue** (a "I'll find you!"-style critter-speech UI that
+doesn't exist yet as its own mechanic). Neither is wired into real Ch9
+code yet — that's future integration work once/if a dialogue system exists
+to need Bangers' role at all.
+
 ## Trying it on-device
 
-`font_demo.py` (`deploy.sh --demo font_demo`) shows `terminalio.FONT` next
-to the settled Bangers configuration (24px, +45 spacing) on the real round
-panel — see `doc/demos/04-fonts.md` for the walkthrough. Needs
+`font_demo.py` (`deploy.sh --demo font_demo`) shows `terminalio.FONT`,
+Bangers, and Luckiest Guy together (all 24px+45) on the real round panel —
+see `doc/demos/04-fonts.md` for the walkthrough. Needs
 `adafruit_bitmap_font` in `lib/` (`doc/DEPLOY.md` step 2).
 
 ## Status
 
-Confirmed on-device 2026-09-13: Bangers at 24px with +45 extra
-letter-spacing reads well on the real round panel. Not yet wired into
-Ch9's actual `RoomLabel`/`RoomBanner` (`cd-zw2.5`) — that's a follow-up
-once/if this stays the final choice. `cd-bp3.12` tracks comparing against
-other font families before fully committing.
+Confirmed on-device 2026-09-13: both Bangers and Luckiest Guy at 24px with
++45 extra letter-spacing read well on the real round panel. Design
+decision made (see "On-device verdict" above); neither is wired into real
+Ch9 code yet -- follow-up once `RoomLabel` (cd-zw2.5) gets its font swap,
+and once/if a dialogue mechanic exists for Bangers' role.

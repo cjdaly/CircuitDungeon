@@ -1,13 +1,15 @@
-# 04 — Custom font: terminalio vs. Bangers (comic-book style)
+# 04 — Custom font: terminalio vs. Bangers vs. Luckiest Guy
 
-Beads: `cd-bp3.11` (settled), `cd-bp3.12` (trying other fonts, follow-up)
-Module: `game/font_demo.py` (+ `game/fonts/*.bdf`)
+Beads: `cd-bp3.11`, `cd-bp3.12` (both settled) · Module: `game/font_demo.py`
+(+ `game/fonts/*.bdf`)
 
 Ch9's text overlays all use `terminalio.FONT` today. Chris wants a
-comic-book look instead — **Bangers** (a Google Fonts face built for
-superhero-comics lettering, OFL-licensed) is the first candidate tried.
-See `doc/FONTS.md` for the full research, the on-device tuning history,
-and how the `.bdf` files were made.
+comic-book look instead. Two candidates compared here, both at 24px with
++45 font-unit extra letter-spacing: **Bangers** (superhero-comics
+lettering, SIL OFL) and **Luckiest Guy** (rounder/bolder, Apache 2.0 —
+not OFL, a correction from `cd-bp3.11`'s original research). See
+`doc/FONTS.md` for the full research, tuning history, and how the `.bdf`
+files were made.
 
 ## One-time setup beyond doc/DEPLOY.md
 
@@ -25,27 +27,23 @@ demo, so it's easy to have missed:
 Reset the board. Serial prints `Ch8 font demo ready`. Static scene, no
 touch/IMU input.
 
-## Walkthrough (settled configuration)
-
-This now shows the settled comparison: `terminalio.FONT` vs. Bangers at
-24px with +45 font-unit extra letter-spacing (`bangers-spaced45-24.bdf`) —
-the on-device pick after trying 16px (too cramped), 24px default spacing
-(readable but tight), and +90 spacing (too much). See `doc/FONTS.md` for
-that full history if re-litigating the spacing amount.
+## Walkthrough
 
 - [x] **No crash / no traceback** — confirmed 2026-09-13 (ws-1).
-- [x] **terminalio row** — "terminalio.FONT (today)" at normal size.
-- [x] **Bangers row** — "LIVING ROOM" reads well at a glance; the
-  all-caps-only look (Bangers has no true lowercase) is fine for a room
-  name.
+- [x] **terminalio row** — "terminalio (today)" at normal size.
+- [x] **Bangers row** — "LIVING ROOM", slanted, more horizontally compact.
+- [x] **Luckiest Guy row** — "LIVING ROOM", upright, bolder/thicker.
 - [x] **Legible over the round bezel** — nothing clipped.
-- [ ] **Wire into Ch9** — swap `terminalio.FONT` for this Bangers config in
-  Ch9's `RoomLabel`/`RoomBanner` (`cd-zw2.5`)? Or hold until `cd-bp3.12`
-  compares other font families first?
+- [x] **Verdict** — both read well; not a single winner, a role split (see
+  Notes).
 
 ## Notes
 
-Confirmed 2026-09-13 (ws-1): 24px + 45 extra letter-spacing units is the
-current pick for Bangers specifically. Not yet compared against other
-font families (`cd-bp3.12`) or wired into Ch9's actual overlay code
-(`cd-zw2.5`) — both open follow-ups, not blockers on this demo itself.
+**Confirmed 2026-09-13 (ws-1), Chris's call**: both fonts work, and the
+visual difference suggests different jobs rather than picking one —
+**Luckiest Guy for titles/names** (room names, `RoomLabel`/`cd-zw2.5`) and
+**Bangers for in-character dialogue** (a "I'll find you!"-style
+critter-speech UI — doesn't exist as a mechanic yet, so Bangers' role is
+aspirational until it does). Neither is wired into real Ch9 code yet —
+follow-up once `RoomLabel` gets its font swap, and once/if a dialogue
+system exists.

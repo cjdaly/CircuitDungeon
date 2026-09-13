@@ -47,9 +47,11 @@ game, [`Christmas Critters`](../Chapter_9) (tracked in beads under `cd-zw2`).
   [`doc/POWER.md`](doc/POWER.md) for why that's the stopping point rather
   than real CPU sleep (the touch controller has no interrupt pin to wake
   on).
-* **Custom fonts** (`game/font_demo.py`, `game/fonts/`, `cd-bp3.11`) --
-  investigating a comic-book-style font (Bangers, OFL-licensed) for Ch9's
-  text overlays in place of the built-in `terminalio.FONT`. See
+* **Custom fonts** (`game/font_demo.py`, `game/fonts/`, `cd-bp3.11`/`.12`)
+  -- comic-book-style fonts for Ch9's text overlays in place of the
+  built-in `terminalio.FONT`, both confirmed on-device: **Luckiest Guy**
+  (bolder, upright -- picked for titles/room names) and **Bangers**
+  (slanted, more compact -- picked for future in-character dialogue). See
   [`doc/FONTS.md`](doc/FONTS.md) for the research and the TTF->BDF
   conversion recipe (run on `arc-1`, see `../rpi-fleet`'s `INVENTORY.md`
   -- FontForge isn't installed on this Mac).
