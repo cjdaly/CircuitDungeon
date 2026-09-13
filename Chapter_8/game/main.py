@@ -7,6 +7,7 @@ accelerometer/gyro readout with tilt + shake detection. See
 doc/HARDWARE.md for the board notes and doc/VISION.md for the chapter pitch.
 """
 import gc
+import os
 import time
 import traceback
 
@@ -71,6 +72,10 @@ def _add_touch_dot(group):
 
 
 def main():
+    # settings.toml's DEVICE_ID (cd-bp3.7, tools/set_device_config.py) -- read
+    # once at startup, it doesn't change while running.
+    device_id = os.getenv("DEVICE_ID") or "no-id"
+
     display = hardware.init_display()
     i2c = hardware.init_i2c()
     imu = hardware.init_imu(i2c)
@@ -101,7 +106,7 @@ def main():
     }
     imu_ok = True
 
-    print("Ch8 diag ready  free={}".format(gc.mem_free()))
+    print("Ch8 diag ready  {}  free={}".format(device_id, gc.mem_free()))
 
     while True:
         now = time.monotonic()
@@ -150,7 +155,7 @@ def main():
             if now >= next_gc:
                 gc.collect()
                 next_gc = now + _GC_INTERVAL
-            l_title.text = "CH8 DIAG  free {:6d}".format(gc.mem_free())
+            l_title.text = "{}  free {:6d}".format(device_id, gc.mem_free())
         except Exception as exc:  # noqa: BLE001 -- last-resort guard, see above
             traceback.print_exception(exc)
             try:
