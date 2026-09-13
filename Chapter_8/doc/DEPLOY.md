@@ -31,8 +31,10 @@ CIRCUITPY/
    pip install circup
    circup --path /Volumes/CIRCUITPY install \
        adafruit_cst8xx adafruit_gc9a01a adafruit_register \
-       adafruit_display_text adafruit_ticks
+       adafruit_display_text adafruit_ticks adafruit_bitmap_font
    ```
+   (`adafruit_bitmap_font` is only needed for `font_demo.py`, `cd-bp3.11` —
+   skip it if you're not running that demo.)
    (or hand-copy those from the matching bundle's `lib/` — see
    `downloads/adafruit-circuitpython-bundle-10.x-mpy-20260820/`.)
 3. **Vendored QMI8658C driver** — not in the Adafruit bundle, `circup` won't

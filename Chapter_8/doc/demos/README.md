@@ -32,6 +32,7 @@ Chapter_8/tools/deploy.sh
 | 01 | [`01-sprite-scale.md`](01-sprite-scale.md) | `sprite_scale_demo` | `cd-45v.1` |
 | 02 | [`02-room-nav.md`](02-room-nav.md) | `room_nav_demo` (+ `rooms`, `edge_gesture`, `room_banner`) | `cd-45v.2`, `cd-45v.3`, `cd-45v.4` |
 | 03 | [`03-ornament.md`](03-ornament.md) | `ornament_demo` (+ `stillness`) | `cd-45v.5` |
+| 04 | [`04-fonts.md`](04-fonts.md) | `font_demo` (+ `fonts/*.bdf`) | `cd-bp3.11` |
 
 New batch of features → new numbered file, added to this table.
 

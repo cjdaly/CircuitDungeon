@@ -68,10 +68,12 @@ fi
 
 # --- lib check (warn only) ---
 # adafruit_ticks is a dependency of adafruit_display_text.bitmap_label.
+# adafruit_bitmap_font is font_demo.py's (cd-bp3.11) only, not needed by
+# main.py or the other demos.
 # qmi8658c is vendored (not in the Adafruit bundle) -- copy it straight from
 # Chapter_8/vendor/, not via circup. See doc/HARDWARE.md.
 missing=()
-for lib in adafruit_display_text adafruit_register; do
+for lib in adafruit_display_text adafruit_register adafruit_bitmap_font; do
   [ -d "$TARGET/lib/$lib" ] || missing+=("$lib/")
 done
 for mpy in adafruit_cst8xx adafruit_gc9a01a adafruit_ticks; do
@@ -81,7 +83,7 @@ done
 if [ ${#missing[@]} -ne 0 ]; then
   echo
   echo "deploy: WARNING — missing from $TARGET/lib/ :  ${missing[*]}" >&2
-  echo "        circup install adafruit_cst8xx adafruit_gc9a01a adafruit_register adafruit_display_text adafruit_ticks" >&2
+  echo "        circup install adafruit_cst8xx adafruit_gc9a01a adafruit_register adafruit_display_text adafruit_ticks adafruit_bitmap_font" >&2
   echo "        cp $HERE/vendor/qmi8658c.py $TARGET/lib/" >&2
 fi
 

@@ -35,19 +35,35 @@ game, [`Christmas Critters`](../Chapter_9) (tracked in beads under `cd-zw2`).
   `game/room_nav_demo.py`, `game/sprite_scale_demo.py`, `game/stillness.py`,
   `game/ornament_demo.py`) -- standalone experiments de-risking Ch9 design
   elements (room-to-room navigation, mixed sprite scales, ornament idle
-  mode) before any real content or art exists. Off-device unit tests live in
-  `tests/`. Each on-device demo has a walkthrough in
-  [`doc/demos/`](doc/demos/README.md) -- deploy with `tools/deploy.sh --demo
-  NAME` (see [`doc/DEPLOY.md`](doc/DEPLOY.md)).
+  mode) before any real content or art exists -- all 5 verified on real
+  hardware 2026-09-13, then ported into `../Chapter_9`'s real code
+  (`cd-zw2`, now closed). Off-device unit tests live in `tests/`. Each
+  on-device demo has a walkthrough in [`doc/demos/`](doc/demos/README.md)
+  -- deploy with `tools/deploy.sh --demo NAME` (see
+  [`doc/DEPLOY.md`](doc/DEPLOY.md)).
+* **Power management** (`game/screen_blanker.py`, `cd-ork`) -- this board
+  has no physical power switch, so `main.py` blanks the backlight after
+  20s idle and wakes instantly on touch. See
+  [`doc/POWER.md`](doc/POWER.md) for why that's the stopping point rather
+  than real CPU sleep (the touch controller has no interrupt pin to wake
+  on).
+* **Custom fonts** (`game/font_demo.py`, `game/fonts/`, `cd-bp3.11`) --
+  investigating a comic-book-style font (Bangers, OFL-licensed) for Ch9's
+  text overlays in place of the built-in `terminalio.FONT`. See
+  [`doc/FONTS.md`](doc/FONTS.md) for the research and the TTF->BDF
+  conversion recipe (run on `arc-1`, see `../rpi-fleet`'s `INVENTORY.md`
+  -- FontForge isn't installed on this Mac).
 
 ## Layout
 
 ```
 cad/       OpenSCAD backplate/case models + STLs (rendered on a networked
            Linux box -- see cad/README.md)
-doc/       design docs -- desktop only (HARDWARE, CASE, DEPLOY, VISION)
+doc/       design docs -- desktop only (HARDWARE, CASE, DEPLOY, VISION,
+           POWER, FONTS, SERIAL)
 game/      copied to CIRCUITPY, plus a couple of off-device-testable
-           prototype modules (rooms.py, edge_gesture.py)
+           prototype modules (rooms.py, edge_gesture.py); fonts/ holds
+           on-device .bdf files (cd-bp3.11)
 tests/     off-device unit tests -- `python3 tests/test_<name>.py`, no
            hardware or CircuitPython needed
 tools/     deploy.sh, set_device_config.py, serial_check.py
@@ -57,9 +73,11 @@ pics/      reference photos
 
 ## Beads
 
-Tracked under label `ch8`, two epics:
+Tracked under label `ch8`. Epics:
 
 * `cd-bp3` -- Round touch/IMU diagnostic demo (bring-up, HUD, backplate/case)
-* `cd-45v` -- Sprite/room/navigation prototyping for Ch9
+* `cd-45v` -- Sprite/room/navigation prototyping for Ch9 (**closed** --
+  all 5 prototypes verified on-device and ported into Ch9)
+* `cd-ork` -- Power management (no physical power switch)
 
-`bd show cd-bp3` / `bd show cd-45v` for current status.
+`bd show cd-bp3` / `bd show cd-ork` for current status.
