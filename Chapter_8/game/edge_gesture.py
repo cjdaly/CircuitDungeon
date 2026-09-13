@@ -18,16 +18,44 @@ Python (see tests/test_edge_gesture.py). touch.py itself only needs
 adafruit_cst8xx inside SafeTouch.poll(), so importing GestureTracker here
 doesn't need real touch hardware either.
 
-STATUS: UNTESTED ON DEVICE as of 2026-09-12 -- the classification logic is
-unit-tested, but hooking this into room_nav_demo.py in place of its current
-whole-screen-swipe placeholder hasn't been tried on the board yet.
+STATUS: on-device testing 2026-09-13 (ws-2) -- zone detection, the visual
+marker overlay, and room navigation all confirmed working; Chris felt the
+30px margin was a bit small to hit reliably, bumped to 45px, re-verify feel
+on next on-device pass.
 """
 from rooms import DOWN, LEFT, RIGHT, UP
 from touch import GestureTracker
 
-EDGE_MARGIN = 30  # px from a frame edge -- matches the round-panel bezel
-                  # inset noted in doc/HARDWARE.md ("Display"): content much
-                  # closer to the edge than this is already clipped anyway.
+EDGE_MARGIN = 45  # px from a frame edge -- bumped from 30 2026-09-13, felt
+                  # too narrow to hit reliably on-device (see room_nav_demo.py
+                  # doc/demos/02-room-nav.md). Still inside the round-panel
+                  # bezel inset noted in doc/HARDWARE.md ("Display").
+
+
+def edges_within(x, y, width, height, margin=EDGE_MARGIN):
+    """Every edge whose margin (x, y) falls in -- 0, 1, or 2 (a corner)."""
+    edges = []
+    if x < margin:
+        edges.append(LEFT)
+    if x > width - margin:
+        edges.append(RIGHT)
+    if y < margin:
+        edges.append(UP)
+    if y > height - margin:
+        edges.append(DOWN)
+    return edges
+
+
+def edge_of(x, y, width, height, margin=EDGE_MARGIN):
+    """Which single edge margin (x, y) falls in, or None if it's in none/two.
+
+    Module-level (not just EdgeGestureTracker-internal) so a demo can show
+    live "which zone is my finger in" feedback on every frame, not just the
+    edge a *completed* gesture started from -- see room_nav_demo.py's debug
+    overlay.
+    """
+    edges = edges_within(x, y, width, height, margin)
+    return edges[0] if len(edges) == 1 else None
 
 
 class EdgeGestureTracker:
@@ -54,16 +82,6 @@ class EdgeGestureTracker:
             return None
 
         start, self._start = self._start, None
-        return self._edge_of(*start) if start is not None else None
-
-    def _edge_of(self, x, y):
-        edges = []
-        if x < self._margin:
-            edges.append(LEFT)
-        if x > self._width - self._margin:
-            edges.append(RIGHT)
-        if y < self._margin:
-            edges.append(UP)
-        if y > self._height - self._margin:
-            edges.append(DOWN)
-        return edges[0] if len(edges) == 1 else None
+        if start is None:
+            return None
+        return edge_of(start[0], start[1], self._width, self._height, self._margin)

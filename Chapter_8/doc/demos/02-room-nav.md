@@ -5,9 +5,9 @@ graph) · Module: `game/room_nav_demo.py` (+ `rooms.py`, `edge_gesture.py`,
 `room_banner.py`)
 
 One demo, three prototypes: a tap/swipe that **starts** near a screen edge
-moves you through a small 4-room graph in that edge's direction; a toast
-banner announces the room + live exits on arrival, or flashes red on a
-blocked move.
+moves you through a small 4-room graph in that edge's direction. The
+current room's name sits persistently in the center; 4 small dots at the
+edge-margin midpoints show live which directions are real exits right now.
 
 The demo world (`rooms.make_demo_world()`):
 
@@ -24,43 +24,52 @@ Start room: **Living Room** (exits: left→Kitchen, right→Entryway).
     Chapter_8/tools/deploy.sh --demo room_nav_demo
 
 Reset the board. Serial prints `Ch8 room-nav demo ready -- start: Living
-Room`, and the banner should immediately show `Living Room  (exits: left,
-right)` for ~2.5s.
+Room`. The screen should show `Living Room` centered, with the left and
+right dots pulsing green (live exits) and the up/down dots dim/static
+(blocked).
 
 ## Walkthrough
 
-Edge-gesture reminder: a tap or swipe **starting** within ~30px of one edge
+Edge-gesture reminder: a tap or swipe **starting** within ~45px of one edge
 moves that direction, regardless of swipe direction. Starting near a corner
-(inside two edges' margins at once) is ambiguous and should do nothing.
+(inside two edges' margins at once) is ambiguous and does nothing. Touching
+a zone snaps its dot to **gold** if it's a live exit or **red** if it's
+blocked, live, on every frame — you don't need to complete the gesture to
+see which zone you're in.
 
-- [ ] **Startup banner** — on boot, banner shows `Living Room  (exits:
-  left, right)`, auto-hides after ~2.5s.
-- [ ] **Right → Entryway** — gesture starting near the right edge moves you;
-  banner updates to `Entryway  (exits: left, down)`.
+- [ ] **Startup state** — `Living Room` centered; left/right dots pulsing
+  green, up/down dots dim.
+- [ ] **Touching a dot highlights it correctly** — touch near the right
+  edge: that dot goes gold (it's a live exit). Touch near the top edge:
+  that dot goes red (blocked here).
+- [ ] **Right → Entryway** — complete a tap/swipe starting near the right
+  edge; center text updates to `Entryway`, and its dots update: left/down
+  pulse green, up/right go dim.
 - [ ] **Down → Yard** — from Entryway, gesture starting near the bottom
-  edge; banner updates to `Yard  (exits: up)`.
-- [ ] **Blocked directions flash red** — from Yard, try left or right
-  (no exit that way): banner flashes `can't go left` / `can't go right` in
-  red, room does NOT change.
+  edge; center text → `Yard`, only the up dot pulses green, the other 3 dim.
+- [ ] **Blocked directions** — from Yard, touch/gesture left or right: dot
+  goes red, banner flashes `can't go left`/`can't go right`, room name does
+  NOT change.
 - [ ] **Up → back to Entryway** — confirms the graph round-trips.
 - [ ] **Left → Living Room, then left again → Kitchen** — two hops back
-  through the start room.
+  through the start room; Kitchen should show only its right dot green.
 - [ ] **Kitchen is a dead end except right** — try up/down/left from
-  Kitchen: all blocked (red flash); only right returns to Living Room.
+  Kitchen: all blocked (red dot + banner flash); only right returns to
+  Living Room.
 - [ ] **Corner start is ignored** — a gesture starting near a corner
-  (within margin of two edges at once) produces no move and no red flash —
-  just silently does nothing. (Hardest one to eyeball; try a few corners.)
-- [ ] **Edge margin feels right** — does ~30px from the edge feel like the
-  natural "I meant to swipe from the edge" zone, or does it trigger by
-  accident from more central touches / feel too narrow to hit reliably?
-  This is the number to revisit (`EDGE_MARGIN` in `edge_gesture.py`).
-- [ ] **Banner legible over the round bezel** — text + bar fully inside the
-  visible round area, no clipping, readable at a glance.
+  (within margin of two edges at once) produces no move, no dot highlight,
+  and no red flash — just silently does nothing.
+- [ ] **45px margin feels right** — does the zone feel comfortably easy to
+  hit now (bumped from 30px 2026-09-13), or does it need to go bigger
+  still / feel like it's triggering by accident from more central touches?
+  (`EDGE_MARGIN` in `edge_gesture.py`.)
+- [ ] **Room name + dots legible over the round bezel** — nothing clipped,
+  readable at a glance.
 - [ ] **No crash / no traceback** — a couple minutes of poking around,
   serial stays quiet.
 
 ## Notes
 
 _(fill in after running on the board — does swipe vs. tap feel more
-natural for triggering a move? does the margin need to change? anything to
-flag for cd-zw2.1 / cd-zw2.4 / cd-zw2.5)_
+natural for triggering a move? does the margin need to change further?
+anything to flag for cd-zw2.1 / cd-zw2.4 / cd-zw2.5)_

@@ -80,34 +80,43 @@ top center.
   6 bosses? (all held at Z ≤ stock inner face, so no worse than stock — but
   unverified)
 
-## Battery plan (Chris, 2026-09-06; parts confirmed 2026-09-12)
+## Battery plan (Chris, 2026-09-06; parts confirmed 2026-09-12; wired + solder-tested 2026-09-13)
 
-Two batteries on hand, both JST-PH (2-pin), which the board's onboard MX1.25
-BAT connector doesn't accept directly:
+**Superseded 2026-09-13**: the Adafruit 1317 (150mAh) originally planned
+below was swapped out before wiring -- what Chris actually has on hand and
+has soldered is three batteries, all JST-PH (2-pin), which the board's
+onboard MX1.25 BAT connector doesn't accept directly:
 
 - [Adafruit 4236](https://www.adafruit.com/product/4236) — 3.7V 420mAh,
   35 × 24 × 5.2mm, 25mm lead. **Fits `deep_backplate_20mm.scad`** — printed
-  and confirmed 2026-09-12, the biggest of the two the case has been sized
-  around.
-- [Adafruit 1317](https://www.adafruit.com/product/1317) — 3.7V 150mAh,
-  19.75 × 26.02 × 3.8mm, 127.5mm lead. Sized for `deep_backplate_6mm.scad`
-  (not yet confirmed in-case).
+  and confirmed 2026-09-12, the biggest of the three the case has been sized
+  around. Wired to `ws-2`.
+- [Adafruit 1570](https://www.adafruit.com/product/1570) — 3.7V, listed as
+  100mAh on the product title but the pack itself is printed **105mAh**
+  (Chris confirmed by eye on the physical unit -- go with 105). Wired to
+  `ws-1`. **Dimensions not yet checked against `deep_backplate_6mm.scad`**
+  (that model was sized around the now-superseded 1317's 19.75 × 26.02 ×
+  3.8mm, not the 1570's — needs calipers before assuming it fits).
+- [Adafruit 4237](https://www.adafruit.com/product/4237) — 3.7V 350mAh.
+  Currently a spare (not wired to a device). No case variant sized for it
+  yet.
 
 Adapter: [Adafruit 3922](https://www.adafruit.com/product/3922) — a 200mm,
 28AWG **Molex PicoBlade (1.25mm pitch)** cable, connector on one end, bare
-leads on the other. **Confirmed 2026-09-12: the 3922's connector plugs
+leads on the other (a short-cable 3922 is fine too since the leads get cut
+to splice anyway). **Confirmed 2026-09-12: the 3922's connector plugs
 straight into the board's BAT input** — no re-termination needed on that
 side. **Polarity confirmed against the board's silkscreen: red = +, black =
--.** Chris has several 3922 units on hand, one per battery. Remaining solder
-work: splice/solder each 3922's bare red/black leads to the matching
-red/black leads on the 4236 and the 1317 (both JST-PH, but the JST-PH
-connector itself is being bypassed — no need to source a mating JST-PH part,
-just join the wires directly, red-to-red/black-to-black per the confirmed
-polarity above).
+-.** **Solder work DONE 2026-09-13**: all three batteries have a 3922
+spliced/soldered on (red-to-red/black-to-black, JST-PH connector bypassed
+entirely). Test-fired on both `ws-1` and `ws-2` — powered up, no smoke/fire.
+This was cd-bp3.6.1's blocker; that bead is now unblocked for the on-device
+divider-ratio calibration.
 
-`extra_depth` is now fixed at two variants rather than a single tunable
-knob: `deep_backplate_6mm.scad` (sized for the 1317) and
-`deep_backplate_20mm.scad` (sized for the 4236, confirmed 2026-09-12).
+`extra_depth` is fixed at two variants rather than a single tunable knob:
+`deep_backplate_6mm.scad` (sized for the now-superseded 1317 — fit against
+the 1570 not yet confirmed) and `deep_backplate_20mm.scad` (sized for the
+4236, confirmed 2026-09-12).
 
 ## BOOT / RESET on the deep part
 
