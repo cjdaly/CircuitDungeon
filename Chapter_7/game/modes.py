@@ -120,9 +120,14 @@ class PlayMode:
     cd-oht.3), an icon rail (cd-oht.5, empty), and a message band (cd-e3p.9;
     scroll is cd-oht.4). doc/LAYOUT.md §1."""
 
-    VOID_TILE = 2  # wall-top — drawn for cells off the level *and* for
-                   # never-seen cells (fog of war, cd-oht.6): the dungeon
-                   # reads as solid rock until the hero's FOV reveals it.
+    VOID_TILE = 6  # terrain.bmp's solid "void" tile (cd-e17.5) — drawn for
+                   # cells off the level *and* for never-seen cells (fog of
+                   # war, cd-oht.6): the dungeon reads as solid rock until
+                   # the hero's FOV reveals it. Was 2 (wall-top, reused as a
+                   # placeholder) before cd-e17.5 added a real void tile.
+    DIM_OFFSET = 8  # terrain.bmp's second row is a darkened copy of row one
+                    # (cd-e17.5) — add this to a base tile index to get its
+                    # "remembered but not currently visible" variant.
 
     def __init__(self, display, world):
         import displayio
@@ -207,10 +212,11 @@ class PlayMode:
         )
 
     def _paint_terrain(self):
-        """Repaint the 13×13 terrain window. Fog of war (cd-oht.6): a cell is
-        drawn as its real tile only once the hero has seen it
-        (`world.is_explored`); everything else is `VOID_TILE`. No dim/lit
-        distinction yet — that needs a darker tile row from the art pass.
+        """Repaint the 13×13 terrain window. Fog of war (cd-oht.6, dim tiles
+        cd-e17.5): a cell in the hero's current FOV (`world.is_visible`)
+        draws as its real tile; one only ever explored draws at `+
+        DIM_OFFSET` (the terrain sheet's darkened second row); a cell never
+        seen is `VOID_TILE`.
 
         Runs every turn (FOV moves), so it uses a flat `tg[i]` index — the
         `tg[col, row]` form builds a throwaway tuple per cell, 169 per turn,
@@ -218,17 +224,24 @@ class PlayMode:
         wd = self.world
         g = wd.grid
         w, h = wd.width, wd.height
+        visible = wd.is_visible
         explored = wd.is_explored
         tg = self._terrain
         void = self.VOID_TILE
+        dim = self.DIM_OFFSET
         i = 0
         for row in range(MAP_TILES):
             wy = self.cam_y + row
             in_y = 0 <= wy < h
             for col in range(MAP_TILES):
                 wx = self.cam_x + col
-                if in_y and 0 <= wx < w and explored(wx, wy):
-                    tg[i] = g[wy][wx]
+                if in_y and 0 <= wx < w:
+                    if visible(wx, wy):
+                        tg[i] = g[wy][wx]
+                    elif explored(wx, wy):
+                        tg[i] = g[wy][wx] + dim
+                    else:
+                        tg[i] = void
                 else:
                     tg[i] = void
                 i += 1

@@ -117,6 +117,34 @@ RAMPS = [
 ]
 
 
+def _dim(rgb, factor=0.45):
+    """Darken a colour for fog-of-war 'remembered but not in sight' tiles
+    (cd-e17.5, cd-oht.6) -- same hue family, lower brightness, so a dim
+    floor still reads as floor rather than collapsing to flat grey."""
+    return tuple(int(c * factor) for c in rgb)
+
+
+# 40..56  fog-of-war dim row: a darkened copy of every colour terrain.py's
+# floor/wall/water/stairs tiles use, so modes.PlayMode can draw a
+# "remembered but not currently visible" tile at base_index + 8 (the
+# terrain sheet's second row) without a separate hand-authored dim set.
+# Derived from the ramps above rather than hand-picked, so nudging a base
+# colour automatically nudges its dim twin too.
+_FOG_DIM_SOURCE = (
+    "dirt_darkest", "dirt_dark", "dirt_mid", "dirt_light",
+    "stone_dark", "stone_mid", "stone_light",
+    "moss_mid",
+    "neutral_dark", "neutral_mid", "neutral_light", "ink_black",
+    "water_darkest", "deep_water", "water", "water_light",
+    "off_white",
+)
+_rgb_by_name = {name: rgb for _, entries in RAMPS for name, rgb in entries}
+RAMPS.append((
+    "fog_dim",
+    [(f"{n}_dim", _dim(_rgb_by_name[n])) for n in _FOG_DIM_SOURCE],
+))
+
+
 def flatten(ramps):
     out = []
     for ramp_name, entries in ramps:

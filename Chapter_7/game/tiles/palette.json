@@ -1,7 +1,7 @@
 {
   "capacity": 64,
   "core_size": 16,
-  "count": 40,
+  "count": 57,
   "names": [
     "transparent",
     "ink_black",
@@ -42,7 +42,24 @@
     "fire",
     "fire_bright",
     "flesh_shadow",
-    "flesh"
+    "flesh",
+    "dirt_darkest_dim",
+    "dirt_dark_dim",
+    "dirt_mid_dim",
+    "dirt_light_dim",
+    "stone_dark_dim",
+    "stone_mid_dim",
+    "stone_light_dim",
+    "moss_mid_dim",
+    "neutral_dark_dim",
+    "neutral_mid_dim",
+    "neutral_light_dim",
+    "ink_black_dim",
+    "water_darkest_dim",
+    "deep_water_dim",
+    "water_dim",
+    "water_light_dim",
+    "off_white_dim"
   ],
   "rgb": [
     [
@@ -244,6 +261,91 @@
       200,
       150,
       110
+    ],
+    [
+      18,
+      13,
+      9
+    ],
+    [
+      27,
+      20,
+      14
+    ],
+    [
+      40,
+      30,
+      21
+    ],
+    [
+      62,
+      48,
+      33
+    ],
+    [
+      22,
+      28,
+      34
+    ],
+    [
+      41,
+      50,
+      58
+    ],
+    [
+      62,
+      72,
+      79
+    ],
+    [
+      35,
+      48,
+      19
+    ],
+    [
+      19,
+      17,
+      22
+    ],
+    [
+      33,
+      31,
+      39
+    ],
+    [
+      62,
+      60,
+      68
+    ],
+    [
+      9,
+      5,
+      12
+    ],
+    [
+      9,
+      18,
+      28
+    ],
+    [
+      13,
+      26,
+      41
+    ],
+    [
+      27,
+      53,
+      79
+    ],
+    [
+      64,
+      90,
+      99
+    ],
+    [
+      104,
+      100,
+      93
     ]
   ],
   "ramps": [
@@ -286,7 +388,24 @@
     "fire",
     "fire",
     "flesh",
-    "flesh"
+    "flesh",
+    "fog_dim",
+    "fog_dim",
+    "fog_dim",
+    "fog_dim",
+    "fog_dim",
+    "fog_dim",
+    "fog_dim",
+    "fog_dim",
+    "fog_dim",
+    "fog_dim",
+    "fog_dim",
+    "fog_dim",
+    "fog_dim",
+    "fog_dim",
+    "fog_dim",
+    "fog_dim",
+    "fog_dim"
   ],
   "core": [
     true,
@@ -305,6 +424,23 @@
     true,
     true,
     true,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
     false,
     false,
     false,

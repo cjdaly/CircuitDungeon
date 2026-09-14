@@ -49,6 +49,23 @@ PAL = (
     (244, 194,  74),  # 37 fire_bright [fire]
     (154, 107,  78),  # 38 flesh_shadow [flesh]
     (200, 150, 110),  # 39 flesh [flesh]
+    ( 18,  13,   9),  # 40 dirt_darkest_dim [fog_dim]
+    ( 27,  20,  14),  # 41 dirt_dark_dim [fog_dim]
+    ( 40,  30,  21),  # 42 dirt_mid_dim [fog_dim]
+    ( 62,  48,  33),  # 43 dirt_light_dim [fog_dim]
+    ( 22,  28,  34),  # 44 stone_dark_dim [fog_dim]
+    ( 41,  50,  58),  # 45 stone_mid_dim [fog_dim]
+    ( 62,  72,  79),  # 46 stone_light_dim [fog_dim]
+    ( 35,  48,  19),  # 47 moss_mid_dim [fog_dim]
+    ( 19,  17,  22),  # 48 neutral_dark_dim [fog_dim]
+    ( 33,  31,  39),  # 49 neutral_mid_dim [fog_dim]
+    ( 62,  60,  68),  # 50 neutral_light_dim [fog_dim]
+    (  9,   5,  12),  # 51 ink_black_dim [fog_dim]
+    (  9,  18,  28),  # 52 water_darkest_dim [fog_dim]
+    ( 13,  26,  41),  # 53 deep_water_dim [fog_dim]
+    ( 27,  53,  79),  # 54 water_dim [fog_dim]
+    ( 64,  90,  99),  # 55 water_light_dim [fog_dim]
+    (104, 100,  93),  # 56 off_white_dim [fog_dim]
 )
 
 IDX = {
@@ -92,4 +109,21 @@ IDX = {
     'fire_bright': 37,
     'flesh_shadow': 38,
     'flesh': 39,
+    'dirt_darkest_dim': 40,
+    'dirt_dark_dim': 41,
+    'dirt_mid_dim': 42,
+    'dirt_light_dim': 43,
+    'stone_dark_dim': 44,
+    'stone_mid_dim': 45,
+    'stone_light_dim': 46,
+    'moss_mid_dim': 47,
+    'neutral_dark_dim': 48,
+    'neutral_mid_dim': 49,
+    'neutral_light_dim': 50,
+    'ink_black_dim': 51,
+    'water_darkest_dim': 52,
+    'deep_water_dim': 53,
+    'water_dim': 54,
+    'water_light_dim': 55,
+    'off_white_dim': 56,
 }

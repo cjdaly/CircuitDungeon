@@ -314,6 +314,25 @@ class FogOfWar(unittest.TestCase):
         self.assertEqual(play._terrain[6, 6], 0)              # explored floor
         self.assertEqual(play._terrain[0, 0], play.VOID_TILE)  # far corner, unseen
 
+    def test_explored_not_visible_cell_draws_dim(self):
+        # cd-e17.5: a cell that's been seen but isn't in the hero's current
+        # FOV draws at (base tile index + DIM_OFFSET), the terrain sheet's
+        # darkened second row. Fabricate the "explored, not visible" state
+        # directly on a cell that's guaranteed to stay in the viewport
+        # (the hero's own square) rather than fighting FOV radius / camera
+        # clamping to find a real one nearby.
+        h = Harness()                      # 24x24 room, hero at (12,12)
+        h.tick()
+        play = h.game.play
+        wd = h.world
+        self.assertEqual(play._terrain[6, 6], 0)  # hero's cell: visible, base tile
+        i = wd.hero["y"] * wd.width + wd.hero["x"]
+        wd.visible[i >> 3] &= ~(1 << (i & 7))     # clear the visible bit only
+        self.assertTrue(wd.is_explored(wd.hero["x"], wd.hero["y"]))
+        self.assertFalse(wd.is_visible(wd.hero["x"], wd.hero["y"]))
+        play._paint_terrain()
+        self.assertEqual(play._terrain[6, 6], play.DIM_OFFSET)  # 0 + DIM_OFFSET
+
     def test_a_revealed_cell_stays_explored_after_the_hero_moves_on(self):
         h = Harness(w=40, h=24)                               # hero at (20,12)
         self.assertTrue(h.world.is_explored(20, 12))          # start tile

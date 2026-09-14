@@ -491,16 +491,17 @@ Resolves bead `cd-e3p.6`. `Chapter_7/game/fov.py` — pure, no displayio/board.
 - **When it runs:** `world_from_level()` and `PlayMode.load_world()` seed it;
   `resolve_turn()` calls `world.refresh_fov()` after upkeep (the hero may have
   moved). Both accessors bounds-check, so callers don't have to.
-- **Rendering (`cd-oht.6`):** `PlayMode._paint_terrain` draws a cell as its
-  real tile only if `world.is_explored(x, y)`, else `VOID_TILE` (wall-top) —
-  so the dungeon reads as solid rock until the hero's FOV reveals it, and
-  stays revealed after. `_render` hides any actor sprite that isn't
-  `world.is_visible` (monsters vanish when they leave sight). `PlayMode.tick`
-  repaints the terrain after any resolved turn, not just on camera movement.
-- **Not done yet:** the **visible vs. explored** distinction is not drawn —
-  remembered-but-not-visible tiles look identical to lit ones. That needs a
-  dim tile variant from the art pass (`cd-e17.5`); the three-state model
-  (visible / explored-dim / unseen) is ready for it.
+- **Rendering (`cd-oht.6`, dim tiles `cd-e17.5`):** `PlayMode._paint_terrain`
+  draws a cell one of three ways: currently `is_visible` → its real tile;
+  `is_explored` but not visible → the same tile index + `DIM_OFFSET` (8) —
+  `terrain.bmp`'s second row, a darkened copy of every base tile generated
+  from the palette's `fog_dim` ramp; never seen → `VOID_TILE` (index 6, a
+  solid tile — was wall-top reused as a placeholder before `cd-e17.5`).
+  So the dungeon reads as solid rock until FOV reveals it, then dims to
+  "remembered" once the hero looks away, both permanently until the level
+  regenerates. `_render` hides any actor sprite that isn't `world.is_visible`
+  (monsters vanish when they leave sight). `PlayMode.tick` repaints the
+  terrain after any resolved turn, not just on camera movement.
 
 ## 9. Player model
 
