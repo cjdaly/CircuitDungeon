@@ -155,8 +155,11 @@ class EventToAction(unittest.TestCase):
     def test_wait_event_maps_to_wait_action(self):
         self.assertEqual(modes._first_action(["wait"]), ("wait",))
 
+    def test_aux_x_maps_to_use(self):
+        self.assertEqual(modes._first_action([im.AUX_X]), ("use",))
+
     def test_non_action_events_yield_none(self):
-        self.assertIsNone(modes._first_action([im.CONFIRM, im.CANCEL, im.AUX_X]))
+        self.assertIsNone(modes._first_action([im.CONFIRM, im.CANCEL, im.AUX_Y]))
         self.assertIsNone(modes._first_action([]))
 
     def test_first_action_wins_rest_dropped(self):

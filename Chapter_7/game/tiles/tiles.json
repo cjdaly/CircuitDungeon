@@ -159,7 +159,7 @@
     "tile": 16,
     "cols": 8,
     "rows": 1,
-    "count": 7,
+    "count": 8,
     "tiles": [
       {
         "index": 0,
@@ -187,20 +187,26 @@
       },
       {
         "index": 4,
-        "name": "chest",
+        "name": "armor",
         "col": 4,
         "row": 0
       },
       {
         "index": 5,
-        "name": "scroll",
+        "name": "chest",
         "col": 5,
         "row": 0
       },
       {
         "index": 6,
-        "name": "corpse",
+        "name": "scroll",
         "col": 6,
+        "row": 0
+      },
+      {
+        "index": 7,
+        "name": "corpse",
+        "col": 7,
         "row": 0
       }
     ]

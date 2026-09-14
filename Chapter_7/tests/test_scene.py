@@ -460,6 +460,34 @@ class StatusLine(unittest.TestCase):
         self.assertIn("Dep 2", _status(h))
 
 
+class Rail(unittest.TestCase):
+    """cd-oht.5 — the icon-rail sword/armor level readout, ENGINE.md §10.1."""
+
+    def test_initial_rail_shows_unequipped(self):
+        h = Harness()
+        self.assertEqual(h.game.play._sword_label.text, "-")
+        self.assertEqual(h.game.play._armor_label.text, "-")
+
+    def test_walking_onto_a_sword_updates_the_rail(self):
+        h = Harness()
+        hero = h.world.hero
+        h.world.add_actor(world_mod.make_item(
+            hero["x"] + 1, hero["y"], world_mod.SWORD_TILE, "weapon",
+            "a level 3 sword", level=3))
+        h.tick("right")
+        self.assertEqual(h.game.play._sword_label.text, "3")
+
+    def test_a_worse_sword_leaves_the_rail_unchanged(self):
+        h = Harness()
+        hero = h.world.hero
+        hero["weapon_level"] = 5
+        h.world.add_actor(world_mod.make_item(
+            hero["x"] + 1, hero["y"], world_mod.SWORD_TILE, "weapon",
+            "a level 2 sword", level=2))
+        h.tick("right")
+        self.assertEqual(h.game.play._sword_label.text, "5")
+
+
 class Combat(unittest.TestCase):
     def test_hero_kills_adjacent_monster_and_sprites_resync(self):
         h = Harness()
@@ -567,6 +595,29 @@ class Descent(unittest.TestCase):
         h.tick("right")                              # back onto up-stairs (9,10)
         self.assertEqual(h.world.depth, 1)           # no change
         self.assertIn("sealed", h.game.play._message_label.text)
+
+    def test_hero_stats_and_equipment_survive_a_level_change(self):
+        # A descent used to build a brand-new hero from HERO_DEFAULTS and
+        # only ever carry world.turn across — silently resetting hp/gold/xp
+        # and dropping the equipped sword/armor level entirely (Chris,
+        # 2026-09-14: "I found a sword on level 1, but when I went to level
+        # 2 I didn't have it anymore").
+        h = Harness(world=_stair_level(1, "up"), new_level=_stair_level)
+        hero = h.world.hero
+        hero["hp"] = 13
+        hero["gold"] = 42
+        hero["xp"] = 7
+        hero["weapon_level"] = 3
+        hero["armor_level"] = 2
+        h.tick("right")                              # descend to depth 2
+        new_hero = h.world.hero
+        self.assertIsNot(new_hero, hero)              # a fresh dict, not the same object
+        self.assertEqual(new_hero["hp"], 13)
+        self.assertEqual(new_hero["gold"], 42)
+        self.assertEqual(new_hero["xp"], 7)
+        self.assertEqual(new_hero["weapon_level"], 3)
+        self.assertEqual(new_hero["armor_level"], 2)
+        self.assertEqual((new_hero["x"], new_hero["y"]), (9, 10))  # position still resets
 
 
 class GeneratedLevel(unittest.TestCase):

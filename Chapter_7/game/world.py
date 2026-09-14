@@ -42,7 +42,19 @@ def make_hero(x, y, tile=0, **over):
     return h
 
 
-CORPSE_TILE = 6         # objects.bmp — see game/tiles/tiles.json
+# objects.bmp indices — see game/tiles/tiles.json. Named, not inline magic
+# numbers: this sheet has already reshuffled once (armor's insertion at 4
+# bumped corpse 6->7, cd-dsc.4) and tiles.json itself isn't shipped to the
+# device (deploy.sh excludes build artifacts) so there's nothing on-device
+# to catch a stale index at runtime.
+POTION_RED_TILE = 0
+POTION_BLUE_TILE = 1
+COIN_TILE = 2
+SWORD_TILE = 3
+ARMOR_TILE = 4
+CHEST_TILE = 5
+SCROLL_TILE = 6
+CORPSE_TILE = 7
 WALL_TILE = 2           # terrain.bmp "wall_top" — the one blocking terrain tile v1
 STAIRS_DOWN_TILE = 4    # terrain.bmp — walkable; stepping on it descends (cd-e3p.10)
 STAIRS_UP_TILE = 5      # terrain.bmp — walkable; stepping on it ascends
@@ -51,11 +63,13 @@ STAIRS_UP_TILE = 5      # terrain.bmp — walkable; stepping on it ascends
 def world_from_level(level, start="up"):
     """Build a World from a generator.generate() dict (LEVELGEN.md §7): the
     grid goes in, the hero starts on `level[start]` — "up" for a fresh descent,
-    "down" when climbing back up into a level (cd-e3p.10). Monsters and items
-    come from the spawn tables in a later step (cd-dsc.4)."""
+    "down" when climbing back up into a level (cd-e3p.10). Monsters and
+    items are placed from level["spawn_points"] (cd-dsc.4)."""
     world = World(level["grid"], wall_tiles=(WALL_TILE,), depth=level["depth"])
     sx, sy = level[start]
     world.add_actor(make_hero(sx, sy))
+    import spawns  # lazy: spawns.py imports this module, avoids a cycle
+    spawns.populate(world, level["spawn_points"], level["depth"])
     world.refresh_fov()
     return world
 
@@ -249,6 +263,7 @@ def _apply_player_action(world, action):
         result = world.move_actor(world.hero, action[1], action[2])
         if result == "moved":
             _check_transition(world)
+            _check_pickup(world)
             return True
         if isinstance(result, tuple) and result[0] == "bump":
             other = result[1]
@@ -259,6 +274,12 @@ def _apply_player_action(world, action):
         return False  # "blocked" — wall or edge
     if kind == "wait":
         return True
+    if kind == "use":
+        # No item-selection UI (see the inventory section above) — use the
+        # first inventory item that has a defined effect.
+        item = next((i for i in world.hero.get("inventory", [])
+                    if i.get("kind") in ITEM_EFFECTS), None)
+        return item is not None and use_item(world, world.hero, item)
     return False
 
 
@@ -278,7 +299,7 @@ def resolve_turn(world, scheduler, action, monster_turn):
             continue
         if actor not in world.actors:
             continue                       # died earlier this turn (corpse)
-        if actor.get("corpse"):
+        if actor.get("corpse") or actor.get("item"):
             continue                       # scenery, not something that acts
         if not world.hero_alive():
             break                          # nothing swings at a dead hero
@@ -336,6 +357,132 @@ def resolve_attack(world, attacker, defender):
     )
     if attacker is world.hero:
         world.hero["xp"] = world.hero.get("xp", 0) + defender.get("xp", 0)
+
+
+# -- inventory (ENGINE.md §10, bead cd-e3p.8) -------------------------
+#
+# Items are non-blocking actors on the map (actor_at() already treats them
+# as scenery, same as a corpse — see its docstring) tagged `item=True` so
+# resolve_turn's monster loop skips them, mirroring the existing `corpse`
+# flag. Picking one up moves its dict out of world.actors and into
+# hero["inventory"] — same dict, just relocated, nothing to convert.
+#
+# No inventory-selection screen exists yet (that's cd-oht.7, superseded by
+# a minimal always-on icon-rail readout instead — see cd-oht.5) so v1 keeps
+# every trigger automatic/first-match rather than building a pick-an-item
+# UI this project would have to build twice: pickup happens by walking onto
+# an item, "use" acts on the first inventory item that qualifies. drop_item()
+# exists and is tested but has no input binding yet — dropping a *specific*
+# item genuinely needs a selection UI this project doesn't have.
+#
+# Weapon/armor are a separate, simpler path (cd-dsc.4) — see "leveled
+# equipment" below — not generic inventory items at all: no carrying two
+# swords hoping to manually pick the better one later, a find is compared
+# against what's equipped immediately.
+
+# kind -> (effect, magnitude). Every item actor's "kind" key must be one of
+# these to be use()-able. "weapon"/"armor" are handled by the leveled-
+# equipment path below instead, never by use_item().
+ITEM_EFFECTS = {
+    "potion_red": ("heal", 8),
+    "potion_blue": ("buff_power", 2),
+    "scroll": ("buff_defense", 1),
+}
+
+
+def make_item(x, y, tile, kind, name, **extra):
+    """A pickable, non-blocking map actor — objects.bmp art, see
+    game/tiles/tiles.json for tile indices (potion_red=0, potion_blue=1,
+    coin=2, sword=3, armor=4, chest=5, scroll=6)."""
+    return make_actor(x, y, "objects", tile, blocks=False, item=True,
+                      kind=kind, name=name, **extra)
+
+
+# -- leveled equipment: sword/armor auto-upgrade on pickup (cd-dsc.4) ----
+#
+# Simpler than the generic inventory above: these two kinds never sit in
+# the carry list waiting for a manual equip press. Finding one instantly
+# compares its "level" against what's equipped; strictly better replaces it
+# (and its stat bonus); anything else is left behind — walking over a worse
+# sword doesn't carry it "just in case", it's evaluated and discarded on
+# sight, same as a shopkeeper eyeballing an old sword and shaking their head.
+EQUIP_SLOTS = {
+    "weapon": ("weapon_level", "power", "sword"),
+    "armor": ("armor_level", "defense", "armor"),
+}
+
+
+def _try_equip_leveled(world, actor, item):
+    """`item["kind"]` must be a key of EQUIP_SLOTS. Always "consumes" the
+    item (caller doesn't add it to actors or inventory either way) — returns
+    True if it was an upgrade, False if it was outclassed and rejected."""
+    level_key, stat_key, noun = EQUIP_SLOTS[item["kind"]]
+    have = actor.get(level_key, 0)
+    new = item.get("level", 1)
+    if new <= have:
+        world.log.add("Your level %d %s is better!" % (have, noun))
+        return False
+    actor[stat_key] = actor.get(stat_key, 0) - have + new
+    actor[level_key] = new
+    world.log.add("You found a better %s! (level %d)" % (noun, new))
+    return True
+
+
+def _check_pickup(world):
+    """Hero just moved — auto-pick-up any item actor sitting on the new
+    tile. Called from _apply_player_action right after a successful move,
+    same spot _check_transition watches for stairs."""
+    h = world.hero
+    for a in world.actors:
+        if a is not h and a.get("item") and a["x"] == h["x"] and a["y"] == h["y"]:
+            world.remove_actor(a)
+            if a.get("kind") in EQUIP_SLOTS:
+                _try_equip_leveled(world, h, a)  # upgraded or rejected, either
+                return                            # way it doesn't stay on the map
+            if a.get("kind") == "gold":
+                amount = a.get("amount", 0)
+                h["gold"] = h.get("gold", 0) + amount
+                world.log.add("You found %d gold." % amount)
+                return                             # straight to the stat, never carried
+            h.setdefault("inventory", []).append(a)
+            world.log.add("You pick up %s." % a["name"])
+            return  # one item per tile, v1 — generator doesn't stack them
+
+
+def use_item(world, actor, item):
+    """Consume `item` from actor's inventory, applying its ITEM_EFFECTS
+    effect. Returns True if it did something."""
+    inv = actor.get("inventory", [])
+    if item not in inv:
+        return False
+    effect = ITEM_EFFECTS.get(item.get("kind"))
+    if effect is None:
+        return False
+    kind, amount = effect
+    if kind == "heal":
+        actor["hp"] = min(actor.get("max_hp", actor["hp"]), actor["hp"] + amount)
+        world.log.add("You drink %s, healing %d." % (item["name"], amount))
+    elif kind == "buff_power":
+        actor["power"] = actor.get("power", 0) + amount
+        world.log.add("You drink %s — your power surges." % item["name"])
+    elif kind == "buff_defense":
+        actor["defense"] = actor.get("defense", 0) + amount
+        world.log.add("You read %s — you feel protected." % item["name"])
+    inv.remove(item)
+    return True
+
+
+def drop_item(world, actor, item):
+    """Remove `item` from actor's inventory and place it on the map at
+    actor's current position. No input binding yet — see module note."""
+    inv = actor.get("inventory", [])
+    if item not in inv:
+        return False
+    inv.remove(item)
+    item["x"], item["y"] = actor["x"], actor["y"]
+    world.add_actor(item)
+    world.log.add("You drop %s." % item["name"])
+    return True
 
 
 # -- viewport / camera (LAYOUT.md §3) ---------------------------------

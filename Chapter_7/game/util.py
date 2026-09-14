@@ -49,6 +49,19 @@ def load_sprite(filename, w, h, tw, th, x=0, y=0, transparent=0):
     return tilegrid(bmp, pal, w, h, tw, th, x=x, y=y, transparent=transparent)
 
 
+def solid_rect(w, h, color, x=0, y=0):
+    """A single solid-color TileGrid, no bitmap file involved — every pixel
+    in a fresh Bitmap defaults to palette index 0, so no per-pixel fill
+    loop is needed. Used for the icon-rail grouping boxes (cd-oht.5)."""
+    bmp = displayio.Bitmap(w, h, 1)
+    pal = displayio.Palette(1)
+    pal[0] = color
+    tg = displayio.TileGrid(bmp, pixel_shader=pal, width=1, height=1, tile_width=w, tile_height=h)
+    tg.x = x
+    tg.y = y
+    return tg
+
+
 def init_label(font, color, x=0, y=0, text=""):
     lbl = bitmap_label.Label(font, color=color, text=text)
     lbl.x = x

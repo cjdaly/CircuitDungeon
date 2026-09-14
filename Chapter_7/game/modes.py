@@ -43,6 +43,9 @@ _EVENT_ACTION = {
     im.MOVE_W: ("move",) + world_mod.MOVE_DELTAS["w"],
     im.MOVE_E: ("move",) + world_mod.MOVE_DELTAS["e"],
     "wait": ("wait",),   # the DOWN+B chord (cd-e3p.15)
+    im.AUX_X: ("use",),  # X alone — use the first usable inventory item (cd-e3p.8)
+    # AUX_Y (Y alone) is unbound — weapon/armor auto-equip on pickup now
+    # (cd-dsc.4), there's no "equip" action left to trigger.
 }
 
 
@@ -175,6 +178,50 @@ class PlayMode:
             lbl.anchored_position = (2, BAND_H // 2)
         self.status_group.append(self._status_label)
         self.message_group.append(self._message_label)
+
+        # --- icon rail (cd-oht.5): sword + armor level, always-visible
+        # minimal-inventory readout (ENGINE.md §10.1) — no selection UI needed,
+        # equip is automatic on pickup, so this is just two icons + numbers.
+        objects_bmp, objects_pal = self._actor_sheets["objects"]
+        icon_x = (rail_w - TILE) // 2   # centre the 16px icon in the 32px rail
+        # A gap below the status band: flush against y=0 read as glued to
+        # "Gold 0" on the status line right above it (Chris, 2026-09-14).
+        rail_top = 12
+        # A bordered box behind each icon+number pair — without one, the
+        # numbers read as floating loose next to the icons instead of
+        # belonging to them (Chris, 2026-09-14). box_h=38 was 30 — the first
+        # pass clipped the bottom of the label glyphs (Chris, 2026-09-14).
+        box_x, box_w, box_h, box_gap = 2, rail_w - 4, 38, 4
+        block_h = box_h + box_gap   # box + breathing room to the next block
+        sword_y = rail_top
+        armor_y = rail_top + block_h
+
+        for by in (sword_y - 2, armor_y - 2):
+            self.rail_group.append(util.solid_rect(box_w, box_h, 0x3A4A70, x=box_x, y=by))
+            self.rail_group.append(
+                util.solid_rect(box_w - 2, box_h - 2, 0x14203A, x=box_x + 1, y=by + 1)
+            )
+
+        self._sword_icon = util.tilegrid(
+            objects_bmp, objects_pal, 1, 1, TILE, TILE, x=icon_x, y=sword_y, transparent=0
+        )
+        self._sword_icon[0, 0] = world_mod.SWORD_TILE
+        self._armor_icon = util.tilegrid(
+            objects_bmp, objects_pal, 1, 1, TILE, TILE, x=icon_x, y=armor_y, transparent=0
+        )
+        self._armor_icon[0, 0] = world_mod.ARMOR_TILE
+        self._sword_label = util.init_label(terminalio.FONT, 0xC8E0FF, text="")
+        self._armor_label = util.init_label(terminalio.FONT, 0xC8E0FF, text="")
+        for lbl, y in ((self._sword_label, sword_y + TILE + 2),
+                       (self._armor_label, armor_y + TILE + 2)):
+            lbl.anchor_point = (0.5, 0.0)
+            lbl.anchored_position = (rail_w // 2, y)
+        self.rail_group.append(self._sword_icon)
+        self.rail_group.append(self._sword_label)
+        self.rail_group.append(self._armor_icon)
+        self.rail_group.append(self._armor_label)
+        self._rail_sig = None
+
         self.group.append(self.status_group)
         self.group.append(self.rail_group)
         self.group.append(self.message_group)
@@ -200,6 +247,7 @@ class PlayMode:
         self._sync_actor_sprites()
         self._paint_terrain()
         self._paint_status()
+        self._paint_rail()
         self._paint_message()
         self._render()
 
@@ -305,6 +353,19 @@ class PlayMode:
             "HP %2d/%-2d Dep %2d  Turn %5d  Gold %4d" % sig
         )[: self._STATUS_CHARS]
 
+    # -- icon rail (cd-oht.5) — sword/armor level, ENGINE.md §10.1 ----
+
+    def _paint_rail(self):
+        """Repaint the rail only when the equipped levels changed — same
+        signature-gated pattern as _paint_status (cd-yl4)."""
+        h = self.world.hero
+        sig = (h.get("weapon_level", 0), h.get("armor_level", 0))
+        if sig == self._rail_sig:
+            return
+        self._rail_sig = sig
+        self._sword_label.text = str(sig[0]) if sig[0] else "-"
+        self._armor_label.text = str(sig[1]) if sig[1] else "-"
+
     # -- message line (cd-e3p.9; cd-oht.4 adds scroll / a longer history) --
 
     _MSG_CHARS = 39   # ~ (240 - 4) / 6 for terminalio
@@ -330,6 +391,7 @@ class PlayMode:
             if self.world.roster_version != self._synced_roster:
                 self._sync_actor_sprites()     # a monster died / spawned (cd-e3p.5)
             self._paint_status()               # HP / turn / gold moved (cd-oht.3)
+            self._paint_rail()                 # sword/armor level moved (cd-oht.5)
             self._paint_message()              # combat / event text (cd-e3p.9)
         cam = (self.cam_x, self.cam_y)
         self._recenter()

@@ -177,7 +177,8 @@ class WorldFromLevel(unittest.TestCase):
         return {
             "grid": grid, "rooms": [(2, 2, 4, 4)],
             "up": (3, 3), "down": (5, 5),
-            "spawn_points": [(4, 4)], "depth": 3, "seed": 9,
+            "spawn_points": [], "depth": 3, "seed": 9,  # empty: this class
+            # tests hero placement, not spawning (cd-dsc.4) -- see test_spawns.py
         }
 
     def test_builds_world_with_hero_on_the_up_stairs(self):

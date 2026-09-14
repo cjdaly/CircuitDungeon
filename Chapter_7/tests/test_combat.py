@@ -160,6 +160,28 @@ class BumpWiring(unittest.TestCase):
         self.assertEqual((corpse["x"], corpse["y"]), (4, 3))   # stayed put
         self.assertIsNone(corpse.get("ai"))            # never woke to "hunt"
 
+    def test_item_never_gets_a_turn_and_never_chases_the_hero(self):
+        # cd-dsc.4: spawned sword/armor/gold were getting full monster AI
+        # turns — walking around and bump-"attacking" the hero — because
+        # resolve_turn's skip check only tested actor["corpse"], never
+        # actor["item"], despite ENGINE.md's inventory section claiming both
+        # were already skipped. Chris hit this in a real playtest
+        # (2026-09-14): "the swords and armor and gold are moving and
+        # attacking me like monsters."
+        ai.WANDER_CHANCE = 1.0                          # would move it if it acted
+        sword = world_mod.make_item(4, 3, world_mod.SWORD_TILE, "weapon", "a sword")
+        self.w.add_actor(sword)
+        sword["ai"] = "hunt"
+        sword["goal"] = (3, 3)                          # the hero's tile
+
+        seen = []
+        for _ in range(6):
+            world_mod.resolve_turn(
+                self.w, self.sched, ("wait",), lambda w, a: seen.append(a)
+            )
+        self.assertNotIn(sword, seen)                   # never handed to the AI
+        self.assertEqual((sword["x"], sword["y"]), (4, 3))     # stayed put
+
 
 class CircuitPythonStr(unittest.TestCase):
     """CircuitPython's `str` is a subset of CPython's — no `.capitalize()`

@@ -403,6 +403,19 @@ play.load_world(world);  diag.world = world
 - Ascending from depth 1 is sealed (a log line, no transition).
 - `main.py` passes `new_level=_new_game`; without it (some tests) descent is
   inert.
+- **The hero's stats/equipment carry across; only position resets.**
+  `world_from_level()` always builds a brand-new hero via `make_hero()`
+  (`HERO_DEFAULTS`) — that's correct for *position* (the new level's arrival
+  stair), but `_change_level` snapshots the old hero's `hp`/`max_hp`/
+  `power`/`defense`/`gold`/`xp`/`level`/`weapon_level`/`armor_level`/
+  `inventory` (`_HERO_CARRY_KEYS`) before releasing the old world, then
+  `new_world.hero.update(carry_hero)`s them onto the freshly-placed hero.
+  **Missing until 2026-09-14** — only `world.turn` was ever carried, so
+  every level change silently reset hp/gold/xp and dropped the equipped
+  sword/armor level and any carried potions. Chris caught it via the
+  cd-dsc.4 rail: "I found a sword on level 1, but when I went to level 2 I
+  didn't have it anymore." `test_scene.py`'s `Descent` class covers it now
+  (`test_hero_stats_and_equipment_survive_a_level_change`).
 
 ## 6. Monsters + AI
 
@@ -535,7 +548,112 @@ a test hook off it. The world freezes behind the overlay (play isn't ticked).
 
 *Open:* passive regen / status-effect ticks in `_upkeep` (§5.2) — none yet.
 
-## 10. Inventory model  *(cd-e3p.8 — open)*
+## 10. Inventory model
+
+Resolves beads `cd-e3p.8` and `cd-dsc.4`. `Chapter_7/game/world.py`, right
+after combat (§7), plus `Chapter_7/game/spawns.py` for level population.
+
+- **Items are non-blocking actors** — `world.make_item(x, y, tile, kind,
+  name, **extra)` builds one on the `objects` sheet, `item=True` flagged
+  (mirrors the existing `corpse` flag: `resolve_turn`'s monster loop skips
+  both — **true of the code since 2026-09-14**; between `cd-e3p.8` and
+  `cd-dsc.4` this line described the intent but the loop only actually
+  checked `corpse`, so spawned items got full monster AI turns and would
+  wander/hunt/bump-attack the hero. No test caught it — `test_scene.py`'s
+  harness sets `ai.WANDER_CHANCE = 0` globally, and no other test put an
+  item through `resolve_turn`'s roster with `ai="hunt"`. Found in a real
+  playtest; `test_combat.py`'s `test_item_never_gets_a_turn_and_never_chases_the_hero`
+  covers it now.) `actor_at()` already only reports *blocking* actors — its
+  own docstring calls out items alongside corpses — so an item never causes a
+  bump; stepping onto one is just a normal move.
+- **Pickup is automatic**, not a separate input: `_check_pickup(world)` runs
+  right after a successful hero move (same spot `_check_transition` watches
+  for stairs) and looks at any item actor on the hero's new tile. What
+  happens next depends on the item's `kind`:
+  - **Consumables** (`potion_red`, `potion_blue`, `scroll` — anything not in
+    `EQUIP_SLOTS`) move into `hero["inventory"]`, same dict, relocated out
+    of `world.actors`, nothing to convert. One item per tile.
+  - **Weapon/armor** (`kind` in `EQUIP_SLOTS`) never enter the inventory at
+    all — see "Leveled equipment" below. Either way the item actor is
+    removed from the map on contact; it's either an upgrade or gone.
+- **No selection UI for consumables** (`cd-oht.7`, deliberately not built —
+  see below) — rather than build a choose-one-from-a-list screen, `use`
+  acts on the first inventory item that qualifies:
+  - `world.use_item(world, actor, item)` — consumes a potion/scroll whose
+    `kind` is in `ITEM_EFFECTS` (`heal`, `buff_power`, `buff_defense`),
+    logs a message, removed from inventory. `AUX_X` (X alone, not the X+Y
+    chord) triggers "use the first item with an effect."
+  - `world.drop_item(world, actor, item)` — removed from inventory, placed
+    on the map at the actor's position. Built and tested; **no input
+    binding** — dropping a *specific* item needs the selection UI this
+    section deliberately avoided building early.
+
+### 10.1 Leveled equipment — sword & armor (`cd-dsc.4`)
+
+Swords and armor are **not carried items** — the hero always holds exactly
+one of each, tracked as plain stats (`weapon_level`/`power`,
+`armor_level`/`defense` — `EQUIP_SLOTS` maps `kind` to the pair). Finding
+one auto-compares against what's equipped:
+
+- `_try_equip_leveled(world, actor, item)` — if the found item's `level` is
+  higher than the actor's current `*_level`, it replaces it: the actor's
+  stat is adjusted by `-old_level + new_level` (so re-equipping is an
+  unwind-then-apply, not additive) and a "You found a better sword! (level
+  N)" message is logged.
+- If the found level is **lower or equal**, nothing changes on the actor —
+  just a rejection message: `"Your level N sword is better!"` (or armor).
+  Either way the ground item is gone; there's nothing to carry or drop.
+- This is why `cd-oht.7` (a dedicated inventory *screen*) was closed as
+  superseded rather than built: with only two equipment slots and no
+  selection to make (auto-equip-if-better is the whole interaction), a
+  minimal always-on readout in the icon rail (`cd-oht.5`) covers it more
+  cheaply than a toggle-mode screen would.
+- `AUX_Y` (Y alone) is unbound — there's no "equip" action left to trigger;
+  equipping happens on pickup, not on demand.
+
+### 10.2 Spawn tables (`Chapter_7/game/spawns.py`, `cd-dsc.4`)
+
+`world_from_level()` calls `spawns.populate(world, level["spawn_points"],
+level["depth"])` right after placing the hero. `populate()` draws distinct
+spawn points via `_pop_random` (swap the picked index to the end of the
+list, then `pop()`) and draws from the same continuing global `random`
+stream `generator.generate()` seeded (an optional `rng` param is the
+hermetic escape hatch tests use — see `test_spawns.py`), matching the
+determinism convention `ai.py` already established.
+
+**Gotcha found on-device (2026-09-14):** `_pop_random` deliberately avoids
+`random.shuffle()` — CircuitPython's built-in `random` module implements
+only `choice`/`getrandbits`/`randint`/`random`/`randrange`/`seed`/`uniform`,
+*not* `shuffle`. A hermetic `random.Random()` instance (what the desktop
+tests use) has `shuffle`, so a shuffle-then-pop implementation passed all
+222 off-device tests and then crashed with `AttributeError` on first boot.
+Anything reaching for the global `random` stream should stick to that
+smaller method set.
+
+- **Monsters** — `MONSTERS` is a table of `(name, min_depth, max_depth, hp,
+  power, defense, ..., xp)` tuples; `_eligible_monsters(depth)` filters to
+  ones whose depth range covers the level, `_make_monster` picks one at
+  random. Count scales with depth: `MONSTER_BASE=2 +
+  MONSTER_PER_DEPTH=1 * (depth-1)`, capped at `MONSTER_CAP=8` and by however
+  many spawn points exist.
+- **Items** — one sword and one armor per level (if spawn points remain
+  after monsters), each at `_item_level(depth, rng)` = `depth +
+  randint(-ITEM_LEVEL_JITTER, +ITEM_LEVEL_JITTER)` (`ITEM_LEVEL_JITTER=2`),
+  floored at level 1. This is the mechanic the hero's auto-equip compares
+  against (§10.1) — deeper levels trend toward better gear, with enough
+  jitter that a shallow level can still occasionally drop something worth
+  upgrading to.
+- **Gold** — `GOLD_PILES=2` per level (flat, not depth-scaled), each worth
+  `_gold_amount(depth, rng)` = `randint(GOLD_MIN, GOLD_MAX) * depth`
+  (`GOLD_MIN=5`, `GOLD_MAX=15`). Its `kind` is `"gold"`, not one of
+  `ITEM_EFFECTS` or `EQUIP_SLOTS` — `_check_pickup` special-cases it a third
+  way: adds straight to `hero["gold"]` and logs "You found N gold," never
+  entering the inventory list (§10, `world.py`). Added 2026-09-14 — the
+  status line (`cd-oht.3`) always had a Gold counter, but nothing dropped
+  any until this.
+- Tuning (`MONSTER_BASE`/`MONSTER_PER_DEPTH`/`MONSTER_CAP`/
+  `ITEM_LEVEL_JITTER`/`GOLD_PILES`/`GOLD_MIN`/`GOLD_MAX`) is a first pass,
+  not balanced against real playtesting yet.
 ## 11. Message log
 
 Resolves bead `cd-e3p.9`. `Chapter_7/game/log.py` — pure. `world.log` is a

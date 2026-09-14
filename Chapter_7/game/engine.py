@@ -27,6 +27,19 @@ import modes
 # per turn; turns advance only on input), unlike Ch6's TARGET_TICK_SECONDS.
 TICK_SECONDS = 1 / 20
 
+# Hero stats that must survive a level change — only position/sheet/tile
+# reset (the hero always starts on the new level's arrival stair, placed by
+# world.make_hero() inside world_from_level()). Missing until 2026-09-14:
+# _change_level built a brand-new hero via HERO_DEFAULTS and only ever
+# carried world.turn across, so a descent silently reset hp/gold/xp back to
+# their starting values and dropped the carried inventory and equipped
+# sword/armor level entirely. Chris caught it via cd-dsc.4's rail readout
+# ("found a sword on level 1, ... level 2 I didn't have it anymore").
+_HERO_CARRY_KEYS = (
+    "hp", "max_hp", "power", "defense", "gold", "xp", "level",
+    "weapon_level", "armor_level", "inventory",
+)
+
 
 def _mem_free():
     """gc.mem_free() on CircuitPython, -1 on desktop CPython (no such attr)."""
@@ -69,6 +82,7 @@ class Game:
         depth = world.depth + (1 if direction == "down" else -1)
         arrive = "up" if direction == "down" else "down"
         carry_turn = world.turn             # turn count is a running total, not per-level
+        carry_hero = {k: world.hero[k] for k in _HERO_CARRY_KEYS if k in world.hero}
         verb = "descend" if direction == "down" else "climb"
 
         # Release the old level before building the new one. Its grid plus
@@ -84,6 +98,7 @@ class Game:
 
         new_world = self._new_level(depth, arrive)
         new_world.turn = carry_turn
+        new_world.hero.update(carry_hero)   # hp/gold/xp/equipment survive the level change
         new_world.log.add("You %s to depth %d." % (verb, depth))
         self.world = new_world
         self.play.load_world(new_world)
