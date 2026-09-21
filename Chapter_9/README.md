@@ -7,7 +7,9 @@ The game for the Waveshare RP2350-Touch-LCD-1.28 (round display), building on
 techniques proved out in [Chapter 8](../Chapter_8) (all five `cd-45v`
 prototypes -- sprite scales, edge-gesture navigation, room banners, room
 graph, ornament mode -- verified on real hardware 2026-09-13). Tracked in
-beads under `cd-zw2`; design notes will land in `doc/` as they solidify.
+beads under `cd-zw2` (the building blocks, done) and `cd-342` (the playable
+build); design notes will land in `doc/` as they solidify. To run it on a
+board see [`doc/DEPLOY.md`](doc/DEPLOY.md).
 
 ## What's here
 
@@ -71,20 +73,43 @@ beads under `cd-zw2`; design notes will land in `doc/` as they solidify.
   waited for `cd-zw2.6` once the room model existed. Fully unit tested, 15
   tests, pure state logic.
 
+* **On-device entry point** (`game/main.py`, `game/app.py`,
+  `game/nav_view.py`, `game/modes.py`, `cd-342.1`/`cd-342.2`) -- the first
+  runnable Ch9 build. `main.py` is just hardware bootstrap
+  (`hardware.py`/`imu.py`/`boot.py` are copied unchanged from Chapter 8);
+  `app.run()` is the loop, taking its hardware as arguments so it can be
+  smoke-tested off-device. Interactive mode is room navigation
+  (`nav_view.NavView`: persistent room label, live edge-exit markers,
+  blocked-move flash -- the Ch8 `room_nav_demo.py` UI, made reusable) over
+  the real 10-room world. `modes.ModeController` switches to ornament mode
+  when the device has been untouched AND still (IMU) for 30s, and back on
+  any touch -- BOOT can't be a toggle on RP2350 (`cd-bp3.9`). A touch that
+  wakes the device (from ornament or a blanked screen) is swallowed along
+  with the rest of that finger-down. Screen blanking is per-mode (2 min of
+  no touch interactive, 5 min of stillness ornament). No critters, items or
+  art yet -- see the `cd-342` epic. `modes.py` is unit tested;
+  `tests/test_app_smoke.py` drives `app.run()` through navigation, blocked
+  moves, and both mode switches against stubbed `displayio`, which catches
+  wiring bugs but says nothing about how it looks. **Not yet run on real
+  hardware.**
+
 ## Layout
 
 ```
-game/      copied to CIRCUITPY once on-device code exists; for now, plain
-           Python modules testable off-device (rooms.py, touch.py's
+game/      deployed to CIRCUITPY by tools/deploy.sh; mostly plain Python
+           modules testable off-device (rooms.py, touch.py's
            GestureTracker, edge_gesture.py, sprite_scale.py's
            clamp_actor_position, stillness.py, screen_blanker.py,
-           critters.py); room_banner.py, sprite_scale.py's TileGrid
-           builders, and ornament.py need displayio so they're desk-checked
-           only
+           critters.py, modes.py); room_banner.py, nav_view.py,
+           sprite_scale.py's TileGrid builders, and ornament.py need
+           displayio so they're desk-checked only (app.py is exercised
+           against stubbed displayio by tests/test_app_smoke.py)
+tools/     deploy.sh -- see doc/DEPLOY.md
+doc/       DEPLOY.md
 tests/     off-device unit tests -- `python3 tests/test_<name>.py`, no
            hardware or CircuitPython needed
 ```
 
-(`doc/`, `cad/`, `tools/` etc. will show up here as this chapter grows,
-mirroring Chapter 7/8's layout.)
+(`cad/` etc. will show up here as this chapter grows, mirroring Chapter
+7/8's layout.)
 
