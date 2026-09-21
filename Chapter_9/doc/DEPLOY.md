@@ -20,8 +20,11 @@ Same mechanism as Chapter 8's script (`boot.py` turns auto-reload off; the
 script ejects the drive to flush the FAT cache; then RESET / power-cycle to
 run). It rsyncs with `--delete`, so a previously deployed Chapter 8 demo or
 `main.py` is replaced — but `lib/` and `settings.toml` are never touched, so
-`DEVICE_ID` survives. There's no `--demo` flag: `game/main.py` is the game.
-To go back to a Chapter 8 demo, run `Chapter_8/tools/deploy.sh`.
+`DEVICE_ID` survives. `--demo NAME` copies `game/NAME.py` over the device's `main.py` so a
+look-test runs instead of the game (e.g. `--demo critter_demo`, the animated
+critter browser); the desktop `main.py` is untouched, and a plain re-deploy
+puts the game back. To go back to a Chapter 8 demo, run
+`Chapter_8/tools/deploy.sh`.
 
 `deploy.sh` warns (but doesn't fail) if anything's missing from `lib/`.
 

@@ -93,6 +93,24 @@ board see [`doc/DEPLOY.md`](doc/DEPLOY.md).
   wiring bugs but says nothing about how it looks. **Not yet run on real
   hardware.**
 
+* **Critter art look-test** (`game/critter_demo.py`,
+  `tools/build_critter_candidates.py`, `game/art/`, `cd-342.3`) -- before
+  naming critters, pick their *art*. 39 animated candidates (dogs, cats,
+  rodents, bunnies?, penguins/birds, owls, bats, reindeer, a sheep, toy-ish
+  robots, snow figures) come from DawnLike's 2-frame 16x16 creatures,
+  expanded to the game's 32x32 two ways (`nn` pixel-doubling, `epx` Scale2x
+  smoothing). Desktop previews: `doc/critter-candidates-{nn,epx}.png`. To try
+  them on the board: `tools/deploy.sh --demo critter_demo`, then swipe
+  left/right to browse, up/down to jump groups, tap the top half to flip
+  nn/epx and the bottom half for **walk mode** (the critter patrols a floor,
+  mirrored by direction, via `game/walk.py`). Rebuild
+  the sheets after editing the candidate list with
+  `/usr/bin/python3 tools/build_critter_candidates.py` (needs Pillow +
+  numpy). `tests/test_critter_demo.py` checks the BMP format and drives the
+  demo against stubbed displayio; `tests/test_walk.py` covers the motion
+  logic. Still view confirmed on ws-1 2026-09-21; **walk mode not yet run on
+  real hardware.**
+
 ## Layout
 
 ```
@@ -100,12 +118,13 @@ game/      deployed to CIRCUITPY by tools/deploy.sh; mostly plain Python
            modules testable off-device (rooms.py, touch.py's
            GestureTracker, edge_gesture.py, sprite_scale.py's
            clamp_actor_position, stillness.py, screen_blanker.py,
-           critters.py, modes.py); room_banner.py, nav_view.py,
+           critters.py, modes.py, walk.py); room_banner.py, nav_view.py,
            sprite_scale.py's TileGrid builders, and ornament.py need
            displayio so they're desk-checked only (app.py is exercised
            against stubbed displayio by tests/test_app_smoke.py)
-tools/     deploy.sh -- see doc/DEPLOY.md
-doc/       DEPLOY.md
+tools/     deploy.sh (see doc/DEPLOY.md; `--demo NAME` runs a *_demo.py as
+           main.py), build_critter_candidates.py (desktop, Pillow)
+doc/       DEPLOY.md, CRITTERS.md (roster + art plan), candidate previews
 tests/     off-device unit tests -- `python3 tests/test_<name>.py`, no
            hardware or CircuitPython needed
 ```
@@ -113,3 +132,12 @@ tests/     off-device unit tests -- `python3 tests/test_<name>.py`, no
 (`cad/` etc. will show up here as this chapter grows, mirroring Chapter
 7/8's layout.)
 
+## Credits
+
+Candidate critter art is derived from **DawnLike** by DragonDePlatino
+(CC-BY 4.0, <https://opengameart.org/content/dawnlike-16x16-universal-rogue-like-tileset-v181>),
+which is built on the **DawnBringer** 16-colour palette -- credit to both.
+The unmodified source lives in `../sourceArt/DawnLike/`. Anything shipped
+from these candidates keeps this attribution.
+
+---
