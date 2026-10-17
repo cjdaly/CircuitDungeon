@@ -68,10 +68,11 @@ board see [`doc/DEPLOY.md`](doc/DEPLOY.md).
   (time-based? player-action-based? -- still unspecified per the design
   notes) or "holding an item" (`try_retrieve` takes any `held_items`
   collection, decoupled from `rooms.py`'s `Room.items`); those are left to
-  a future game loop. No real critter roster (names/preferred items)
-  either -- placeholder critters only exist in tests, same as room content
-  waited for `cd-zw2.6` once the room model existed. Fully unit tested, 15
-  tests, pure state logic.
+  a future game loop. Fully unit tested, pure state logic. The real cast
+  (`cd-342.3`) is `CAST`/`WILD` + `make_roster()`: five species (dog, cat,
+  squirrel, reindeer, robot) escape, each playthrough rolls one named
+  sprite per species; birds/owl are wild scenery. See `doc/CRITTERS.md`
+  *Cast*; content tests check it stays in step with the art list.
 
 * **On-device entry point** (`game/main.py`, `game/app.py`,
   `game/nav_view.py`, `game/modes.py`, `cd-342.1`/`cd-342.2`) -- the first
@@ -95,9 +96,9 @@ board see [`doc/DEPLOY.md`](doc/DEPLOY.md).
 
 * **Critter art look-test** (`game/critter_demo.py`,
   `tools/build_critter_candidates.py`, `game/art/`, `cd-342.3`) -- before
-  naming critters, pick their *art*. 39 animated candidates (dogs, cats,
-  rodents, bunnies?, penguins/birds, owls, bats, reindeer, a sheep, toy-ish
-  robots, snow figures) come from DawnLike's 2-frame 16x16 creatures,
+  naming critters, pick their *art*. 16 animated candidates (dogs, cats,
+  squirrels, birds, an owl, reindeer, toy-ish robots; culled by Chris from an
+  original 39 on 2026-10-17) come from DawnLike's 2-frame 16x16 creatures,
   expanded to the game's 32x32 two ways (`nn` pixel-doubling, `epx` Scale2x
   smoothing). Desktop previews: `doc/critter-candidates-{nn,epx}.png`. To try
   them on the board: `tools/deploy.sh --demo critter_demo`, then swipe

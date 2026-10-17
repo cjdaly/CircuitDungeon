@@ -41,23 +41,16 @@ SHEET_TILES_WIDE = 12          # 6 candidates per row of the output sheet
 # device; the id is derived from the source cell, so it's stable and lets
 # anyone find the original.  Chris re-labels the winners later.
 CANDIDATES = [
-    ("dog", "Dog", 0, 0), ("dog", "Dog", 3, 0), ("dog", "Dog", 4, 0), ("dog", "Dog", 0, 2),
-    ("cat", "Cat", 0, 0), ("cat", "Cat", 0, 1), ("cat", "Cat", 0, 2),
-    ("cat", "Cat", 0, 3), ("cat", "Cat", 2, 0),
-    ("rodent", "Rodent", 0, 0), ("rodent", "Rodent", 1, 0), ("rodent", "Rodent", 4, 0),
-    ("bunny", "Misc", 0, 2), ("bunny", "Misc", 1, 2), ("bunny", "Misc", 2, 2),
-    ("bunny", "Misc", 3, 2),
-    ("bird", "Avian", 1, 3), ("bird", "Avian", 3, 3), ("bird", "Avian", 1, 4),
-    ("bird", "Avian", 0, 3), ("bird", "Avian", 2, 3),
-    ("owl", "Avian", 2, 10), ("owl", "Avian", 3, 10), ("owl", "Avian", 0, 10),
-    ("owl", "Avian", 1, 10),
-    ("bat", "Avian", 0, 11), ("bat", "Avian", 2, 11), ("bat", "Avian", 3, 11),
+    # Culled by Chris 2026-10-17 from the original 39 (see doc/CRITTERS.md
+    # "Cull" for the old numbering and what was dropped).
+    ("dog", "Dog", 0, 0), ("dog", "Dog", 3, 0), ("dog", "Dog", 4, 0),
+    ("cat", "Cat", 0, 1), ("cat", "Cat", 0, 2), ("cat", "Cat", 2, 0),
+    ("squirrel", "Rodent", 0, 0), ("squirrel", "Rodent", 1, 0),
+    ("bird", "Avian", 3, 3), ("bird", "Avian", 1, 4),
+    ("owl", "Avian", 3, 10),
     ("reindeer", "Quadraped", 0, 8), ("reindeer", "Quadraped", 1, 8),
-    ("sheep", "Quadraped", 0, 3),
-    ("robot", "Elemental", 0, 1), ("robot", "Elemental", 1, 1),
-    ("robot", "Elemental", 3, 1), ("robot", "Elemental", 4, 0),
-    ("robot", "Misc", 2, 5), ("robot", "Misc", 3, 5),
-    ("snow", "Elemental", 4, 1), ("snow", "Elemental", 0, 7),
+    ("robot", "Elemental", 1, 1), ("robot", "Elemental", 3, 1),
+    ("robot", "Elemental", 4, 0),
 ]
 
 

@@ -23,11 +23,14 @@ without critters.py depending on rooms.py's Room.items or any particular
 inventory design.
 
 Pure data + state logic, no displayio/board imports -- runs under plain
-desktop Python (see tests/test_critters.py). No real critter roster/content
-(names, preferred items) here either -- placeholder critters only exist in
-tests; naming actual critters and their preferences is a content decision
-for later, same way cd-zw2.6 authored the real room roster once the room
-*model* existed.
+desktop Python (see tests/test_critters.py).
+
+The real cast (cd-342.3, decided with Chris 2026-10-17, see
+doc/CRITTERS.md "Cast") is CAST/WILD + make_roster() at the bottom: five
+species escape, one critter each, and which sprite (and so which name)
+each species gets is rolled per playthrough. Lures and habits are a
+starting point, expected to shift as episodes get written -- same as the
+room map.
 """
 
 IN_BOX = "in_box"
@@ -38,10 +41,13 @@ RETURNED = "returned"
 class Critter:
     """One critter's state: where it is, and what it takes to bring it back."""
 
-    def __init__(self, name, preferred_item, home):
+    def __init__(self, name, preferred_item, home, species=None, sprite=None, habit=None):
         self.name = name
         self.preferred_item = preferred_item
         self.home = home
+        self.species = species
+        self.sprite = sprite  # critter_candidates id, e.g. "dog_3_0"
+        self.habit = habit  # default where-clue text, e.g. "loves the snow"
         self.state = IN_BOX
         self.location = home
 
@@ -95,3 +101,50 @@ class CritterRoster:
             c for c in self._critters.values()
             if c.state == HIDING and c.location == room_name
         ]
+
+
+# --------------------------------------------------------------------------- #
+# The real cast -- cd-342.3
+
+HOME = "Living Room"  # every box sits under the tree here (rooms.make_world start)
+
+# (species, lure, habit, ((sprite id, name), ...)).  Every sprite has its own
+# name, so a playthrough's names follow its sprite roll.  Sprite ids are
+# critter_candidates.CANDIDATES ids; tests check the two stay in step.
+# Squirrel lure is walnuts, not acorns -- one squirrel is *named* Acorn.
+CAST = (
+    ("dog", "squeaky ball", "loves the snow",
+     (("dog_0_0", "Patch"), ("dog_3_0", "Sparky"), ("dog_4_0", "Woofer"))),
+    ("cat", "ball of yarn", "loves warm, high places",
+     (("cat_0_1", "Chirpy"), ("cat_0_2", "Tinsel"), ("cat_2_0", "Cinder"))),
+    ("squirrel", "walnuts", "loves to climb",
+     (("rodent_0_0", "Nutmeg"), ("rodent_1_0", "Acorn"))),
+    ("reindeer", "carrot", "wants to fly",
+     (("quadraped_0_8", "Vixen"), ("quadraped_1_8", "Blitzen"))),
+    ("robot", "oil can", "loves gadgets",
+     (("elemental_1_1", "Rivet"), ("elemental_3_1", "Echo"), ("elemental_4_0", "Jingle"))),
+)
+
+# Wild animals: scenery/ambience, never escapees.  (sprite id, name).
+WILD = (
+    ("avian_3_3", "Waddles"),
+    ("avian_1_4", "Lolli"),
+    ("avian_3_10", "Flurry"),
+)
+
+
+def make_roster(choice=None):
+    """The playthrough's five critters, one per CAST species, all IN_BOX at HOME.
+
+    `choice` picks one (sprite, name) pair from a species' tuple; it
+    defaults to random.choice (seed `random` for a repeatable run).  Tests
+    pass their own picker.
+    """
+    if choice is None:
+        import random
+        choice = random.choice
+    critters = []
+    for species, lure, habit, sprites in CAST:
+        sprite, name = choice(sprites)
+        critters.append(Critter(name, lure, HOME, species=species, sprite=sprite, habit=habit))
+    return CritterRoster(critters)

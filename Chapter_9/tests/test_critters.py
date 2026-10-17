@@ -4,12 +4,15 @@
 #   python3 Chapter_9/tests/test_critters.py
 
 import os
+import random
 import sys
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "game"))
 
+import critter_candidates  # noqa: E402
 import critters as critters_mod  # noqa: E402
+import rooms  # noqa: E402
 
 
 class TestCritter(unittest.TestCase):
@@ -120,6 +123,78 @@ class TestCritterRoster(unittest.TestCase):
         roster = self._roster()
         names = {c.name for c in roster.all()}
         self.assertEqual(names, {"Fluffy", "Sparky"})
+
+
+class TestCast(unittest.TestCase):
+    """The real cast (cd-342.3) -- content checks, not just mechanics."""
+
+    def _all_named(self):
+        named = [pair for _sp, _lure, _habit, sprites in critters_mod.CAST for pair in sprites]
+        return named + list(critters_mod.WILD)
+
+    def test_every_candidate_sprite_is_cast_or_wild_exactly_once(self):
+        # Catches drift when tools/build_critter_candidates.py's list changes.
+        ids = [sprite for sprite, _name in self._all_named()]
+        self.assertEqual(sorted(ids), sorted(c[0] for c in critter_candidates.CANDIDATES))
+
+    def test_cast_sprites_match_their_species_group(self):
+        groups = {cid: group for cid, group, _src in critter_candidates.CANDIDATES}
+        for species, _lure, _habit, sprites in critters_mod.CAST:
+            for sprite, _name in sprites:
+                self.assertEqual(groups[sprite], species, sprite)
+
+    def test_names_are_unique(self):
+        names = [name for _sprite, name in self._all_named()]
+        self.assertEqual(len(names), len(set(names)))
+
+    def test_escapees_of_different_species_never_share_an_initial(self):
+        # Any one name per species can be rolled together, so initials must
+        # differ across species to keep all-caps captions easy to tell apart.
+        seen = {}
+        for species, _lure, _habit, sprites in critters_mod.CAST:
+            for _sprite, name in sprites:
+                other = seen.setdefault(name[0], species)
+                self.assertEqual(other, species, name)
+
+    def test_names_fit_one_caption_line(self):
+        # "<NAME> ESCAPED!" must stay one Bangers line (~170px band, see
+        # doc/STYLE.md); 7 letters measured at <=165px.
+        for _sprite, name in self._all_named():
+            self.assertLessEqual(len(name), 7, name)
+
+    def test_lures_are_distinct_and_none_is_a_battery(self):
+        # Batteries belong to the finale (doc/EPISODES.md sec 6).
+        lures = [lure for _sp, lure, _habit, _sprites in critters_mod.CAST]
+        self.assertEqual(len(lures), len(set(lures)))
+        for lure in lures:
+            self.assertNotIn("batter", lure)
+
+    def test_home_is_the_start_room(self):
+        self.assertEqual(critters_mod.HOME, rooms.make_world().current)
+
+    def test_make_roster_has_one_critter_per_species_in_box(self):
+        roster = critters_mod.make_roster(choice=lambda seq: seq[0])
+        self.assertEqual([c.species for c in roster.all()], [sp[0] for sp in critters_mod.CAST])
+        for c in roster.all():
+            self.assertEqual(c.state, critters_mod.IN_BOX)
+            self.assertEqual(c.location, critters_mod.HOME)
+
+    def test_make_roster_name_follows_the_sprite_roll(self):
+        last = critters_mod.make_roster(choice=lambda seq: seq[-1])
+        self.assertEqual(last.get("Woofer").sprite, "dog_4_0")
+        self.assertEqual(last.get("Jingle").preferred_item, "oil can")
+        first = critters_mod.make_roster(choice=lambda seq: seq[0])
+        self.assertEqual(first.get("Patch").sprite, "dog_0_0")
+        with self.assertRaises(KeyError):
+            first.get("Woofer")
+
+    def test_make_roster_default_is_random_and_seedable(self):
+        random.seed(7)
+        a = [c.name for c in critters_mod.make_roster().all()]
+        random.seed(7)
+        b = [c.name for c in critters_mod.make_roster().all()]
+        self.assertEqual(a, b)
+        self.assertEqual(len(a), len(critters_mod.CAST))
 
 
 if __name__ == "__main__":

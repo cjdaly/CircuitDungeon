@@ -3,7 +3,7 @@
 
 Not main.py: deploy it as the device's main.py with
 `Chapter_9/tools/deploy.sh --demo critter_demo`, or `import critter_demo`
-from a scratch main.py. Browses the 39 candidates in critter_candidates.py
+from a scratch main.py. Browses the candidates in critter_candidates.py
 (2-frame DawnLike creatures expanded 16x16 -> 32x32 by
 tools/build_critter_candidates.py) so the best ones can be picked on the
 real round panel, at the real size they'd have in the game.
