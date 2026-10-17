@@ -14,6 +14,13 @@ Room/World API, already proven on real hardware 2026-09-13 (edge-gesture
 navigation, blocked-move handling). make_world() (cd-zw2.6) is the real Ch9
 room roster, filling the slot the Ch8 port deliberately left empty.
 
+Episodes (cd-342.12, doc/EPISODES.md) open only part of the house at a
+time: World.set_gate() takes the set of open rooms, and an exit into a
+closed room is treated as blocked -- left out of live_exits(), refused by
+move() -- while closed_exits() lets the UI tell "closed this episode" (show
+a reason) from "no exit at all" (BONK). No gate means the whole map is open
+(the finale, and every pre-episode caller).
+
 Pure data + movement logic, no displayio/board imports -- runs under plain
 desktop Python (see tests/test_rooms.py).
 """
@@ -50,6 +57,7 @@ class World:
         if start not in self._rooms:
             raise ValueError("unknown start room: {}".format(start))
         self.current = start
+        self.gate = None  # None = every room open; else a set of open room names
 
     @property
     def room(self):
@@ -59,20 +67,47 @@ class World:
         """Every Room in this World, in no particular order."""
         return self._rooms.values()
 
+    def get(self, name):
+        return self._rooms[name]
+
+    def set_gate(self, open_rooms):
+        """Open only `open_rooms` (any iterable of names); None opens everything."""
+        if open_rooms is None:
+            self.gate = None
+            return
+        unknown = [name for name in open_rooms if name not in self._rooms]
+        if unknown:
+            raise ValueError("unknown rooms in gate: {}".format(unknown))
+        self.gate = set(open_rooms)
+
+    def is_open(self, name):
+        return self.gate is None or name in self.gate
+
     def live_exits(self):
-        """Directions with a real exit from the current room, in DIRECTIONS order."""
-        return [d for d in DIRECTIONS if self.room.exit_toward(d) is not None]
+        """Directions with a real, open exit from the current room, in DIRECTIONS order."""
+        return [
+            d for d in DIRECTIONS
+            if self.room.exit_toward(d) is not None and self.is_open(self.room.exit_toward(d))
+        ]
+
+    def closed_exits(self):
+        """Directions with a real exit that the gate has closed, in DIRECTIONS order."""
+        return [
+            d for d in DIRECTIONS
+            if self.room.exit_toward(d) is not None and not self.is_open(self.room.exit_toward(d))
+        ]
 
     def move(self, direction):
         """Step through `direction` if it's a live exit.
 
         Returns True and updates .current on success; returns False (and
-        leaves .current unchanged) if that direction has no exit here --
-        callers use this to show a "can't go that way" bump instead of
-        silently failing.
+        leaves .current unchanged) if that direction has no exit here, or
+        its exit is closed by the gate -- callers use this to show a "can't
+        go that way" bump instead of silently failing, and closed_exits()
+        to pick which kind.
         """
         dest = self.room.exit_toward(direction)
-        if dest is None:
+        if dest is None or not self.is_open(dest):
             return False
         self.current = dest
         return True
@@ -85,9 +120,16 @@ def make_world():
     Zork-style connectivity (see the module docstring): rooms are placed by
     feel, not to scale, and not every direction works from every room. Every
     exit below has a matching return exit (round-trip navigable both ways).
-    10 rooms in three clusters, hung off the start room:
+    The map is fluid (doc/EPISODES.md sec 5) -- it grows as episodes get
+    written. Today, 15 rooms hung off the start room:
 
-    - **Living Room** (start) <-> Kitchen <-> Basement (down)
+    - **Living Room** (start) <-> Dining Room (right) <-> Kitchen (right)
+      <-> Laundry Room (right); Dining Room <-> Sewing Nook (up); Kitchen
+      <-> Basement (down)
+    - **Kitchen** <-> Odd Corner (up) -- every episode's wrong way ends at
+      the Odd Corner (batteries just out of reach until the finale), which
+      is never one move from the tree
+    - **Living Room** <-> Hallway (up), a dead end for now
     - **Living Room** <-> Entryway <-> Bedroom (up) <-> Kids' Bedroom (right)
     - **Entryway** <-> Yard (down) <-> Pond (left) / Tree House (right) /
       Cave (down)
@@ -100,7 +142,7 @@ def make_world():
         rooms=[
             Room(
                 "Living Room",
-                {RIGHT: "Kitchen", LEFT: "Entryway"},
+                {RIGHT: "Dining Room", LEFT: "Entryway", UP: "Hallway"},
                 description="A cozy living room, decorated for Christmas.",
                 items=[
                     "a Christmas tree",
@@ -110,8 +152,34 @@ def make_world():
                 ],
             ),
             Room(
+                "Hallway",
+                {DOWN: "Living Room"},
+                description="A long hallway lined with family photos.",
+            ),
+            Room(
+                "Dining Room",
+                {LEFT: "Living Room", UP: "Sewing Nook", RIGHT: "Kitchen"},
+                description="The dining room, table set for tomorrow.",
+            ),
+            Room(
+                "Sewing Nook",
+                {DOWN: "Dining Room"},
+                description="A cozy sewing nook with a basket of yarn.",
+            ),
+            Room(
+                "Laundry Room",
+                {LEFT: "Kitchen"},
+                description="The laundry room. The dryer is still warm.",
+            ),
+            Room(
+                "Odd Corner",
+                {DOWN: "Kitchen"},
+                description="A cluttered corner. Up on a high shelf: batteries!",
+                items=["a pack of batteries, just out of reach"],
+            ),
+            Room(
                 "Kitchen",
-                {LEFT: "Living Room", DOWN: "Basement"},
+                {LEFT: "Dining Room", DOWN: "Basement", UP: "Odd Corner", RIGHT: "Laundry Room"},
                 description="The kitchen, still warm from holiday baking.",
             ),
             Room(

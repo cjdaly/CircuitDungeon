@@ -185,10 +185,10 @@ class TestAppSmoke(unittest.TestCase):
         self.assertEqual(r.room(), "Living Room")
 
     def test_blocked_edge_flashes_banner(self):
-        # Living Room has no UP exit.
-        r = _Run(windows=[(0.5, 0.7, _at(120, 10))], seconds=2.0)
+        # Living Room has no DOWN exit (UP is the Hallway, cd-342.12).
+        r = _Run(windows=[(0.5, 0.7, _at(120, 230))], seconds=2.0)
         self.assertEqual(r.room(), "Living Room")
-        self.assertEqual(r.banner(), "can't go up")
+        self.assertEqual(r.banner(), "can't go down")
 
     def test_idle_and_still_goes_to_ornament(self):
         r = _Run(seconds=35.0)

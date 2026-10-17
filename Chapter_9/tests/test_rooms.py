@@ -39,7 +39,8 @@ class TestRoom(unittest.TestCase):
 
 
 class TestWorld(unittest.TestCase):
-    def _linear_world(self):
+    @staticmethod
+    def _linear_world():
         return rooms_mod.World(
             rooms=[
                 rooms_mod.Room("A", {rooms_mod.RIGHT: "B"}),
@@ -85,6 +86,48 @@ class TestWorld(unittest.TestCase):
         self.assertEqual(world.current, "C")
         world.move(rooms_mod.DOWN)
         self.assertEqual(world.current, "B")
+
+
+class TestGate(unittest.TestCase):
+    def _world(self):
+        # A -> B (right), B -> C (up)
+        return TestWorld._linear_world()
+
+    def test_no_gate_is_whole_map(self):
+        world = self._world()
+        world.move(rooms_mod.RIGHT)
+        self.assertEqual(world.live_exits(), [rooms_mod.UP, rooms_mod.LEFT])
+        self.assertEqual(world.closed_exits(), [])
+
+    def test_closed_room_drops_out_of_live_exits(self):
+        world = self._world()
+        world.set_gate({"A", "B"})
+        world.move(rooms_mod.RIGHT)
+        self.assertEqual(world.live_exits(), [rooms_mod.LEFT])
+        self.assertEqual(world.closed_exits(), [rooms_mod.UP])
+
+    def test_move_into_closed_room_refused(self):
+        world = self._world()
+        world.set_gate({"A", "B"})
+        world.move(rooms_mod.RIGHT)
+        self.assertFalse(world.move(rooms_mod.UP))
+        self.assertEqual(world.current, "B")
+
+    def test_no_exit_is_not_a_closed_exit(self):
+        world = self._world()
+        world.set_gate({"A", "B"})
+        self.assertNotIn(rooms_mod.UP, world.closed_exits())  # A has no UP at all
+
+    def test_clearing_gate_reopens(self):
+        world = self._world()
+        world.set_gate({"A", "B"})
+        world.set_gate(None)
+        world.move(rooms_mod.RIGHT)
+        self.assertTrue(world.move(rooms_mod.UP))
+
+    def test_unknown_room_in_gate_raises(self):
+        with self.assertRaises(ValueError):
+            self._world().set_gate({"A", "nope"})
 
 
 class TestMakeWorld(unittest.TestCase):

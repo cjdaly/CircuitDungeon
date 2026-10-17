@@ -17,10 +17,11 @@ board see [`doc/DEPLOY.md`](doc/DEPLOY.md).
   Chapter 8's `cd-45v.4` prototype, same `Room`/`World` API. Pure data +
   movement logic, no hardware deps. Off-device tests in `tests/`.
 * **Room roster** (`rooms.make_world()`, `cd-zw2.6`) -- the real Ch9
-  content: 10 rooms (Living Room start, Kitchen, Basement, Entryway,
+  content: 15 rooms (Living Room start, Hallway, Dining Room, Sewing Nook,
+  Kitchen, Laundry Room, Odd Corner, Basement, Entryway,
   Bedroom, Kids' Bedroom, Yard, Pond, Tree House, Cave). Only the Living
-  Room has detailed `items` content so far (tree, fireplace, cookies/milk,
-  presents) -- the rest are placeholder rooms pending further content/art.
+  Room (tree, fireplace, cookies/milk, presents) and the Odd Corner
+  (batteries out of reach) have `items` content so far -- the rest are placeholder rooms pending further content/art.
   Tests check every exit has a matching return exit and every room is
   reachable from the start, not just the specific room content.
 * **Edge-gesture navigation** (`game/touch.py`, `game/edge_gesture.py`,
@@ -93,6 +94,17 @@ board see [`doc/DEPLOY.md`](doc/DEPLOY.md).
   moves, and both mode switches against stubbed `displayio`, which catches
   wiring bugs but says nothing about how it looks. **Not yet run on real
   hardware.**
+
+* **Episodes + map gating** (`game/episodes.py`, `rooms.World.set_gate`,
+  `cd-342.12`) -- the game is one escaped critter per episode
+  (`doc/EPISODES.md`); each episode opens only part of the house: one path
+  from the tree to the critter (3 moves for episode 1, 4-5 after) with
+  dead-end side branches -- false paths, one holding the lure, and one off
+  room 3 to the Odd Corner -- plus a reason for each closed exit and
+  text/image clues.
+  `make_order()` is cat first, reindeer last, middle shuffled. Episode 1
+  (the cat) is written; `tests/test_episodes.py` checks every episode's
+  shape against the real map. Not wired into `app.py` yet (`cd-342.4`).
 
 * **Critter art look-test** (`game/critter_demo.py`,
   `tools/build_critter_candidates.py`, `game/art/`, `cd-342.3`) -- before

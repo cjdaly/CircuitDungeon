@@ -21,32 +21,47 @@ That makes the game a sequence of **episodes**, one per critter:
 This settles `CRITTERS.md` open question 6 (escape timing): critters escape
 **one at a time, in sequence**, not all at once.
 
-## 2. Shape of an episode (proposal)
+## 2. Shape of an episode
 
-From the tree, the open map forks into **three kinds of branch**:
+**DECIDED (Chris, 2026-10-17):** an episode is **one path from the tree to
+the critter, with dead-end side branches off it**:
 
-| Branch | Leads to | Depth |
-|---|---|---|
-| **Critter** | the room it's hiding in | 2–3 rooms |
-| **Lure** | the room holding the item it wants | 1–3 rooms |
-| **Wrong way** | always ends at **the Odd Corner** (§6) | 1–2 rooms |
+```
+Living Room (tree)
+   |
+1  room ------- false path (dead end)
+   |
+2  room ------- false path (dead end)
+   |
+3  room ------- Odd Corner (1-2 rooms)
+   |
+4  critter's hiding room
+```
 
-That's Chris's "two directions passable and one wrong", applied to the two
-halves of the fetch. Notes:
+- **Length:** episode 1 is **3 moves**, a short warm-up. The rest are **4**,
+  and at most one is **5**.
+- **False paths:** rooms 1 and 2 each have a dead-end side branch. In the
+  3-move episode 1, just room 1 does. The tree can have one too.
+- **The favourite item** sits at the end of one of those dead-end side
+  branches. It's never on the path itself and never in the Odd Corner's
+  branch. So you may walk past it before you know you need it. At least one
+  side branch is a pure false path, with no item.
+- **The Odd Corner** branches off **room 3** (room 2 in episode 1), so it's
+  always far from the tree. **DECIDED: never directly off the tree**, which
+  is also a whole-map test.
+- **No loops:** each episode's open rooms form a tree, so there's one way to
+  the critter and every dead end is really a dead end.
+- **Every episode's wrong way ends in the same place**, the Odd Corner, with
+  batteries just out of reach. So by the finale the player has seen them
+  several times.
+- **Sharing the Odd Corner:** it has only 4 edges, so at most 4 different
+  rooms can sit next to it. With 5 episodes, at least two must share the
+  same room 3, or reach it through one connecting room.
+- All of these rules are tests in `tests/test_episodes.py`, so every
+  episode is checked as soon as it's written.
 
-- **DECIDED (Chris, 2026-10-17): every episode's wrong way ends in the same
-  place**: the Odd Corner, with batteries stashed just out of reach. Different
-  episodes can reach it by different routes, since the map is fluid (§5).
-  So the "wasted" trip plants the finale: by the end the player has seen
-  the batteries out of reach several times. The branch can still carry a clue
-  or an ambient animal on the way.
-- Depth grows across the run. Early episodes are short with obvious clues;
-  later ones go deeper (Yard -> Cave) and use subtler clues. So the house
-  "grows" as you play, a light Metroidvania feel, without the map ever
-  changing shape.
-- Branches don't have to split right at the tree; a fork can come one room
-  in. The rule that matters is that the critter and its lure are never in
-  the same room (already a `CRITTERS.md` design rule).
+*(Superseded first draft: a three-way fork at the tree into critter, lure
+and wrong-way branches.)*
 
 ## 3. Exits: open, closed this time, none
 
@@ -101,8 +116,9 @@ added, moved or cut to fit each episode. The two things that stay fixed:
 - **Consistency.** Every exit has a matching return exit, and every room is
   reachable from the Living Room. The existing `test_rooms.py` checks
   already enforce this.
-- **The tree needs at least 3 exits** for the critter / lure / wrong-way
-  fork. It has 2 today, so the first episode we write will add one.
+- **The episode shape in §2** (one path with side branches, the Odd Corner
+  off room 3, never next to the tree) is checked against the real map by
+  tests.
 
 **Worked example (illustrative only, roster and map not final):** Waddles
 the robot penguin. Escape clue: `WADDLES WANTS TO SKATE!`
@@ -185,10 +201,98 @@ Rules that follow from this:
 - **Tests, mechanical:**
   - every episode's open set is connected and contains the Living Room
   - the hiding room and item room are reachable inside it and are different
-  - every wrong-way branch ends at the Odd Corner, and that room
-    never holds a critter or a lure
+  - the §2 shape: path length, no loops, false paths off rooms 1–2, the
+    item in a side branch, the Odd Corner branch off room 3 and never next
+    to the tree, and the Odd Corner never holding a critter or an item
   - every room and item named exists
   - every clue refers to a room in the open set
-- **DECIDED (Chris, 2026-10-17): v1 is fixed.** A fixed episode order and a
-  fixed hiding room per episode. Randomizing either is a later stretch
-  goal. Christmas is the deadline.
+- **DECIDED (Chris, 2026-10-17): v1 hiding rooms are fixed** per episode.
+  Randomizing them is a later stretch goal. Christmas is the deadline. The
+  episode *order* is partly random, see §8.
+- **Built (2026-10-17):** `game/episodes.py` and `tests/test_episodes.py`,
+  plus the gate in `rooms.py`.
+
+## 8. Episode order
+
+**DECIDED (Chris, 2026-10-17): random middle.**
+- The **cat is always first**: the shortest trips, so it doubles as the
+  tutorial.
+- The **reindeer is always last**: the roof leads into the finale.
+- Dog, robot and squirrel are **shuffled** in between each playthrough.
+- `episodes.make_order()` does this, with `FIRST`/`LAST` constants. Going
+  fully random later is a one-line change.
+
+The proposed default sequence, and what each episode adds:
+
+| Slot | Critter | Hides | Lure | Adds |
+|---|---|---|---|---|
+| 1 | cat | Laundry Room, on the warm dryer (3 moves) | yarn, Sewing Nook off the Dining Room | the basics: escape, text clue, false paths, the Odd Corner |
+| 2–4 | dog | Yard | squeaky ball, Kids' Bedroom | image clues (paw prints), closed exits outdoors |
+| 2–4 | robot | Basement workshop (dark) | oil can, upstairs or a garage | searching in the dark (glowing eyes) |
+| 2–4 | squirrel | Tree House | walnuts, Kitchen nutcracker | a wild decoy (Flurry the owl) |
+| 5 | reindeer | the Roof (new room) | carrot, the snowman's nose (Yard) | the longest trip, a picture puzzle |
+
+**Episodes must not depend on their order.** Every episode is written to
+work in any slot:
+- **Each episode has its own open set.** Rooms opened in one episode don't
+  stay open into the next.
+- **New mechanics are explained the first time they appear**, with a
+  one-time caption, not in a particular episode.
+- **Story beats are tied to the episode's slot number, not to the
+  critter.** For example, "it's getting late" is slot 4, whoever is loose.
+- **Nothing one episode uses up is needed by another.** The snowman losing
+  its nose is fine.
+
+## 9. Episode 1: the cat (BUILT 2026-10-17, reshaped the same day)
+
+```
+            Hallway (pure false path)
+               |
+Entryway x- Living Room -- Dining Room -- Kitchen -- Laundry Room (cat)
+ (closed)                       |            |    \
+                           Sewing Nook   Odd Corner  x Basement (closed)
+                             (yarn)
+```
+
+- **Path, 3 moves:** Living Room -> Dining Room -> Kitchen -> **Laundry
+  Room**, where the cat is curled up on the warm dryer.
+- **Yarn:** in the **Sewing Nook**, up from the Dining Room (room 1's
+  side branch).
+- **Pure false path:** the **Hallway**, up from the tree.
+- **Odd Corner:** up from the **Kitchen** (room 2).
+- **Closed exits, and what bumping them says:**
+  - tree left, to the Entryway: `BRR! TOO COLD OUT THERE`
+  - Kitchen down, to the Basement: `TOO DARK DOWN THERE`
+- **Clues:**
+  - at the escape: `<NAME> LOVES WARM SPOTS!` (text)
+  - entering the Dining Room: a yarn strand trailing in from the Sewing
+    Nook (image)
+  - entering the Kitchen: heat lines drifting in from the dryer (image)
+- **New rooms:** Dining Room, Sewing Nook, Laundry Room. The Kitchen moved
+  one room further from the tree.
+- **Tested on the real map:**
+  - the path is exactly those rooms
+  - the tree shows up and right open, and left closed with its reason
+  - the Kitchen stairs are closed with their reason
+  - the Odd Corner is up from the Kitchen
+  - the full loop works: fetch the yarn, then bring the cat home
+
+## 10. Open: does the reindeer fly? (Chris, 2026-10-17)
+
+Chris isn't sure. A flying reindeer seems at odds with the critters having
+to climb on each other to reach the batteries. Comic-logic options that
+make it fit:
+
+- **(a) It can't fly, and wants to more than anything.** "Wants to fly"
+  stays its habit (it climbs to the roof to try). In the finale its antlers
+  make the perfect bottom rung of the tower.
+- **(b) It can fly, but its battery is too low.** It's the first thing that
+  stalls when they all run flat, which is *why* they need the tower. Payoff:
+  with a fresh battery the reindeer finally takes off, a natural last beat
+  for the ending (a loop around the tree, or out to join a sleigh).
+- **(c) Both.** It's never flown, and it sputters on the roof in its
+  episode. The fresh battery from the finale is what finally gets it up.
+  This turns the whole battery theme into the reindeer's little story arc.
+
+Only the habit text and the episode-5 / finale beats depend on this. The
+reindeer's episode isn't written yet.

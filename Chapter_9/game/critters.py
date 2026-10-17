@@ -115,7 +115,7 @@ HOME = "Living Room"  # every box sits under the tree here (rooms.make_world sta
 CAST = (
     ("dog", "squeaky ball", "loves the snow",
      (("dog_0_0", "Patch"), ("dog_3_0", "Sparky"), ("dog_4_0", "Woofer"))),
-    ("cat", "ball of yarn", "loves warm, high places",
+    ("cat", "ball of yarn", "loves warm spots",
      (("cat_0_1", "Chirpy"), ("cat_0_2", "Tinsel"), ("cat_2_0", "Cinder"))),
     ("squirrel", "walnuts", "loves to climb",
      (("rodent_0_0", "Nutmeg"), ("rodent_1_0", "Acorn"))),
