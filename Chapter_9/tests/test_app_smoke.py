@@ -143,13 +143,13 @@ def _swipe_right_from(x, y):
 class _Run:
     """Runs app.run() for `seconds` of fake time and records what's on screen."""
 
-    def __init__(self, windows=(), jerk=0.0, seconds=5.0):
+    def __init__(self, windows=(), jerk=0.0, seconds=5.0, imu=None, bus_recovery=None):
         _labels.clear()
         import app  # after stubs are in place
 
         self.clock = _Clock()
         self.display, self.backlight = _Display(), _Backlight()
-        self.imu = _Imu(jerk)
+        self.imu = imu if imu is not None else _Imu(jerk)
         self.groups = []  # root_group at the end of each tick
 
         def on_tick():
@@ -159,7 +159,7 @@ class _Run:
         app.run(
             self.display, self.backlight, _Touch(self.clock, windows), self.imu,
             240, 240, max_ticks=int(seconds / 0.05),
-            clock=self.clock.now, sleep=self.clock.sleep,
+            clock=self.clock.now, sleep=self.clock.sleep, bus_recovery=bus_recovery,
         )
         self.nav_group = self.groups[0]
 
@@ -168,6 +168,55 @@ class _Run:
 
     def banner(self):
         return [lb for lb in _labels if lb.anchored_position == (120, 172)][0].text
+
+
+class _StalledImu:
+    """Times out on every read until `healthy` is set."""
+
+    healthy = False
+    reads = 0
+
+    def sample(self, now):
+        self.reads += 1
+        if not self.healthy:
+            raise OSError(116, "ETIMEDOUT")
+        return {"jerk": 0.0}
+
+
+class _Recovery:
+    def __init__(self, imu=None):
+        self.imu = imu  # healed by rebuild, if given
+        self.calls = 0
+
+    def rebuild(self):
+        self.calls += 1
+        if self.imu is not None:
+            self.imu.healthy = True
+        return "ok"
+
+
+class TestBusRecoveryWiring(unittest.TestCase):
+    def test_imu_timeout_triggers_one_rebuild_when_it_helps(self):
+        imu = _StalledImu()
+        recovery = _Recovery(imu)
+        _Run(imu=imu, bus_recovery=recovery, seconds=3.0)
+        self.assertEqual(recovery.calls, 1)
+        self.assertGreater(imu.reads, 10)
+
+    def test_rebuilds_are_rate_limited_when_they_do_not_help(self):
+        recovery = _Recovery()
+        _Run(imu=_StalledImu(), bus_recovery=recovery, seconds=10.0)
+        self.assertIn(recovery.calls, (2, 3))
+
+    def test_healthy_imu_never_rebuilds(self):
+        recovery = _Recovery()
+        _Run(bus_recovery=recovery, seconds=3.0)
+        self.assertEqual(recovery.calls, 0)
+
+    def test_stalled_imu_without_recovery_keeps_running(self):
+        imu = _StalledImu()
+        _Run(imu=imu, seconds=1.0)
+        self.assertEqual(imu.reads, 20)
 
 
 class TestAppSmoke(unittest.TestCase):

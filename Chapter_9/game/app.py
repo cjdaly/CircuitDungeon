@@ -37,14 +37,60 @@ _INTERACTIVE_BLANK_TIMEOUT = 120.0  # s of no touch -- > modes' idle timeout
 _ORNAMENT_BLANK_TIMEOUT = 300.0  # s of continuous stillness, as in Ch8's demo
 _GC_INTERVAL = 10.0
 _TICK = 0.05
+_STATS_INTERVAL = 10.0
+_REBUILD_MIN_INTERVAL = 5.0  # s between I2C bus rebuilds, if they aren't helping
+
+
+class _LoopStats:
+    """Loop timing, reported as one serial line per interval.
+
+    Printing can itself be slow, so errors are counted here rather than printed
+    one by one, and each report says how long the previous report took to print.
+    """
+
+    def __init__(self, now):
+        self.print_ms = 0
+        self._reset(now)
+
+    def _reset(self, now):
+        self.next_report = now + _STATS_INTERVAL
+        self.ticks = 0
+        self.tick_s = 0.0
+        self.touch_s = 0.0
+        self.imu_s = 0.0
+        self.imu_errors = 0
+        self.last_imu_error = None
+
+    def report(self, now, mode, touch, clock):
+        started = clock()
+        print(
+            "t={:.0f} {} ticks={} worst_ms: tick={} touch={} imu={} | imu_errors={} {} "
+            "| touch connects={} drops={} | last_print_ms={} free={}".format(
+                now,
+                mode,
+                self.ticks,
+                int(self.tick_s * 1000),
+                int(self.touch_s * 1000),
+                int(self.imu_s * 1000),
+                self.imu_errors,
+                self.last_imu_error or "",
+                getattr(touch, "connects", 0),
+                getattr(touch, "drops", 0),
+                self.print_ms,
+                gc.mem_free(),
+            )
+        )
+        self.print_ms = int((clock() - started) * 1000)
+        self._reset(now)
 
 
 def run(display, backlight, touch, imu_gestures, width, height,
-        max_ticks=None, clock=time.monotonic, sleep=time.sleep):
+        max_ticks=None, clock=time.monotonic, sleep=time.sleep, bus_recovery=None):
     """Run the game forever (or `max_ticks` frames, for the smoke test).
 
     `touch` needs .poll(now) -> (x, y) | None; `imu_gestures` needs
-    .sample(now) -> dict with "jerk" (imu.ImuGestures).
+    .sample(now) -> dict with "jerk" (imu.ImuGestures); `bus_recovery`, if
+    given, needs .rebuild() -> status string (bus_recovery.BusRecovery).
     """
     import displayio
 
@@ -74,7 +120,11 @@ def run(display, backlight, touch, imu_gestures, width, height,
     display.root_group = nav.group
     blanker = blanker_for(mode)
     wait_for_release = False
+    backlight_lit = True
     next_gc = clock() + _GC_INTERVAL
+    stats = _LoopStats(clock())
+    next_rebuild = 0.0
+    awaiting_good_read = False
     ticks = 0
 
     print("Ch9 ready -- start: {}  free={}".format(world.current, gc.mem_free()))
@@ -85,11 +135,25 @@ def run(display, backlight, touch, imu_gestures, width, height,
         try:
             point = touch.poll(now)
             touched = point is not None
+            after_touch = clock()
+            stats.touch_s = max(stats.touch_s, after_touch - now)
 
             try:
                 detector.update(imu_gestures.sample(now)["jerk"], now)
+                if awaiting_good_read:
+                    awaiting_good_read = False
+                    print("t={:.1f} imu read ok after bus rebuild".format(now))
             except (OSError, ValueError, RuntimeError) as exc:
-                traceback.print_exception(exc)  # hold last-known stillness
+                stats.imu_errors += 1  # hold last-known stillness
+                stats.last_imu_error = repr(exc)
+                if bus_recovery is not None and now >= next_rebuild:
+                    started = clock()
+                    status = bus_recovery.rebuild()
+                    print("t={:.1f} bus rebuild {}ms: {}".format(
+                        now, int((clock() - started) * 1000), status))
+                    next_rebuild = clock() + _REBUILD_MIN_INTERVAL
+                    awaiting_good_read = True
+            stats.imu_s = max(stats.imu_s, clock() - after_touch)
 
             new_mode = mode_ctl.update(touched, detector.is_still, now)
             if mode_ctl.just_switched:
@@ -98,6 +162,9 @@ def run(display, backlight, touch, imu_gestures, width, height,
                     nav.group if mode == modes.INTERACTIVE else ornament_group
                 )
                 blanker = blanker_for(mode)
+                print("t={:.1f} mode -> {}".format(now, mode))
+                if mode == modes.ORNAMENT:
+                    tree.scatter()
                 if touched:
                     wait_for_release = True  # the touch that woke us
 
@@ -129,9 +196,18 @@ def run(display, backlight, touch, imu_gestures, width, height,
                 tree.update(now, lit=detector.is_still)
                 snow.update(now)
 
+            if blanker.lit != backlight_lit:
+                backlight_lit = blanker.lit
+                print("t={:.1f} backlight {}".format(now, "on" if backlight_lit else "off"))
+
             if now >= next_gc:
                 gc.collect()
                 next_gc = now + _GC_INTERVAL
+
+            stats.ticks += 1
+            stats.tick_s = max(stats.tick_s, clock() - now)
+            if now >= stats.next_report:
+                stats.report(now, mode, touch, clock)
         except Exception as exc:  # noqa: BLE001 -- a hard-crashed game is a black screen
             traceback.print_exception(exc)
             sleep(0.5)  # back off so a persistent fault doesn't spam serial

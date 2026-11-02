@@ -20,6 +20,10 @@ edge_gesture.py, which reuses it.
 
 _RETRY_INTERVAL = 1.0  # seconds between reconnect attempts while not connected
 
+# ValueError/OSError: the chip didn't ACK. RuntimeError: it answered with a bad
+# chip ID ("Did not find supported CST8XX chip"), seen on ws-1 while idle.
+_TOUCH_ERRORS = (ValueError, OSError, RuntimeError)
+
 # Gesture thresholds, in touch-panel units (assumed == screen pixels, 240x240)
 # and seconds.
 _TAP_MAX_MOVE = 12
@@ -36,10 +40,18 @@ class SafeTouch:
         self._retry_interval = retry_interval
         self._ctp = None
         self._next_attempt = 0.0
+        self.connects = 0
+        self.drops = 0
 
     @property
     def connected(self):
         return self._ctp is not None
+
+    def use_bus(self, i2c):
+        """Switch to a rebuilt bus; the next poll() reconnects straight away."""
+        self._i2c = i2c
+        self._ctp = None
+        self._next_attempt = 0.0
 
     def poll(self, now):
         """Return (x, y) of the first active touch this tick, or None.
@@ -54,13 +66,15 @@ class SafeTouch:
                 import adafruit_cst8xx
 
                 self._ctp = adafruit_cst8xx.Adafruit_CST8XX(self._i2c, address=self._address)
-            except (ValueError, OSError):
+            except _TOUCH_ERRORS:
                 self._next_attempt = now + self._retry_interval
                 return None
+            self.connects += 1
 
         try:
             touches = self._ctp.touches
-        except (ValueError, OSError):
+        except _TOUCH_ERRORS:
+            self.drops += 1
             self._ctp = None  # dropped -- next poll() retries the connection
             self._next_attempt = now + self._retry_interval
             return None

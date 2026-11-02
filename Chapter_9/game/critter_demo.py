@@ -29,10 +29,10 @@ are the things worth feeling out; note what looks right.
 
 The current pick is echoed to serial so a session's favorites can be copied out.
 
-STATUS: still view confirmed on ws-1 2026-09-21. Walk mode UNTESTED ON DEVICE;
+STATUS: still view confirmed on ws-1 2026-09-21; walk mode runs without crashing
+on ws-1 2026-11-01 (facing direction and walk feel not yet reviewed).
 tests/test_critter_demo.py drives both views against stubbed displayio to
-catch wiring bugs. Assumes TileGrid.flip_x works on a 1x1-tile grid over an
-OnDiskBitmap (documented displayio behaviour).
+catch wiring bugs.
 """
 import time
 

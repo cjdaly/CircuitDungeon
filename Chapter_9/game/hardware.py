@@ -1,12 +1,14 @@
 # SPDX-License-Identifier: MIT
 """Board bring-up for the Waveshare RP2350-Touch-LCD-1.28.
 
-Copied unchanged from Chapter_8/game/hardware.py (cd-342.1) -- same board,
-already proven on real hardware.
+Started as a copy of Chapter_8/game/hardware.py (cd-342.1), same board; Ch9 adds
+the touch reset and bus line checks used by bus_recovery.py (cd-342.16).
 
 No board.SPI()/board.I2C() default-bus helpers exist on this board -- every
 bus is built by hand from the named pins in doc/HARDWARE.md.
 """
+import time
+
 import board
 import busio
 import digitalio
@@ -22,6 +24,7 @@ HEIGHT = 240
 
 _IMU_ADDRESS = 0x6B
 _TOUCH_ADDRESS = 0x15
+_TOUCH_RESET_PIN = board.GP22
 
 
 def init_display():
@@ -53,9 +56,40 @@ def init_display():
     return display, backlight
 
 
+def reset_touch():
+    """Pulse the CST816's reset pin, which frees SDA if the chip is holding it low.
+
+    Blocks ~220ms: the chip needs time to restart before it answers on I2C. See
+    Chapter_8/doc/HARDWARE.md for how GP22 was identified.
+    """
+    reset = digitalio.DigitalInOut(_TOUCH_RESET_PIN)
+    reset.switch_to_output(value=False)
+    time.sleep(0.02)
+    reset.deinit()  # released: the line idles high without our help
+    time.sleep(0.2)
+
+
 def init_i2c():
     """The one shared I2C bus -- IMU (0x6B) and touch controller (0x15) both live here."""
     return busio.I2C(board.IMU_SCL, board.IMU_SDA)
+
+
+def read_bus_lines(samples=20):
+    """(SDA high count, SCL high count) over `samples` reads, with the bus deinited.
+
+    A line that stays low with the pull-up on is being held by a chip.
+    """
+    sda = digitalio.DigitalInOut(board.IMU_SDA)
+    scl = digitalio.DigitalInOut(board.IMU_SCL)
+    sda.switch_to_input(pull=digitalio.Pull.UP)
+    scl.switch_to_input(pull=digitalio.Pull.UP)
+    sda_high = scl_high = 0
+    for _ in range(samples):
+        sda_high += sda.value
+        scl_high += scl.value
+    sda.deinit()
+    scl.deinit()
+    return sda_high, scl_high
 
 
 def init_imu(i2c):

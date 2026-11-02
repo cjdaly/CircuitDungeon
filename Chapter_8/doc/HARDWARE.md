@@ -140,6 +140,15 @@ margin, more in the corners) or they'll be clipped by the bezel.
   powered through the USB disconnect** — the RP2350 never actually lost
   power, so nothing reset. Had to disconnect the battery too. See "Power /
   battery" below.
+- **Software cure found 2026-11-02 on `ws-1`: pulse `board.GP22` low for 20ms.**
+  With SDA held low for 3+ minutes and unmoved by 64 `SCL` clocks, one pulse
+  released it at once: both lines high, `i2c.scan()` found `0x15` and `0x6b`, and
+  the IMU read fine. So the CST816 is what holds the line, and GP22 acts as its
+  reset (`TP_RST`, not named as such by `board`). This also happens during normal
+  running, not just after resets: while it lasts, every I2C read on the bus takes
+  the full 1s timeout (`OSError` 116, `ETIMEDOUT`). What sets it off is still
+  unknown. `Chapter_9/game/hardware.py`'s `reset_touch()` and `bus_recovery.py`
+  use the pulse; Chapter 8's code doesn't. See `cd-342.16`.
 - The Waveshare wiki page (`waveshare.com/wiki/...`) 403s to automated
   fetches; a mirror (spotpear.com) confirms the chip names but not pin
   numbers or this sleep behavior — this section is the only write-up of it.

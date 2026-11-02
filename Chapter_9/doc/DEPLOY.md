@@ -32,7 +32,7 @@ puts the game back. To go back to a Chapter 8 demo, run
 
 1. Boot → the **Living Room**: room name centered, a green pulsing dot at
    each edge that has an exit (Living Room: left → Entryway, right →
-   Kitchen), dim dots on the dead edges.
+   Dining Room, up → Hallway), dim dots on the dead edges.
 2. **Tap or swipe starting in an edge band** (the outer 45px) to move.
    Touching a dot's zone snaps it gold (live exit) or red (dead end); a dead
    end also flashes "can't go `<direction>`".

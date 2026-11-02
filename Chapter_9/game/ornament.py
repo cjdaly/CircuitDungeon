@@ -20,11 +20,10 @@ stillness.StillnessDetector, screen_blanker.ScreenBlanker with a long
 timeout, the mode-switching between this and interactive gameplay) is
 future Ch9 integration work, not yet a numbered bead.
 
-STATUS: ported, not yet re-tested on-device in Chapter_9 -- displayio isn't
-importable under plain desktop Python, so this can only be desk-checked
-here. The underlying scene and animation are already proven on Chapter 8
-hardware.
+STATUS: confirmed on ws-1 2026-11-02 in Chapter_9, including repeat visits to
+ornament mode (the star, randomized ornaments and snow timing are Ch9 changes).
 """
+import math
 import random
 
 WIDTH = HEIGHT = 240
@@ -38,7 +37,8 @@ _STAR_DIM = 0x806000
 _SNOW_COLOR = 0xE8F0FF
 
 _ORNAMENT_COLORS = (0xE04040, 0x4070E0, 0xF0C020, 0xFFFFFF)
-_ORNAMENT_PERIOD = 1.6  # seconds per color-cycle step, staggered per ornament
+_COLOR_HOLD_MIN = 0.5  # seconds an ornament keeps a color, picked at random
+_COLOR_HOLD_MAX = 3.0
 
 # Tree geometry -- kept well inside the round bezel's ~20-30px inset
 # (Chapter_8/doc/HARDWARE.md "Display"). Fixed absolute positions, matching
@@ -47,10 +47,21 @@ _APEX = (120, 66)
 _BASE_L = (78, 168)
 _BASE_R = (162, 168)
 _TRUNK = {"x": 110, "y": 168, "width": 20, "height": 24}
-_ORNAMENT_POS = ((105, 100), (135, 100), (95, 130), (145, 130), (120, 150))
+_ORNAMENT_COUNT = 5
+_ORNAMENT_RADIUS = 5
+_ORNAMENT_MIN_GAP = 20  # px between centers, so they don't overlap or clump
+_ORNAMENT_TOP_Y = 86  # placement band, clear of the star and the tree's base
+_ORNAMENT_BOTTOM_Y = 158
+_STAR_CENTER = (120, 58)
+_STAR_OUTER = 13
+_STAR_INNER = 5
 
 _SNOW_COUNT = 6
 _SNOW_SPEED = 22  # px/second
+# Longest time step one update can apply. Snow only updates in ornament mode, so
+# without this, returning to the mode wraps every flake to y=0 on one tick and
+# they fall as a single row from then on.
+_SNOW_MAX_DT = 0.25  # seconds
 
 
 def make_background(group, width=WIDTH, height=HEIGHT, color=_BG_COLOR):
@@ -80,6 +91,60 @@ def _blend(color_a, color_b, t):
     return (r << 16) | (g << 8) | b
 
 
+def _star_points(center, outer, inner):
+    """Outline of a 5-point star with one tip straight up: tip, notch, tip, ..."""
+    points = []
+    for i in range(10):
+        radius = inner if i % 2 else outer
+        angle = math.radians(i * 36 - 90)
+        points.append(
+            (
+                center[0] + int(round(radius * math.cos(angle))),
+                center[1] + int(round(radius * math.sin(angle))),
+            )
+        )
+    return points
+
+
+def _scatter_positions(count=_ORNAMENT_COUNT, randint=random.randint):
+    """Random ornament centers inside the tree, kept apart where possible."""
+    positions = []
+    apex_x, apex_y = _APEX
+    tree_half = _BASE_R[0] - apex_x
+    tree_height = _BASE_R[1] - apex_y
+    for _ in range(count):
+        best = None
+        best_gap2 = -1
+        for _attempt in range(30):
+            y = randint(_ORNAMENT_TOP_Y, _ORNAMENT_BOTTOM_Y)
+            half = (y - apex_y) * tree_half // tree_height - _ORNAMENT_RADIUS - 1
+            x = randint(apex_x - half, apex_x + half)
+            gap2 = min(
+                ((x - px) ** 2 + (y - py) ** 2 for px, py in positions),
+                default=_ORNAMENT_MIN_GAP ** 2,
+            )
+            if gap2 > best_gap2:
+                best, best_gap2 = (x, y), gap2
+            if gap2 >= _ORNAMENT_MIN_GAP ** 2:
+                break
+        positions.append(best)
+    return positions
+
+
+def _next_color_index(current, count=len(_ORNAMENT_COLORS), randint=random.randint):
+    """A random color index that always differs from `current`."""
+    index = randint(0, count - 2)
+    return index + 1 if index >= current else index
+
+
+class _Ornament:
+    def __init__(self, palette, shape, color_index):
+        self.palette = palette
+        self.shape = shape
+        self.color_index = color_index
+        self.next_change = 0.0
+
+
 class Tree:
     """The tree + star + ornaments. .update(now, lit) drives the animation."""
 
@@ -95,16 +160,27 @@ class Tree:
 
         self._star_palette = _solid(_STAR_BRIGHT)
         group.append(
-            vectorio.Circle(
-                pixel_shader=self._star_palette, x=_APEX[0], y=_APEX[1] - 6, radius=6
+            vectorio.Polygon(
+                pixel_shader=self._star_palette,
+                points=_star_points(_STAR_CENTER, _STAR_OUTER, _STAR_INNER),
             )
         )
 
         self._ornaments = []
-        for i, (x, y) in enumerate(_ORNAMENT_POS):
-            palette = _solid(_ORNAMENT_COLORS[i % len(_ORNAMENT_COLORS)])
-            group.append(vectorio.Circle(pixel_shader=palette, x=x, y=y, radius=5))
-            self._ornaments.append((palette, i * 0.3))
+        for i, (x, y) in enumerate(_scatter_positions()):
+            color_index = i % len(_ORNAMENT_COLORS)
+            palette = _solid(_ORNAMENT_COLORS[color_index])
+            shape = vectorio.Circle(
+                pixel_shader=palette, x=x, y=y, radius=_ORNAMENT_RADIUS
+            )
+            group.append(shape)
+            self._ornaments.append(_Ornament(palette, shape, color_index))
+
+    def scatter(self):
+        """Move the ornaments to a new random layout."""
+        for ornament, (x, y) in zip(self._ornaments, _scatter_positions()):
+            ornament.shape.x = x
+            ornament.shape.y = y
 
     def update(self, now, lit):
         """`lit` should track stillness.StillnessDetector.is_still."""
@@ -117,9 +193,12 @@ class Tree:
         brightness = 0.6 + 0.4 * abs(1 - 2 * phase)
         self._star_palette[0] = _blend(_STAR_DIM, _STAR_BRIGHT, brightness)
 
-        for palette, phase_offset in self._ornaments:
-            step = int((now + phase_offset) / _ORNAMENT_PERIOD) % len(_ORNAMENT_COLORS)
-            palette[0] = _ORNAMENT_COLORS[step]
+        hold_range = _COLOR_HOLD_MAX - _COLOR_HOLD_MIN
+        for ornament in self._ornaments:
+            if now >= ornament.next_change:
+                ornament.color_index = _next_color_index(ornament.color_index)
+                ornament.palette[0] = _ORNAMENT_COLORS[ornament.color_index]
+                ornament.next_change = now + _COLOR_HOLD_MIN + random.random() * hold_range
 
 
 class Snow:
@@ -144,7 +223,7 @@ class Snow:
         if self._last_update is None:
             self._last_update = now
             return
-        dt = now - self._last_update
+        dt = min(now - self._last_update, _SNOW_MAX_DT)
         self._last_update = now
         step = _SNOW_SPEED * dt
         for flake in self._flakes:
