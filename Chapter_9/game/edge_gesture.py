@@ -61,13 +61,16 @@ class EdgeGestureTracker:
         self._height = height
         self._margin = margin
         self._start = None
+        self.center_tapped = False  # True for the one tick a center tap completes
 
     def update(self, point, now):
         """Call once per frame with the latest touch point (or None) and time.
 
         Returns a rooms.py direction the tick a qualifying gesture completes,
-        else None -- same call shape as GestureTracker.update().
+        else None -- same call shape as GestureTracker.update(). A tap outside
+        every edge margin returns None and sets .center_tapped for that tick.
         """
+        self.center_tapped = False
         if point is not None and self._start is None:
             self._start = point
 
@@ -78,4 +81,8 @@ class EdgeGestureTracker:
         start, self._start = self._start, None
         if start is None:
             return None
+        if gesture == "tap" and not edges_within(
+            start[0], start[1], self._width, self._height, self._margin
+        ):
+            self.center_tapped = True
         return edge_of(start[0], start[1], self._width, self._height, self._margin)

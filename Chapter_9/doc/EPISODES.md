@@ -226,7 +226,7 @@ The proposed default sequence, and what each episode adds:
 
 | Slot | Critter | Hides | Lure | Adds |
 |---|---|---|---|---|
-| 1 | cat | Laundry Room, on the warm dryer (3 moves) | yarn, Sewing Nook off the Dining Room | the basics: escape, text clue, false paths, the Odd Corner |
+| 1 | cat (always Chirpy) | Sun Porch, at the open window (3 moves) | yarn, Sewing Nook off the Dining Room | the basics: escape, text clue, false paths, the Odd Corner |
 | 2–4 | dog | Yard | squeaky ball, Kids' Bedroom | image clues (paw prints), closed exits outdoors |
 | 2–4 | robot | Basement workshop (dark) | oil can, upstairs or a garage | searching in the dark (glowing eyes) |
 | 2–4 | squirrel | Tree House | walnuts, Kitchen nutcracker | a wild decoy (Flurry the owl) |
@@ -243,19 +243,25 @@ work in any slot:
 - **Nothing one episode uses up is needed by another.** The snowman losing
   its nose is fine.
 
-## 9. Episode 1: the cat (BUILT 2026-10-17, reshaped the same day)
+## 9. Episode 1: Chirpy (BUILT 2026-10-17, reshaped 2026-11-02)
+
+**DECIDED (Chris, 2026-11-02):** the cat is always Chirpy (she/her), and the
+episode is written for her. She likes the Living Room rug better than the
+Laundry Room, and best of all sniffing fresh air at an open window. Tinsel and
+Cinder are spares (`critters.SPARE`), maybe used later.
 
 ```
             Hallway (pure false path)
                |
-Entryway x- Living Room -- Dining Room -- Kitchen -- Laundry Room (cat)
+Entryway x- Living Room -- Dining Room -- Kitchen -- Sun Porch (Chirpy)
  (closed)                       |            |    \
                            Sewing Nook   Odd Corner  x Basement (closed)
                              (yarn)
 ```
 
-- **Path, 3 moves:** Living Room -> Dining Room -> Kitchen -> **Laundry
-  Room**, where the cat is curled up on the warm dryer.
+- **Path, 3 moves:** Living Room -> Dining Room -> Kitchen -> **Sun Porch**,
+  where she's sniffing the air at the open window.
+- **Home:** she curls up on the Living Room rug (`<NAME> CURLS UP ON THE RUG`).
 - **Yarn:** in the **Sewing Nook**, up from the Dining Room (room 1's
   side branch).
 - **Pure false path:** the **Hallway**, up from the tree.
@@ -264,12 +270,19 @@ Entryway x- Living Room -- Dining Room -- Kitchen -- Laundry Room (cat)
   - tree left, to the Entryway: `BRR! TOO COLD OUT THERE`
   - Kitchen down, to the Basement: `TOO DARK DOWN THERE`
 - **Clues:**
-  - at the escape: `<NAME> LOVES WARM SPOTS!` (text)
+  - at the escape: `<NAME> LOVES FRESH AIR!` (text)
   - entering the Dining Room: a yarn strand trailing in from the Sewing
-    Nook (image)
-  - entering the Kitchen: heat lines drifting in from the dryer (image)
-- **New rooms:** Dining Room, Sewing Nook, Laundry Room. The Kitchen moved
-  one room further from the tree.
+    Nook, above (image; for now the text `YARN TRAIL! TAP THE TOP EDGE`)
+  - entering the Kitchen: a breeze from the window (image; for now the text
+    `YOU FEEL A CHILLY BREEZE`)
+- **Clues must say which way, and can't be one-time.** First playtest
+  (2026-11-02): Chris couldn't find the yarn and never went up from the Dining
+  Room. A one-time `A STRAND OF YARN!` with no direction was too easy to miss.
+  Room clues now show on every visit, and tapping the room repeats them; a clue
+  pointing at the lure stops once it's held. `...GOES UP!` wasn't clear either:
+  text clues should name the edge to tap.
+- **New rooms:** Dining Room, Sewing Nook, Sun Porch. The Kitchen moved one room
+  further from the tree, and the Laundry Room now hangs off the Basement.
 - **Tested on the real map:**
   - the path is exactly those rooms
   - the tree shows up and right open, and left closed with its reason

@@ -28,6 +28,29 @@ class TestEdgeGestureTracker(unittest.TestCase):
         self.assertIsNone(self.tracker.update((x, y), t))
         return self.tracker.update(None, t + 0.05)
 
+    def test_tap_in_the_middle_is_a_center_tap_not_a_direction(self):
+        self.assertIsNone(self._tap(MID, MID))
+        self.assertTrue(self.tracker.center_tapped)
+
+    def test_center_tap_only_lasts_one_tick(self):
+        self._tap(MID, MID)
+        self.tracker.update(None, 1.0)
+        self.assertFalse(self.tracker.center_tapped)
+
+    def test_edge_tap_is_not_a_center_tap(self):
+        self._tap(2, MID)
+        self.assertFalse(self.tracker.center_tapped)
+
+    def test_corner_tap_is_not_a_center_tap(self):
+        self.assertIsNone(self._tap(2, 2))
+        self.assertFalse(self.tracker.center_tapped)
+
+    def test_swipe_starting_in_the_middle_is_not_a_center_tap(self):
+        self.tracker.update((MID, MID), 0.0)
+        self.tracker.update((MID + 60, MID), 0.1)
+        self.assertIsNone(self.tracker.update(None, 0.15))
+        self.assertFalse(self.tracker.center_tapped)
+
     def test_tap_near_left_edge_is_left(self):
         self.assertEqual(self._tap(2, MID), rooms.LEFT)
 

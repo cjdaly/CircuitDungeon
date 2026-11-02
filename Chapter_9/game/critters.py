@@ -37,6 +37,9 @@ IN_BOX = "in_box"
 HIDING = "hiding"
 RETURNED = "returned"
 
+# Per critter, as Chris decides them; anyone not listed is "It" for now.
+SUBJECT_PRONOUNS = {"Chirpy": "She"}
+
 
 class Critter:
     """One critter's state: where it is, and what it takes to bring it back."""
@@ -50,6 +53,10 @@ class Critter:
         self.habit = habit  # default where-clue text, e.g. "loves the snow"
         self.state = IN_BOX
         self.location = home
+
+    @property
+    def subject_pronoun(self):
+        return SUBJECT_PRONOUNS.get(self.name, "It")
 
     def escape(self, hide_in):
         """Leave the box and hide in room `hide_in`.
@@ -115,14 +122,21 @@ HOME = "Living Room"  # every box sits under the tree here (rooms.make_world sta
 CAST = (
     ("dog", "squeaky ball", "loves the snow",
      (("dog_0_0", "Patch"), ("dog_3_0", "Sparky"), ("dog_4_0", "Woofer"))),
-    ("cat", "ball of yarn", "loves warm spots",
-     (("cat_0_1", "Chirpy"), ("cat_0_2", "Tinsel"), ("cat_2_0", "Cinder"))),
+    # Always Chirpy (Chris, 2026-11-02): episode 1 is written for her.
+    ("cat", "ball of yarn", "loves fresh air",
+     (("cat_0_1", "Chirpy"),)),
     ("squirrel", "walnuts", "loves to climb",
      (("rodent_0_0", "Nutmeg"), ("rodent_1_0", "Acorn"))),
     ("reindeer", "carrot", "wants to fly",
      (("quadraped_0_8", "Vixen"), ("quadraped_1_8", "Blitzen"))),
     ("robot", "oil can", "loves gadgets",
      (("elemental_1_1", "Rivet"), ("elemental_3_1", "Echo"), ("elemental_4_0", "Jingle"))),
+)
+
+# Named cats not in the game yet, maybe used later.  (sprite id, name).
+SPARE = (
+    ("cat_0_2", "Tinsel"),
+    ("cat_2_0", "Cinder"),
 )
 
 # Wild animals: scenery/ambience, never escapees.  (sprite id, name).

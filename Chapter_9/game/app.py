@@ -30,6 +30,8 @@ import modes
 import ornament
 import rooms
 import stillness
+from critters import make_roster
+from hunt import Hunt
 from nav_view import NavView
 from screen_blanker import ScreenBlanker
 
@@ -99,8 +101,12 @@ def run(display, backlight, touch, imu_gestures, width, height,
     detector = stillness.StillnessDetector()
     mode_ctl = modes.ModeController()
 
+    hunt = Hunt(world, make_roster())
+
     nav = NavView(width, height)
+    opening = hunt.start()  # sets the episode's gate, so before show_room
     nav.show_room(world.room.name, world.live_exits())
+    nav.say(opening, clock())
 
     ornament_group = displayio.Group()
     ornament.make_background(ornament_group, width, height)
@@ -185,10 +191,23 @@ def run(display, backlight, touch, imu_gestures, width, height,
                 direction = tracker.update(point, now)
                 if direction is not None:
                     if world.move(direction):
-                        nav.show_room(world.room.name, world.live_exits())
                         print("moved {} -> {}".format(direction, world.current))
+                        # May start the next episode, so before show_room reads the gate.
+                        messages = hunt.entered()
+                        nav.show_room(world.room.name, world.live_exits())
+                        nav.show_held(hunt.held)
+                        nav.say(messages, now)
                     else:
-                        nav.blocked(direction, now)
+                        reason = hunt.bumped(direction)
+                        if reason:
+                            nav.say([reason], now)
+                        else:
+                            nav.blocked(direction, now)
+                elif tracker.center_tapped:
+                    messages = hunt.tapped()
+                    print("tap in {}: {}".format(world.current, messages))
+                    nav.show_held(hunt.held)
+                    nav.say(messages, now)
                 nav.update(now, zone)
             else:
                 # "handled" counts as activity: wakes a blanked ornament.

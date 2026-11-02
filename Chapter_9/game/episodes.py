@@ -46,18 +46,21 @@ CLUE_FORMS = (TEXT, IMAGE)
 
 
 class Clue:
-    def __init__(self, when, room, form, content):
+    def __init__(self, when, room, form, content, lure_trail=False):
         self.when = when
         self.room = room
         self.form = form
         self.content = content
+        self.lure_trail = lure_trail  # points at the lure, so stops once it's held
 
 
 class Episode:
     """One critter's hunt: which rooms are open, and where things are."""
 
-    def __init__(self, species, open_rooms, hide_room, lure_room, closed_reasons, clues):
+    def __init__(self, species, open_rooms, hide_room, lure_room, closed_reasons, clues,
+                 home_text="{name} is home!"):
         self.species = species
+        self.home_text = home_text
         self.open_rooms = frozenset(open_rooms)
         self.hide_room = hide_room
         self.lure_room = lure_room
@@ -77,28 +80,31 @@ class Episode:
 
 
 EPISODES = {
-    # Episode 1 (always first): the cat, the short warm-up -- 3 moves:
-    # Living Room -> Dining Room -> Kitchen -> Laundry Room, where it's
-    # curled up on the warm dryer. Yarn is up in the Sewing Nook off the
+    # Episode 1 (always first): Chirpy, the short warm-up -- 3 moves:
+    # Living Room -> Dining Room -> Kitchen -> Sun Porch, where she's sniffing
+    # the fresh air at an open window. Yarn is up in the Sewing Nook off the
     # Dining Room; the Hallway off the tree is a plain false path; the
-    # Kitchen (room 2 here) has the branch up to the Odd Corner.
+    # Kitchen (room 2 here) has the branch up to the Odd Corner. Home, she
+    # curls up on the Living Room rug.
     "cat": Episode(
         species="cat",
         open_rooms=(
             "Living Room", "Hallway", "Dining Room", "Sewing Nook",
-            "Kitchen", ODD_CORNER, "Laundry Room",
+            "Kitchen", ODD_CORNER, "Sun Porch",
         ),
-        hide_room="Laundry Room",
+        hide_room="Sun Porch",
         lure_room="Sewing Nook",
         closed_reasons={
             ("Living Room", LEFT): "brr! too cold out there",
             ("Kitchen", DOWN): "too dark down there",
         },
         clues=(
-            Clue(ON_ESCAPE, HOME, TEXT, "{name} loves warm spots!"),
-            Clue(ON_ENTER, "Dining Room", IMAGE, "yarn_strand"),  # trailing in from the Sewing Nook
-            Clue(ON_ENTER, "Kitchen", IMAGE, "heat_lines"),  # drifting in from the dryer
+            Clue(ON_ESCAPE, HOME, TEXT, "{name} loves fresh air!"),
+            # Trailing in from the Sewing Nook, above.
+            Clue(ON_ENTER, "Dining Room", IMAGE, "yarn_strand", lure_trail=True),
+            Clue(ON_ENTER, "Kitchen", IMAGE, "breeze"),  # from the open window, to the right
         ),
+        home_text="{name} curls up on the rug",
     ),
 }
 

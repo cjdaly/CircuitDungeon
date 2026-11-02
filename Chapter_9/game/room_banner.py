@@ -89,11 +89,15 @@ class RoomBanner:
         group.append(self._label)
         self._hide_at = 0.0
 
-    def show(self, text, now, color=_TEXT_COLOR):
+    @property
+    def showing(self):
+        return bool(self._hide_at)
+
+    def show(self, text, now, color=_TEXT_COLOR, duration=None):
         self._label.text = text
         self._label.color = color
         self._bar.y = self._y - self._bar.height // 2
-        self._hide_at = now + self._duration
+        self._hide_at = now + (self._duration if duration is None else duration)
 
     def update(self, now):
         """Call once per frame; hides the banner once its duration elapses."""

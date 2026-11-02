@@ -121,11 +121,11 @@ def make_world():
     feel, not to scale, and not every direction works from every room. Every
     exit below has a matching return exit (round-trip navigable both ways).
     The map is fluid (doc/EPISODES.md sec 5) -- it grows as episodes get
-    written. Today, 15 rooms hung off the start room:
+    written. Today, 16 rooms hung off the start room:
 
     - **Living Room** (start) <-> Dining Room (right) <-> Kitchen (right)
-      <-> Laundry Room (right); Dining Room <-> Sewing Nook (up); Kitchen
-      <-> Basement (down)
+      <-> Sun Porch (right); Dining Room <-> Sewing Nook (up); Kitchen
+      <-> Basement (down) <-> Laundry Room (right)
     - **Kitchen** <-> Odd Corner (up) -- every episode's wrong way ends at
       the Odd Corner (batteries just out of reach until the finale), which
       is never one move from the tree
@@ -167,8 +167,14 @@ def make_world():
                 description="A cozy sewing nook with a basket of yarn.",
             ),
             Room(
-                "Laundry Room",
+                "Sun Porch",
                 {LEFT: "Kitchen"},
+                description="A sun porch, one window left open a crack.",
+                items=["an open window, letting in the fresh winter air"],
+            ),
+            Room(
+                "Laundry Room",
+                {LEFT: "Basement"},
                 description="The laundry room. The dryer is still warm.",
             ),
             Room(
@@ -179,12 +185,12 @@ def make_world():
             ),
             Room(
                 "Kitchen",
-                {LEFT: "Dining Room", DOWN: "Basement", UP: "Odd Corner", RIGHT: "Laundry Room"},
+                {LEFT: "Dining Room", DOWN: "Basement", UP: "Odd Corner", RIGHT: "Sun Porch"},
                 description="The kitchen, still warm from holiday baking.",
             ),
             Room(
                 "Basement",
-                {UP: "Kitchen"},
+                {UP: "Kitchen", RIGHT: "Laundry Room"},
                 description="A dim basement under the house.",
             ),
             Room(

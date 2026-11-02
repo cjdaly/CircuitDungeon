@@ -140,6 +140,11 @@ def _swipe_right_from(x, y):
     return lambda dt: (int(x + dt * 100), y)
 
 
+_LEFT_EDGE, _RIGHT_EDGE = _at(10, 120), _at(230, 120)
+_TOP_EDGE, _BOTTOM_EDGE = _at(120, 10), _at(120, 230)
+_CENTER = _at(120, 120)
+
+
 class _Run:
     """Runs app.run() for `seconds` of fake time and records what's on screen."""
 
@@ -168,6 +173,13 @@ class _Run:
 
     def banner(self):
         return [lb for lb in _labels if lb.anchored_position == (120, 172)][0].text
+
+    def message(self):
+        """The banner text as one line, with wrapping and centering undone."""
+        return " ".join(line.strip() for line in self.banner().split("\n"))
+
+    def held(self):
+        return [lb for lb in _labels if lb.anchored_position == (120, 72)][0].text
 
 
 class _StalledImu:
@@ -219,15 +231,92 @@ class TestBusRecoveryWiring(unittest.TestCase):
         self.assertEqual(imu.reads, 20)
 
 
+def _taps(*touches, start=0.5, spacing=0.5):
+    """Scripted short taps, one every `spacing` seconds."""
+    return [
+        (start + i * spacing, start + i * spacing + 0.2, touch)
+        for i, touch in enumerate(touches)
+    ]
+
+
+class TestEpisodeOne(unittest.TestCase):
+    TO_YARN = (_RIGHT_EDGE, _TOP_EDGE)
+    YARN_TO_CAT = (_BOTTOM_EDGE, _RIGHT_EDGE, _RIGHT_EDGE)
+    CAT_TO_TREE = (_LEFT_EDGE, _LEFT_EDGE, _LEFT_EDGE)
+
+    def test_opening_announces_the_escape(self):
+        r = _Run(seconds=1.0)
+        self.assertEqual(r.message(), "CHIRPY ESCAPED!")
+
+    def test_closed_exit_shows_its_reason_and_does_not_move(self):
+        r = _Run(windows=_taps(_LEFT_EDGE), seconds=1.5)
+        self.assertEqual(r.room(), "Living Room")
+        self.assertEqual(r.message(), "BRR! TOO COLD OUT THERE")
+
+    def test_center_tap_takes_the_yarn(self):
+        r = _Run(windows=_taps(*self.TO_YARN, _CENTER), seconds=2.5)
+        self.assertEqual(r.room(), "Sewing Nook")
+        self.assertEqual(r.message(), "GOT THE BALL OF YARN!")
+        self.assertEqual(r.held(), "Holding ball of yarn")
+
+    def test_edge_tap_in_the_yarn_room_does_not_take_it(self):
+        r = _Run(windows=_taps(*self.TO_YARN, _LEFT_EDGE), seconds=2.5)
+        self.assertEqual(r.held(), "")
+
+    def test_a_swipe_from_the_center_does_not_count_as_a_tap(self):
+        touches = _taps(*self.TO_YARN) + [(1.5, 1.9, _swipe_right_from(90, 120))]
+        r = _Run(windows=touches, seconds=2.5)
+        self.assertEqual(r.held(), "")
+
+    def test_cat_without_yarn_says_what_it_wants(self):
+        r = _Run(windows=_taps(_RIGHT_EDGE, _RIGHT_EDGE, _RIGHT_EDGE, _CENTER), seconds=3.0)
+        self.assertEqual(r.room(), "Sun Porch")
+        self.assertEqual(r.message(), "FOUND CHIRPY!")
+
+    def test_messages_play_in_sequence(self):
+        r = _Run(windows=_taps(_RIGHT_EDGE, _RIGHT_EDGE, _RIGHT_EDGE, _CENTER), seconds=7.0)
+        self.assertEqual(r.message(), "SHE WANTS THE BALL OF YARN")
+
+    def test_full_episode_from_escape_to_home(self):
+        touches = _taps(
+            *self.TO_YARN, _CENTER, *self.YARN_TO_CAT, _CENTER, *self.CAT_TO_TREE
+        )
+        r = _Run(windows=touches, seconds=6.0)
+        self.assertEqual(r.room(), "Living Room")
+        self.assertEqual(r.held(), "")
+        self.assertEqual(r.message(), "CHIRPY CURLS UP ON THE RUG")
+
+        r = _Run(windows=touches, seconds=9.0)
+        self.assertEqual(r.message(), "ALL HOME! MORE CRITTERS SOON")
+
+    def test_map_opens_after_the_last_episode(self):
+        touches = _taps(
+            *self.TO_YARN, _CENTER, *self.YARN_TO_CAT, _CENTER, *self.CAT_TO_TREE,
+            _LEFT_EDGE,
+        )
+        r = _Run(windows=touches, seconds=7.0)
+        self.assertEqual(r.room(), "Entryway")
+
+
 class TestAppSmoke(unittest.TestCase):
     def test_starts_in_living_room_interactive(self):
         r = _Run(seconds=1.0)
         self.assertEqual(r.room(), "Living Room")
         self.assertIs(r.display.root_group, r.nav_group)
 
-    def test_swipe_from_left_edge_moves_to_entryway(self):
-        r = _Run(windows=[(0.5, 0.9, _swipe_right_from(10, 120))], seconds=3.0)
-        self.assertEqual(r.room(), "Entryway")
+    def test_tap_on_right_edge_moves_to_dining_room(self):
+        r = _Run(windows=[(0.5, 0.7, _RIGHT_EDGE)], seconds=3.0)
+        self.assertEqual(r.room(), "Dining Room")
+
+    def test_swipe_from_left_edge_moves_when_that_exit_is_open(self):
+        r = _Run(
+            windows=[
+                (0.5, 0.7, _RIGHT_EDGE),
+                (1.0, 1.4, _swipe_right_from(10, 120)),  # back to the Living Room
+            ],
+            seconds=3.0,
+        )
+        self.assertEqual(r.room(), "Living Room")
 
     def test_swipe_from_center_does_not_move(self):
         r = _Run(windows=[(0.5, 0.9, _swipe_right_from(100, 120))], seconds=3.0)
@@ -249,21 +338,21 @@ class TestAppSmoke(unittest.TestCase):
         self.assertIs(r.display.root_group, r.nav_group)
 
     def test_touch_wakes_ornament_and_is_swallowed(self):
-        # Ornament by ~33s; then a left-edge swipe that would move a room
+        # Ornament by ~33s; then a right-edge tap that would move a room
         # if it weren't swallowed as the wake-up touch.
-        r = _Run(windows=[(40.0, 40.4, _swipe_right_from(10, 120))], seconds=45.0)
+        r = _Run(windows=[(40.0, 40.2, _RIGHT_EDGE)], seconds=45.0)
         self.assertIs(r.display.root_group, r.nav_group)
         self.assertEqual(r.room(), "Living Room")
 
     def test_navigation_works_again_after_waking_from_ornament(self):
         r = _Run(
             windows=[
-                (40.0, 40.4, _swipe_right_from(10, 120)),  # wakes, swallowed
-                (42.0, 42.4, _swipe_right_from(10, 120)),  # real move
+                (40.0, 40.2, _RIGHT_EDGE),  # wakes, swallowed
+                (42.0, 42.2, _RIGHT_EDGE),  # real move
             ],
             seconds=45.0,
         )
-        self.assertEqual(r.room(), "Entryway")
+        self.assertEqual(r.room(), "Dining Room")
 
     def test_interactive_blanks_when_handled_but_untouched(self):
         r = _Run(jerk=10.0, seconds=125.0)

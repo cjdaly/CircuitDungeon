@@ -194,7 +194,7 @@ class TestEpisodeOne(unittest.TestCase):
     def test_path_is_dining_kitchen_laundry(self):
         self.assertEqual(
             episodes.spine(self.world, self.cat),
-            ["Living Room", "Dining Room", "Kitchen", "Laundry Room"],
+            ["Living Room", "Dining Room", "Kitchen", "Sun Porch"],
         )
 
     def test_tree_shows_path_and_false_path_open_entryway_closed(self):
@@ -225,7 +225,7 @@ class TestEpisodeOne(unittest.TestCase):
             self.assertTrue(self.world.move(direction))
         if self.world.current == self.cat.lure_room:
             held.add(LURE["cat"])
-        for direction in (rooms.DOWN, rooms.RIGHT, rooms.RIGHT):  # back, Kitchen, Laundry
+        for direction in (rooms.DOWN, rooms.RIGHT, rooms.RIGHT):  # back, Kitchen, Sun Porch
             self.assertTrue(self.world.move(direction))
         self.assertTrue(critter.try_retrieve(self.world.current, held))
 

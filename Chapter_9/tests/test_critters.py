@@ -130,12 +130,23 @@ class TestCast(unittest.TestCase):
 
     def _all_named(self):
         named = [pair for _sp, _lure, _habit, sprites in critters_mod.CAST for pair in sprites]
-        return named + list(critters_mod.WILD)
+        return named + list(critters_mod.WILD) + list(critters_mod.SPARE)
 
     def test_every_candidate_sprite_is_cast_or_wild_exactly_once(self):
         # Catches drift when tools/build_critter_candidates.py's list changes.
         ids = [sprite for sprite, _name in self._all_named()]
         self.assertEqual(sorted(ids), sorted(c[0] for c in critter_candidates.CANDIDATES))
+
+    def test_the_cat_is_always_chirpy(self):
+        for _ in range(20):
+            roster = critters_mod.make_roster()
+            cat = [c for c in roster.all() if c.species == "cat"][0]
+            self.assertEqual(cat.name, "Chirpy")
+
+    def test_chirpy_is_she(self):
+        roster = critters_mod.make_roster()
+        cat = [c for c in roster.all() if c.species == "cat"][0]
+        self.assertEqual(cat.subject_pronoun, "She")
 
     def test_cast_sprites_match_their_species_group(self):
         groups = {cid: group for cid, group, _src in critter_candidates.CANDIDATES}
