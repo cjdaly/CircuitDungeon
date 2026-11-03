@@ -2,12 +2,14 @@
 """Edge-region gesture classification for room-to-room navigation -- cd-zw2.4.
 
 touch.py's GestureTracker classifies a tap/swipe from displacement + duration
-alone -- it has no idea where on screen a gesture happened. This module adds
-the missing piece: only a gesture that STARTS inside one edge's margin
-counts, and the resulting direction is fixed by *which edge*, not by swipe
-direction -- a tap or swipe starting near the left edge always means "go
-left", matching rooms.py's up/down/left/right. A start inside two edges'
-margins at once (a corner) is ambiguous and dropped rather than guessed.
+alone -- it has no idea where on screen a gesture happened. This module turns
+those into rooms.py's up/down/left/right:
+
+- A tap only moves if it STARTS inside one edge's margin: tapping near the left
+  edge means "go left". A start inside two margins at once (a corner) is
+  ambiguous and dropped rather than guessed.
+- A swipe drags the world, from anywhere on screen, the way a watch or phone
+  does: swiping left brings in the room to the right (cd-342.22).
 
 Ported from Chapter_8/game/edge_gesture.py (cd-45v.2's prototype) -- same
 API, including EDGE_MARGIN already tuned to 45px after on-device feel
@@ -21,6 +23,9 @@ doesn't need real touch hardware either.
 """
 from rooms import DOWN, LEFT, RIGHT, UP
 from touch import GestureTracker
+
+# The finger's direction -> the way the player goes, like dragging a page.
+_SWIPE_MOVES = {"swipe_left": RIGHT, "swipe_right": LEFT, "swipe_up": DOWN, "swipe_down": UP}
 
 EDGE_MARGIN = 45  # px from a frame edge -- see doc/HARDWARE.md-equivalent
                   # bezel-inset guidance; tuned up from an initial 30px
@@ -62,6 +67,7 @@ class EdgeGestureTracker:
         self._margin = margin
         self._start = None
         self.center_tapped = False  # True for the one tick a center tap completes
+        self.gesture_done = False  # True for the one tick any gesture completes
 
     def update(self, point, now):
         """Call once per frame with the latest touch point (or None) and time.
@@ -71,6 +77,7 @@ class EdgeGestureTracker:
         every edge margin returns None and sets .center_tapped for that tick.
         """
         self.center_tapped = False
+        self.gesture_done = False
         if point is not None and self._start is None:
             self._start = point
 
@@ -81,8 +88,9 @@ class EdgeGestureTracker:
         start, self._start = self._start, None
         if start is None:
             return None
-        if gesture == "tap" and not edges_within(
-            start[0], start[1], self._width, self._height, self._margin
-        ):
+        self.gesture_done = True
+        if gesture != "tap":
+            return _SWIPE_MOVES[gesture]
+        if not edges_within(start[0], start[1], self._width, self._height, self._margin):
             self.center_tapped = True
         return edge_of(start[0], start[1], self._width, self._height, self._margin)

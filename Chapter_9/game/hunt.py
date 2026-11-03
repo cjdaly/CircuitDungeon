@@ -6,9 +6,11 @@ critters.CritterRoster. Starting an episode is the escape trigger (doc/
 EPISODES.md sec 1): the critter leaves its box and only that episode's rooms
 open. Then the player:
 
-1. finds the lure and taps to take it (one held item, one critter loose)
-2. finds the critter and taps it; without the lure, it says what it wants
-3. taps it again holding the lure, and it follows them home
+1. finds the critter and taps it; without the lure, it says what it wants, and
+   any stuck door to the lure opens (an episode without one has its lure
+   reachable from the start)
+2. finds the lure and taps to take it (one held item, one critter loose)
+3. taps the critter again holding the lure, and it follows them home
 4. walks back to the tree, which starts the next episode
 
 Each method returns the messages to show, as plain strings; this module has no
@@ -66,6 +68,7 @@ class Hunt:
         self.episode = None
         self.critter = None
         self.held = None
+        self._door_stuck = False
 
     def start(self):
         """Begin the game. Returns the first escape's messages."""
@@ -86,6 +89,7 @@ class Hunt:
         self.episode.open_on(self._world)
         self.stage = HUNTING
         self.held = None
+        self._door_stuck = self.episode.stuck_door is not None
         return ["{} escaped!".format(self.critter.name)] + self._escape_clues()
 
     def _escape_clues(self):
@@ -154,7 +158,7 @@ class Hunt:
         return [
             self._clue_text(clue)
             for clue in self.episode.clues_for(episodes.ON_ENTER, room)
-            if not (clue.lure_trail and self.held is not None)
+            if not (clue.lure_trail and (self._door_stuck or self.held is not None))
         ]
 
     def _tapped_critter(self, room):
@@ -164,7 +168,12 @@ class Hunt:
             self.stage = GOING_HOME
             self.held = None
             return ["{} follows you home!".format(name)]
-        return [
+        messages = [
             "Found {}!".format(name),
             "{} wants the {}".format(self.critter.subject_pronoun, self.critter.preferred_item),
         ]
+        if self._door_stuck:
+            self._door_stuck = False
+            self.episode.unstick_door(self._world)
+            messages.append(episodes.DOOR_OPENS_TEXT)
+        return messages

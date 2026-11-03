@@ -185,11 +185,15 @@ def run(display, backlight, touch, imu_gestures, width, height,
 
                 zone = (
                     edge_gesture.edge_of(point[0], point[1], width, height)
-                    if point is not None
+                    if point is not None and not nav.overlay_up
                     else None
                 )
                 direction = tracker.update(point, now)
-                if direction is not None:
+                if nav.overlay_up:
+                    # Navigation waits: captions sit in the edge zones.
+                    if tracker.gesture_done:
+                        nav.tap_overlay(now)
+                elif direction is not None:
                     if world.move(direction):
                         print("moved {} -> {}".format(direction, world.current))
                         # May start the next episode, so before show_room reads the gate.
@@ -202,7 +206,7 @@ def run(display, backlight, touch, imu_gestures, width, height,
                         if reason:
                             nav.say([reason], now)
                         else:
-                            nav.blocked(direction, now)
+                            nav.bonk(now)
                 elif tracker.center_tapped:
                     messages = hunt.tapped()
                     print("tap in {}: {}".format(world.current, messages))

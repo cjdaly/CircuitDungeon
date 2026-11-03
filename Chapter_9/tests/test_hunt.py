@@ -19,7 +19,7 @@ from rooms import DOWN, LEFT, RIGHT, UP  # noqa: E402
 _GAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "game")
 
 # Widths available on the round panel, in pixels, from nav_view's layout.
-_BANNER_PX = 184  # the panel's width at the bottom of a banner's second line
+_CAPTION_PX = 160  # keeps a two-line caption box's lower corners on the panel
 _ROOM_NAME_PX = 178  # between the left and right edge markers
 _HELD_PX = 207  # the panel's width at the top of the held-item label
 
@@ -59,6 +59,12 @@ class HuntCase(unittest.TestCase):
             messages = self.hunt.entered()
         return messages
 
+    def find_cat(self):
+        """Find her, which opens the yarn door, and walk back to the Dining Room."""
+        self.walk(RIGHT, RIGHT, RIGHT)
+        self.hunt.tapped()
+        self.walk(LEFT, LEFT)
+
 
 class TestEscape(HuntCase):
     def test_first_episode_is_the_cat(self):
@@ -70,26 +76,65 @@ class TestEscape(HuntCase):
         self.assertEqual(self.opening, ["Chirpy escaped!", "Chirpy loves fresh air!"])
 
     def test_only_this_episodes_rooms_are_open(self):
-        self.assertEqual(self.world.gate, set(self.hunt.episode.open_rooms))
+        behind_the_door = {self.hunt.episode.lure_room}
+        self.assertEqual(self.world.gate, set(self.hunt.episode.open_rooms) - behind_the_door)
         self.assertNotIn(LEFT, self.world.live_exits())
 
     def test_tapping_at_the_tree_repeats_the_clue(self):
         self.assertEqual(self.hunt.tapped(), ["Chirpy loves fresh air!"])
 
 
-class TestFindingThings(HuntCase):
-    def test_lure_room_says_to_tap(self):
+class TestStuckDoor(HuntCase):
+    def test_the_door_starts_shut_with_its_reason(self):
+        self.walk(RIGHT)
+        self.assertNotIn(UP, self.world.live_exits())
+        self.assertEqual(self.hunt.bumped(UP), "The door's stuck")
+
+    def test_no_trail_points_at_a_stuck_door(self):
+        self.assertEqual(self.walk(RIGHT), [])
+        self.assertEqual(self.hunt.tapped(), ["Nothing here"])
+
+    def test_finding_the_critter_opens_it(self):
+        self.walk(RIGHT, RIGHT, RIGHT)
         self.assertEqual(
-            self.walk(RIGHT, UP), ["Ball of yarn here! Tap it."]
+            self.hunt.tapped(),
+            ["Found Chirpy!", "She wants the ball of yarn", "The stuck door creaks open!"],
+        )
+        self.walk(LEFT, LEFT)
+        self.assertIn(UP, self.world.live_exits())
+
+    def test_it_only_creaks_open_once(self):
+        self.walk(RIGHT, RIGHT, RIGHT)
+        self.hunt.tapped()
+        self.assertEqual(
+            self.hunt.tapped(), ["Found Chirpy!", "She wants the ball of yarn"]
         )
 
+    def test_an_episode_without_a_door_has_its_lure_open_from_the_start(self):
+        game = hunt.Hunt(rooms.make_world(), critters.make_roster(choice=first_choice))
+        original = episodes.EPISODES["cat"].stuck_door
+        episodes.EPISODES["cat"].stuck_door = None
+        self.addCleanup(setattr, episodes.EPISODES["cat"], "stuck_door", original)
+        game.start()
+        game._world.move(RIGHT)
+        self.assertIn(UP, game._world.live_exits())
+        self.assertEqual(game.entered(), ["Yarn trail! Tap the top edge"])
+
+
+class TestFindingThings(HuntCase):
+    def test_lure_room_says_to_tap(self):
+        self.find_cat()
+        self.assertEqual(self.walk(UP), ["Ball of yarn here! Tap it."])
+
     def test_tapping_the_lure_takes_it(self):
-        self.walk(RIGHT, UP)
+        self.find_cat()
+        self.walk(UP)
         self.assertEqual(self.hunt.tapped(), ["Got the ball of yarn!"])
         self.assertEqual(self.hunt.held, "ball of yarn")
 
     def test_lure_room_goes_quiet_once_taken(self):
-        self.walk(RIGHT, UP)
+        self.find_cat()
+        self.walk(UP)
         self.hunt.tapped()
         self.assertEqual(self.walk(DOWN, UP), [])
         self.assertEqual(self.hunt.tapped(), ["Nothing here"])
@@ -99,7 +144,7 @@ class TestFindingThings(HuntCase):
             self.walk(RIGHT, RIGHT, RIGHT), ["Something's here! Tap it."]
         )
         self.assertEqual(
-            self.hunt.tapped(), ["Found Chirpy!", "She wants the ball of yarn"]
+            self.hunt.tapped()[:2], ["Found Chirpy!", "She wants the ball of yarn"]
         )
         self.assertEqual(self.cat.state, critters.HIDING)
 
@@ -118,22 +163,25 @@ class TestFindingThings(HuntCase):
         self.assertEqual(self.hunt.tapped(), ["So close!"])
         self.assertIsNone(self.hunt.held)
 
-    def test_yarn_clue_says_which_way_on_every_visit(self):
-        self.assertEqual(self.walk(RIGHT), ["Yarn trail! Tap the top edge"])
+    def test_yarn_clue_says_which_way_on_every_visit_once_the_door_opens(self):
+        self.find_cat()
+        self.assertEqual(self.walk(LEFT, RIGHT), ["Yarn trail! Tap the top edge"])
         self.assertEqual(self.walk(LEFT, RIGHT), ["Yarn trail! Tap the top edge"])
 
     def test_tapping_a_clue_room_repeats_its_clue(self):
-        self.walk(RIGHT)
+        self.find_cat()
         self.assertEqual(self.hunt.tapped(), ["Yarn trail! Tap the top edge"])
 
     def test_yarn_clue_stops_once_the_yarn_is_held(self):
-        self.walk(RIGHT, UP)
+        self.find_cat()
+        self.walk(UP)
         self.hunt.tapped()
         self.assertEqual(self.walk(DOWN), [])
         self.assertEqual(self.hunt.tapped(), ["Nothing here"])
 
     def test_breeze_clue_stays_after_taking_the_yarn(self):
-        self.walk(RIGHT, UP)
+        self.find_cat()
+        self.walk(UP)
         self.hunt.tapped()
         self.assertEqual(self.walk(DOWN, RIGHT), ["You feel a chilly breeze"])
 
@@ -148,7 +196,8 @@ class TestBumps(HuntCase):
 
 class TestBringingItHome(HuntCase):
     def fetch(self):
-        self.walk(RIGHT, UP)
+        self.find_cat()
+        self.walk(UP)
         self.hunt.tapped()
         self.walk(DOWN, RIGHT, RIGHT)
 
@@ -199,10 +248,14 @@ class TestEpisodeSequence(unittest.TestCase):
         roster = critters.make_roster(choice=first_choice)
         game = hunt.Hunt(world, roster, order=["cat", "dog"])
         game.start()
-        for direction in (RIGHT, UP):
+        for direction in (RIGHT, RIGHT, RIGHT):
             world.move(direction)
             game.entered()
-        game.tapped()
+        game.tapped()  # found her: the yarn door opens
+        for direction in (LEFT, LEFT, UP):
+            world.move(direction)
+            game.entered()
+        game.tapped()  # the yarn
         for direction in (DOWN, RIGHT, RIGHT):
             world.move(direction)
             game.entered()
@@ -254,7 +307,7 @@ class TestWrap(unittest.TestCase):
             "Something's here! Tap it.", "Batteries! Just out of reach",
             "All home! More critters soon", "Merry Christmas!", "So close!",
             "Nothing here", "{name} {habit}!", "{name} curls up on the rug",
-            "can't go right",
+            episodes.STUCK_DOOR_TEXT, episodes.DOOR_OPENS_TEXT,
         ) + tuple(hunt._IMAGE_CLUE_TEXT.values())
         reasons = tuple(
             reason
@@ -270,7 +323,7 @@ class TestWrap(unittest.TestCase):
                         self.assertLessEqual(len(lines), 2, lines)
                         self.assertLessEqual(max(len(ln) for ln in lines), 15, lines)
                         for line in lines:
-                            self.assertLessEqual(_px(line, _CAPTION), _BANNER_PX, line)
+                            self.assertLessEqual(_px(line, _CAPTION), _CAPTION_PX, line)
 
     def test_every_room_name_fits_between_the_side_markers(self):
         for room in rooms.make_world().all_rooms():

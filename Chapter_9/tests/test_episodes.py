@@ -152,6 +152,12 @@ class TestEveryEpisode(unittest.TestCase):
                 self.assertNotIn(name, (critters.HOME, episodes.ODD_CORNER))
             self.assertNotEqual(episode.hide_room, episode.lure_room)
 
+    def test_a_stuck_door_leads_into_the_lure_room(self):
+        for _sp, episode in self._each():
+            if episode.stuck_door is not None:
+                room, direction = episode.stuck_door
+                self.assertEqual(self.world.get(room).exit_toward(direction), episode.lure_room)
+
     def test_every_closed_exit_has_a_reason_and_no_stale_reasons(self):
         for _sp, episode in self._each():
             expected = set()
@@ -217,10 +223,19 @@ class TestEpisodeOne(unittest.TestCase):
         self.assertEqual(self.world.current, episodes.ODD_CORNER)
         self.assertEqual(self.world.live_exits(), [rooms.DOWN])
 
+    def test_the_yarn_is_behind_a_stuck_door_off_the_dining_room(self):
+        self.assertTrue(self.world.move(rooms.RIGHT))
+        self.assertFalse(self.world.move(rooms.UP))
+        self.assertEqual(self.cat.reason_for("Dining Room", rooms.UP), episodes.STUCK_DOOR_TEXT)
+        self.cat.unstick_door(self.world)
+        self.assertTrue(self.world.move(rooms.UP))
+        self.assertEqual(self.world.current, self.cat.lure_room)
+
     def test_retrieval_loop_works_on_the_gated_map(self):
         critter = critters.make_roster(choice=lambda seq: seq[0]).get("Chirpy")
         critter.escape(self.cat.hide_room)
         held = set()
+        self.cat.unstick_door(self.world)  # as finding her does
         for direction in (rooms.RIGHT, rooms.UP):  # Dining Room, Sewing Nook
             self.assertTrue(self.world.move(direction))
         if self.world.current == self.cat.lure_room:

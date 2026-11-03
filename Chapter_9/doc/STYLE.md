@@ -39,6 +39,10 @@ proposal to react to; decisions get marked **DECIDED** as they land.
 
 ## 3. Comic vocabulary, ranked for a tiny screen
 
+**Built 2026-11-02 (`cd-342.9`):** the kit is `game/comic.py` (drawing),
+`beats.py` (timed beats, tap to advance) and `comic_shapes.py` (outlines,
+emanata). `overlay_demo.py` shows everything. Halftone isn't built.
+
 Best value first — the top ones are tiny, read instantly, and need no text.
 
 | Element | Use | Cost |
@@ -195,6 +199,15 @@ lives in flash (38KB of 16MB) and costs almost no RAM.
   critter walk mode (`cd-342.3`) have only been run off-device. Run them
   on ws-1 before stacking the comic layer on top, so we don't debug both
   at once.
+
+## 9a. Watch habits (Chris, 2026-11-02)
+
+Most people getting one of these own an Apple Watch, and the hardware is very
+like one, so follow what a watch owner expects where we can (`cd-342.22`):
+- **Swipes drag the world, from anywhere:** swipe left to go right. Tapping an
+  edge moves too.
+- **A tap dismisses** a caption.
+- **Picking it up wakes it**, close to raising your wrist.
 
 ## 10. Where this lands in beads
 

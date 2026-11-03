@@ -22,8 +22,8 @@ run). It rsyncs with `--delete`, so a previously deployed Chapter 8 demo or
 `main.py` is replaced — but `lib/` and `settings.toml` are never touched, so
 `DEVICE_ID` survives. `--demo NAME` copies `game/NAME.py` over the device's `main.py` so a
 look-test runs instead of the game (e.g. `--demo critter_demo`, the animated
-critter browser); the desktop `main.py` is untouched, and a plain re-deploy
-puts the game back. To go back to a Chapter 8 demo, run
+critter browser, or `--demo overlay_demo`, every comic overlay in turn); the
+desktop `main.py` is untouched, and a plain re-deploy puts the game back. To go back to a Chapter 8 demo, run
 `Chapter_8/tools/deploy.sh`.
 
 `deploy.sh` warns (but doesn't fail) if anything's missing from `lib/`.
@@ -33,14 +33,16 @@ puts the game back. To go back to a Chapter 8 demo, run
 1. Boot → the **Living Room**, and Chirpy's escape message: green pulsing dots
    on the edges open this episode (right → Dining Room, up → Hallway), dim dots
    on the rest.
-2. **Tap or swipe starting in an edge band** (the outer 45px) to move.
-   Touching a dot's zone snaps it gold (live exit) or red (blocked). A closed
-   exit shows a reason (left: "brr! too cold out there"); no exit at all flashes
-   "can't go `<direction>`".
+2. **Tap in an edge band** (the outer 45px), or **swipe anywhere**, to move. A
+   swipe drags the world, like on a watch: swipe left to go right. Touching a dot's zone snaps it gold (live exit) or red (blocked). A closed
+   exit shows a reason in a caption (left: "brr! too cold out there"); no exit at
+   all gets a `BONK!` burst and a shake. **While a caption or burst is up, a tap
+   anywhere only moves it along**: it never walks you out of the room.
 3. **Play episode 1 by tapping the middle of the screen:**
-   - Right → Dining Room, up → Sewing Nook: tap to take the ball of yarn.
-   - Down, right → Kitchen, right → Sun Porch: tap Chirpy. Without the yarn she
-     says what she wants; with the yarn she follows you home.
+   - Right three times → Sun Porch: tap Chirpy. She says what she wants, and the
+     stuck door up from the Dining Room creaks open.
+   - Left twice → Dining Room, up → Sewing Nook: tap to take the ball of yarn.
+   - Down, right, right → Sun Porch: tap Chirpy again and she follows you home.
    - Back left three times to the tree, where she curls up on the rug. Episodes
      2–5 aren't written yet (`cd-342.14`), so this ends the game and opens the
      whole map.

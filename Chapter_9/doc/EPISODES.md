@@ -44,8 +44,12 @@ Living Room (tree)
   3-move episode 1, just room 1 does. The tree can have one too.
 - **The favourite item** sits at the end of one of those dead-end side
   branches. It's never on the path itself and never in the Odd Corner's
-  branch. So you may walk past it before you know you need it. At least one
-  side branch is a pure false path, with no item.
+  branch. At least one side branch is a pure false path, with no item.
+- **A stuck door** can hold the item back until the critter is found.
+  **DECIDED (Chris, 2026-11-02):** episode 1 does this, because the first
+  playtest never found the yarn. Bumping it says `THE DOOR'S STUCK`; finding the
+  critter gives `THE STUCK DOOR CREAKS OPEN!`. Whether episodes 2–5 do the same
+  is open. Without a door you may walk past the item before you know you need it.
 - **The Odd Corner** branches off **room 3** (room 2 in episode 1), so it's
   always far from the tree. **DECIDED: never directly off the tree**, which
   is also a whole-map test.
@@ -263,7 +267,7 @@ Entryway x- Living Room -- Dining Room -- Kitchen -- Sun Porch (Chirpy)
   where she's sniffing the air at the open window.
 - **Home:** she curls up on the Living Room rug (`<NAME> CURLS UP ON THE RUG`).
 - **Yarn:** in the **Sewing Nook**, up from the Dining Room (room 1's
-  side branch).
+  side branch), behind a door that's stuck until you've found her.
 - **Pure false path:** the **Hallway**, up from the tree.
 - **Odd Corner:** up from the **Kitchen** (room 2).
 - **Closed exits, and what bumping them says:**
@@ -271,8 +275,9 @@ Entryway x- Living Room -- Dining Room -- Kitchen -- Sun Porch (Chirpy)
   - Kitchen down, to the Basement: `TOO DARK DOWN THERE`
 - **Clues:**
   - at the escape: `<NAME> LOVES FRESH AIR!` (text)
-  - entering the Dining Room: a yarn strand trailing in from the Sewing
-    Nook, above (image; for now the text `YARN TRAIL! TAP THE TOP EDGE`)
+  - entering the Dining Room, once the door is open: a yarn strand trailing in
+    from the Sewing Nook, above (image; for now the text
+    `YARN TRAIL! TAP THE TOP EDGE`)
   - entering the Kitchen: a breeze from the window (image; for now the text
     `YOU FEEL A CHILLY BREEZE`)
 - **Clues must say which way, and can't be one-time.** First playtest

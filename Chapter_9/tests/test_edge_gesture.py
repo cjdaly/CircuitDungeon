@@ -48,8 +48,27 @@ class TestEdgeGestureTracker(unittest.TestCase):
     def test_swipe_starting_in_the_middle_is_not_a_center_tap(self):
         self.tracker.update((MID, MID), 0.0)
         self.tracker.update((MID + 60, MID), 0.1)
-        self.assertIsNone(self.tracker.update(None, 0.15))
+        self.tracker.update(None, 0.15)
         self.assertFalse(self.tracker.center_tapped)
+
+    def test_every_finished_gesture_counts_as_done(self):
+        self._tap(MID, MID)
+        self.assertTrue(self.tracker.gesture_done)
+        self._tap(2, MID, t=1.0)
+        self.assertTrue(self.tracker.gesture_done)
+        self._tap(2, 2, t=2.0)  # a corner has no direction, but it's still a tap
+        self.assertTrue(self.tracker.gesture_done)
+
+    def test_a_swipe_counts_as_done(self):
+        self.tracker.update((MID, MID), 0.0)
+        self.tracker.update((MID + 60, MID), 0.1)
+        self.tracker.update(None, 0.15)
+        self.assertTrue(self.tracker.gesture_done)
+
+    def test_gesture_done_only_lasts_one_tick(self):
+        self._tap(MID, MID)
+        self.tracker.update(None, 1.0)
+        self.assertFalse(self.tracker.gesture_done)
 
     def test_tap_near_left_edge_is_left(self):
         self.assertEqual(self._tap(2, MID), rooms.LEFT)
@@ -70,20 +89,26 @@ class TestEdgeGestureTracker(unittest.TestCase):
         self.assertIsNone(self._tap(2, 2))
         self.assertIsNone(self._tap(WIDTH - 2, HEIGHT - 2))
 
-    def test_direction_comes_from_start_edge_not_swipe_direction(self):
-        # Starts near the LEFT edge but swipes rightward -- edge_gesture
-        # only cares where it started, unlike a plain screen-direction swipe.
-        t = 0.0
-        self.assertIsNone(self.tracker.update((2, MID), t))
-        self.assertIsNone(self.tracker.update((100, MID), t + 0.05))
-        self.assertEqual(self.tracker.update(None, t + 0.1), rooms.LEFT)
+    def _swipe(self, start, end):
+        self.assertIsNone(self.tracker.update(start, 0.0))
+        self.assertIsNone(self.tracker.update(end, 0.05))
+        return self.tracker.update(None, 0.1)
 
-    def test_gesture_starting_mid_screen_ending_near_edge_is_none(self):
-        # Started away from any edge; where it ends doesn't count.
-        t = 0.0
-        self.assertIsNone(self.tracker.update((MID, MID), t))
-        self.assertIsNone(self.tracker.update((2, MID), t + 0.05))
-        self.assertIsNone(self.tracker.update(None, t + 0.1))
+    def test_a_swipe_drags_the_world_from_the_middle(self):
+        self.assertEqual(self._swipe((MID, MID), (MID - 60, MID)), rooms.RIGHT)
+        self.assertEqual(self._swipe((MID, MID), (MID + 60, MID)), rooms.LEFT)
+        self.assertEqual(self._swipe((MID, MID), (MID, MID - 60)), rooms.DOWN)
+        self.assertEqual(self._swipe((MID, MID), (MID, MID + 60)), rooms.UP)
+
+    def test_a_swipe_in_from_an_edge_goes_toward_that_edge(self):
+        self.assertEqual(self._swipe((2, MID), (100, MID)), rooms.LEFT)
+        self.assertEqual(self._swipe((WIDTH - 2, MID), (WIDTH - 100, MID)), rooms.RIGHT)
+        self.assertEqual(self._swipe((MID, 2), (MID, 100)), rooms.UP)
+        self.assertEqual(self._swipe((MID, HEIGHT - 2), (MID, HEIGHT - 100)), rooms.DOWN)
+
+    def test_only_the_swipes_direction_counts_not_where_it_started(self):
+        self.assertEqual(self._swipe((2, MID), (2, MID + 60)), rooms.UP)
+        self.assertEqual(self._swipe((2, 2), (70, 2)), rooms.LEFT)
 
     def test_margin_boundary(self):
         self.assertEqual(self._tap(MARGIN - 1, MID), rooms.LEFT)

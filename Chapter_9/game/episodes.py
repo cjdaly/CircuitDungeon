@@ -9,7 +9,8 @@ with dead-end side branches off it: false paths off the early rooms, one
 of which holds the lure, and from the 3rd room (2nd in episode 1) a branch
 to the Odd Corner -- batteries in sight, out of reach, until the finale.
 No loops, so a dead end is really a dead end. Exits into closed rooms get
-an in-world reason when bumped.
+an in-world reason when bumped. An episode can also hold its lure behind a
+stuck door that opens once the critter has been found (cd-342.21).
 
 Episodes are written to be order-independent -- each has its own open set,
 nothing one episode uses up is needed by another -- so the order is a
@@ -25,7 +26,7 @@ the real map).
 """
 
 from critters import HOME
-from rooms import DOWN, LEFT
+from rooms import DOWN, LEFT, UP
 
 ODD_CORNER = "Odd Corner"
 
@@ -44,6 +45,9 @@ TEXT = "text"
 IMAGE = "image"
 CLUE_FORMS = (TEXT, IMAGE)
 
+STUCK_DOOR_TEXT = "The door's stuck"
+DOOR_OPENS_TEXT = "The stuck door creaks open!"
+
 
 class Clue:
     def __init__(self, when, room, form, content, lure_trail=False):
@@ -51,14 +55,15 @@ class Clue:
         self.room = room
         self.form = form
         self.content = content
-        self.lure_trail = lure_trail  # points at the lure, so stops once it's held
+        # Points at the lure: shows once the lure can be reached, until it's held.
+        self.lure_trail = lure_trail
 
 
 class Episode:
     """One critter's hunt: which rooms are open, and where things are."""
 
     def __init__(self, species, open_rooms, hide_room, lure_room, closed_reasons, clues,
-                 home_text="{name} is home!"):
+                 home_text="{name} is home!", stuck_door=None):
         self.species = species
         self.home_text = home_text
         self.open_rooms = frozenset(open_rooms)
@@ -68,11 +73,23 @@ class Episode:
         # closed one -- shown when the player bumps it.
         self.closed_reasons = dict(closed_reasons)
         self.clues = tuple(clues)
+        # (room, direction) of the exit into lure_room, shut until the critter
+        # is found. None: the lure room is open from the start.
+        self.stuck_door = stuck_door
 
     def open_on(self, world):
+        """Start of the episode: open its rooms, except behind any stuck door."""
+        if self.stuck_door is None:
+            world.set_gate(self.open_rooms)
+        else:
+            world.set_gate(self.open_rooms - {self.lure_room})
+
+    def unstick_door(self, world):
         world.set_gate(self.open_rooms)
 
     def reason_for(self, room, direction):
+        if (room, direction) == self.stuck_door:
+            return STUCK_DOOR_TEXT
         return self.closed_reasons.get((room, direction))
 
     def clues_for(self, when, room):
@@ -83,7 +100,7 @@ EPISODES = {
     # Episode 1 (always first): Chirpy, the short warm-up -- 3 moves:
     # Living Room -> Dining Room -> Kitchen -> Sun Porch, where she's sniffing
     # the fresh air at an open window. Yarn is up in the Sewing Nook off the
-    # Dining Room; the Hallway off the tree is a plain false path; the
+    # Dining Room, whose door is stuck until she's found; the Hallway off the tree is a plain false path; the
     # Kitchen (room 2 here) has the branch up to the Odd Corner. Home, she
     # curls up on the Living Room rug.
     "cat": Episode(
@@ -105,6 +122,7 @@ EPISODES = {
             Clue(ON_ENTER, "Kitchen", IMAGE, "breeze"),  # from the open window, to the right
         ),
         home_text="{name} curls up on the rug",
+        stuck_door=("Dining Room", UP),
     ),
 }
 

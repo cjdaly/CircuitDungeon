@@ -32,13 +32,11 @@ board see [`doc/DEPLOY.md`](doc/DEPLOY.md).
   narrow). `touch.py`'s hardware bits (`SafeTouch`) aren't unit-tested (need
   real I2C), but `GestureTracker`/`edge_gesture.py` are, in `tests/`.
 * **Room-name display + move feedback** (`game/room_banner.py`, `cd-zw2.5`)
-  -- `RoomLabel` (persistent centered room-name text) and `RoomBanner`
-  (transient "can't go `<direction>`" flash on a blocked move). Ported from
-  Chapter 8's `cd-45v.3`, updated for what on-device testing there actually
-  found: a toast is a poor way to answer "what room am I in", so that's now
-  `RoomLabel` (persistent), while `RoomBanner` (the original toast) is kept
-  for genuinely transient messages. Fonts come from `game/comic_fonts.py`
-  (`cd-bp3.13`): Luckiest Guy for room names, Bangers for messages, all caps.
+  -- `RoomLabel`, persistent centered room-name text. Ported from Chapter 8's
+  `cd-45v.3`, updated for what on-device testing there actually found: a toast
+  is a poor way to answer "what room am I in". Transient messages are the comic
+  overlay kit's job (`game/comic.py`, `beats.py`, `cd-342.9`). Fonts come from
+  `game/comic_fonts.py` (`cd-bp3.13`): Luckiest Guy for room names, Bangers for messages, all caps.
 * **Mixed sprite-scale rendering** (`game/sprite_scale.py`, `cd-zw2.2`) --
   generic helpers for a 16x16 scenery `TileGrid` from a tile sheet + layout,
   and free-positioned 32x32 actor sprites kept clear of the round bezel
