@@ -282,7 +282,7 @@ class TestBusRecoveryWiring(unittest.TestCase):
         self.assertEqual(imu.reads, 20)
 
 
-_OPENING_S = 7.0  # the two opening captions have timed out by now
+_OPENING_S = 9.0  # the opening captions have timed out by now
 _TAP_SPACING = 10.0  # likewise any overlay a tap brought up, unless a test wants it
 
 
@@ -307,6 +307,8 @@ class TestEpisodeOne(unittest.TestCase):
 
     def test_opening_announces_the_escape(self):
         r = _Run(seconds=1.0)
+        self.assertEqual(r.message(), "9 PM")
+        r = _Run(seconds=3.0)
         self.assertEqual(r.message(), "CHIRPY ESCAPED!")
 
     def test_closed_exit_shows_its_reason_and_does_not_move(self):
@@ -360,15 +362,7 @@ class TestEpisodeOne(unittest.TestCase):
         self.assertEqual(r.message(), "CHIRPY CURLS UP ON THE RUG")
 
         r = _Run(windows=touches, seconds=_after_taps(len(touches), wait=4.0))
-        self.assertEqual(r.message(), "ALL HOME! MORE CRITTERS SOON")
-
-    def test_map_opens_after_the_last_episode(self):
-        touches = _taps(
-            *self.TO_YARN, _CENTER, *self.YARN_TO_CAT, _CENTER, *self.CAT_TO_TREE,
-            _LEFT_EDGE,
-        )
-        r = _Run(windows=touches, seconds=_after_taps(len(touches)))
-        self.assertEqual(r.room(), "ENTRYWAY")
+        self.assertEqual(r.message(), "10 PM")  # the next pet is already out
 
 
 class TestOverlays(unittest.TestCase):
@@ -379,11 +373,11 @@ class TestOverlays(unittest.TestCase):
     def test_an_edge_tap_during_a_caption_advances_instead_of_moving(self):
         r = _Run(windows=[(0.5, 0.7, _RIGHT_EDGE)], seconds=1.5)
         self.assertEqual(r.room(), "LIVING ROOM")
-        self.assertEqual(r.message(), "CHIRPY LOVES FRESH AIR!")
+        self.assertEqual(r.message(), "CHIRPY ESCAPED!")
 
     def test_a_corner_tap_also_advances(self):
         r = _Run(windows=[(0.5, 0.7, _at(5, 5))], seconds=1.5)
-        self.assertEqual(r.message(), "CHIRPY LOVES FRESH AIR!")
+        self.assertEqual(r.message(), "CHIRPY ESCAPED!")
 
     def test_a_center_tap_during_a_caption_only_advances(self):
         yarn_room = TestEpisodeOne.TO_YARN
@@ -397,9 +391,10 @@ class TestOverlays(unittest.TestCase):
             windows=[
                 (0.5, 0.7, _CENTER),
                 (1.2, 1.4, _CENTER),
-                (1.9, 2.1, _RIGHT_EDGE),
+                (1.9, 2.1, _CENTER),
+                (2.6, 2.8, _RIGHT_EDGE),
             ],
-            seconds=3.0,
+            seconds=3.5,
         )
         self.assertEqual(r.room(), "DINING ROOM")
 
@@ -446,6 +441,17 @@ class TestAppSmoke(unittest.TestCase):
         r = _Run(windows=[(at, at + 0.2, _at(120, 230))], seconds=at + 2.0)
         self.assertIsNone(r.burst())
         self.assertEqual(r.scene_x(), 0)
+
+    def test_a_long_message_runs_on_into_a_second_caption(self):
+        import nav_view
+
+        nav = nav_view.NavView(240, 240)
+        nav.say(["one two three four five six seven eight"], 0.0)  # three lines
+        self.assertTrue(nav.overlay_up)
+        nav.tap_overlay(0.1)
+        self.assertTrue(nav.overlay_up)  # the text didn't fit in one caption
+        nav.tap_overlay(0.2)
+        self.assertFalse(nav.overlay_up)
 
     def test_the_overlay_demos_beats_all_draw(self):
         import comic

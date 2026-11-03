@@ -48,8 +48,9 @@ Living Room (tree)
 - **A stuck door** can hold the item back until the critter is found.
   **DECIDED (Chris, 2026-11-02):** episode 1 does this, because the first
   playtest never found the yarn. Bumping it says `THE DOOR'S STUCK`; finding the
-  critter gives `THE STUCK DOOR CREAKS OPEN!`. Whether episodes 2–5 do the same
-  is open. Without a door you may walk past the item before you know you need it.
+  critter gives `THE STUCK DOOR CREAKS OPEN!`. **DECIDED (Chris, 2026-11-03):**
+  every episode holds its item back until the critter is found, using different
+  unlocks, not all doors. Proposals are in `STORY.md`.
 - **The Odd Corner** branches off **room 3** (room 2 in episode 1), so it's
   always far from the tree. **DECIDED: never directly off the tree**, which
   is also a whole-map test.
@@ -231,15 +232,18 @@ The proposed default sequence, and what each episode adds:
 | Slot | Critter | Hides | Lure | Adds |
 |---|---|---|---|---|
 | 1 | cat (always Chirpy) | Sun Porch, at the open window (3 moves) | yarn, Sewing Nook off the Dining Room | the basics: escape, text clue, false paths, the Odd Corner |
-| 2–4 | dog | Yard | squeaky ball, Kids' Bedroom | image clues (paw prints), closed exits outdoors |
-| 2–4 | robot | Basement workshop (dark) | oil can, upstairs or a garage | searching in the dark (glowing eyes) |
-| 2–4 | squirrel | Tree House | walnuts, Kitchen nutcracker | a wild decoy (Flurry the owl) |
-| 5 | reindeer | the Roof (new room) | carrot, the snowman's nose (Yard) | the longest trip, a picture puzzle |
+| 2–4 | dog | Yard | squeaky ball, Snow Fort off the Front Porch | a path the critter clears |
+| 2–4 | robot | Basement | oil can, Garage off the Back Door | a dark room that lights up |
+| 2–4 | squirrel | Tree House | walnuts, the dining table | an item you can see but have no reason to take; Flurry the owl |
+| 5 | reindeer | the Roof | carrot, the snowman's nose in the Yard | a chain reaction in another room |
+
+All of episodes 2–5 are 4 moves to the critter. The unlocks are in `STORY.md`.
 
 **Episodes must not depend on their order.** Every episode is written to
 work in any slot:
 - **Each episode has its own open set.** Rooms opened in one episode don't
-  stay open into the next.
+  stay open into the next. **DECIDED (Chris, 2026-11-03):** a door that was open
+  last episode can simply be shut in this one, with no explanation needed.
 - **New mechanics are explained the first time they appear**, with a
   one-time caption, not in a particular episode.
 - **Story beats are tied to the episode's slot number, not to the

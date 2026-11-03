@@ -153,7 +153,7 @@ def make_world():
             ),
             Room(
                 "Hallway",
-                {DOWN: "Living Room"},
+                {DOWN: "Living Room", LEFT: "Back Door", RIGHT: "Bedroom"},
                 description="A long hallway lined with family photos.",
             ),
             Room(
@@ -179,7 +179,7 @@ def make_world():
             ),
             Room(
                 "Odd Corner",
-                {DOWN: "Kitchen"},
+                {DOWN: "Kitchen", LEFT: "Attic", RIGHT: "Front Walk", UP: "Cellar Door"},
                 description="A cluttered corner. Up on a high shelf: batteries!",
                 items=["a pack of batteries, just out of reach"],
             ),
@@ -190,17 +190,17 @@ def make_world():
             ),
             Room(
                 "Basement",
-                {UP: "Kitchen", RIGHT: "Laundry Room"},
+                {UP: "Kitchen", RIGHT: "Laundry Room", LEFT: "Cellar Door"},
                 description="A dim basement under the house.",
             ),
             Room(
                 "Entryway",
-                {RIGHT: "Living Room", UP: "Bedroom", DOWN: "Yard"},
+                {RIGHT: "Living Room", UP: "Bedroom", DOWN: "Front Porch"},
                 description="The front entryway, coats and boots by the door.",
             ),
             Room(
                 "Bedroom",
-                {DOWN: "Entryway", RIGHT: "Kids' Bedroom"},
+                {DOWN: "Entryway", RIGHT: "Kids' Bedroom", LEFT: "Hallway", UP: "Attic"},
                 description="A quiet bedroom.",
             ),
             Room(
@@ -210,8 +210,48 @@ def make_world():
             ),
             Room(
                 "Yard",
-                {UP: "Entryway", LEFT: "Pond", RIGHT: "Tree House", DOWN: "Cave"},
-                description="The snowy front yard.",
+                {UP: "Front Walk", LEFT: "Pond", RIGHT: "Back Door", DOWN: "Cave"},
+                description="The snowy yard. A snowman with a carrot for a nose.",
+            ),
+            Room(
+                "Front Porch",
+                {UP: "Entryway", DOWN: "Front Walk", RIGHT: "Snow Fort"},
+                description="The front porch, deep in fresh snow.",
+            ),
+            Room(
+                "Snow Fort",
+                {LEFT: "Front Porch"},
+                description="A snow fort the kids built, stocked with toys.",
+            ),
+            Room(
+                "Front Walk",
+                {UP: "Front Porch", DOWN: "Yard", LEFT: "Odd Corner", RIGHT: "Tree House"},
+                description="The shoveled walk through the front yard.",
+            ),
+            Room(
+                "Back Door",
+                {RIGHT: "Hallway", LEFT: "Yard", DOWN: "Cellar Door", UP: "Garage"},
+                description="The back door, with boots and a snow shovel.",
+            ),
+            Room(
+                "Garage",
+                {DOWN: "Back Door"},
+                description="The garage, shelves crammed with tools.",
+            ),
+            Room(
+                "Cellar Door",
+                {UP: "Back Door", RIGHT: "Basement", DOWN: "Odd Corner"},
+                description="A slanted door down to the cellar.",
+            ),
+            Room(
+                "Attic",
+                {DOWN: "Bedroom", RIGHT: "Odd Corner", UP: "Roof"},
+                description="A dusty attic full of old decorations.",
+            ),
+            Room(
+                "Roof",
+                {DOWN: "Attic"},
+                description="The snowy roof, right beside the chimney.",
             ),
             Room(
                 "Pond",
@@ -220,7 +260,7 @@ def make_world():
             ),
             Room(
                 "Tree House",
-                {LEFT: "Yard"},
+                {LEFT: "Front Walk"},
                 description="A tree house, cold this time of year.",
             ),
             Room(

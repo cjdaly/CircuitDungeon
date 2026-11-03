@@ -22,6 +22,7 @@ tracker only sees input again after the finger lifts, so a wake-up touch
 can't complete into a room move.
 """
 import gc
+import os
 import time
 import traceback
 
@@ -101,7 +102,9 @@ def run(display, backlight, touch, imu_gestures, width, height,
     detector = stillness.StillnessDetector()
     mode_ctl = modes.ModeController()
 
-    hunt = Hunt(world, make_roster())
+    # Who this board is for: optional, set per board in settings.toml.
+    player = os.getenv("PLAYER")
+    hunt = Hunt(world, make_roster(), player=player)
 
     nav = NavView(width, height)
     opening = hunt.start()  # sets the episode's gate, so before show_room
@@ -133,7 +136,8 @@ def run(display, backlight, touch, imu_gestures, width, height,
     awaiting_good_read = False
     ticks = 0
 
-    print("Ch9 ready -- start: {}  free={}".format(world.current, gc.mem_free()))
+    print("Ch9 ready -- start: {}  player={}  free={}".format(
+        world.current, player, gc.mem_free()))
 
     while max_ticks is None or ticks < max_ticks:
         ticks += 1

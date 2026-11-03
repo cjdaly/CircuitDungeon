@@ -7,8 +7,7 @@ EPISODES.md sec 1): the critter leaves its box and only that episode's rooms
 open. Then the player:
 
 1. finds the critter and taps it; without the lure, it says what it wants, and
-   any stuck door to the lure opens (an episode without one has its lure
-   reachable from the start)
+   the episode's unlock lets the lure be reached (episodes.Unlock)
 2. finds the lure and taps to take it (one held item, one critter loose)
 3. taps the critter again holding the lure, and it follows them home
 4. walks back to the tree, which starts the next episode
@@ -33,6 +32,9 @@ _IMAGE_CLUE_TEXT = {
     "breeze": "You feel a chilly breeze",
 }
 
+# A caption opens each episode with the hour, tied to its slot and not the critter.
+_HOURS = ("9 PM", "10 PM", "11 PM", "Near midnight", "Midnight")
+
 _BANNER_CHARS = 15  # Bangers on the round panel; tests check the real pixel widths
 
 
@@ -55,20 +57,21 @@ def _capitalized(text):
 
 
 class Hunt:
-    def __init__(self, world, roster, order=None):
+    def __init__(self, world, roster, order=None, player=None):
         self._world = world
         self._critters = {c.species: c for c in roster.all()}
         species = [c.species for c in roster.all()]
         if order is None:
             order = episodes.make_order(species)
-        # Episodes still being written (cd-342.14) are skipped.
-        self._order = [s for s in order if s in episodes.EPISODES]
+        self._order = list(order)
         self._next = 0
         self.stage = None
         self.episode = None
         self.critter = None
         self.held = None
-        self._door_stuck = False
+        self._found = False
+        self._locked = False
+        self._player = player  # who this board is for, if it says
 
     def start(self):
         """Begin the game. Returns the first escape's messages."""
@@ -80,8 +83,9 @@ class Hunt:
             self.episode = None
             self.critter = None
             self._world.set_gate(None)  # the whole map, as the end game will
-            return ["All home! More critters soon"]
+            return ["All home!"] + self._merry_christmas()
         species = self._order[self._next]
+        hour = _HOURS[min(self._next, len(_HOURS) - 1)]
         self._next += 1
         self.episode = episodes.EPISODES[species]
         self.critter = self._critters[species]
@@ -89,8 +93,14 @@ class Hunt:
         self.episode.open_on(self._world)
         self.stage = HUNTING
         self.held = None
-        self._door_stuck = self.episode.stuck_door is not None
-        return ["{} escaped!".format(self.critter.name)] + self._escape_clues()
+        self._found = False
+        self._locked = self.episode.unlock is not None
+        return [hour, "{} escaped!".format(self.critter.name)] + self._escape_clues()
+
+    def _merry_christmas(self):
+        if self._player:
+            return ["Merry Christmas,", "{}!".format(self._player)]
+        return ["Merry Christmas!"]
 
     def _escape_clues(self):
         return [
@@ -118,12 +128,18 @@ class Hunt:
         if self.stage == HUNTING:
             messages.extend(self._room_clues(room))
             if room == self.episode.lure_room and self.held is None:
-                messages.append(
-                    "{} here! Tap it.".format(_capitalized(self.critter.preferred_item))
-                )
+                messages.append(self._lure_text())
             if room == self.episode.hide_room:
                 messages.append("Something's here! Tap it.")
         return messages
+
+    def _lure_text(self):
+        unlock = self.episode.unlock
+        if self._locked:
+            return unlock.locked_text.format(name=self.critter.name)
+        if unlock is not None and unlock.ready_text:
+            return unlock.ready_text
+        return "{} here! Tap it.".format(_capitalized(self.critter.preferred_item))
 
     def bumped(self, direction):
         """A blocked move: the in-world reason, or None if there's simply no exit."""
@@ -136,12 +152,14 @@ class Hunt:
         """The player tapped the middle of the screen."""
         room = self._world.current
         if self.stage == DONE:
-            return ["Merry Christmas!"]
+            return self._merry_christmas()
         if self.stage == GOING_HOME:
             return ["{} is with you. Go home!".format(self.critter.name)]
         if room == self.episode.hide_room:
             return self._tapped_critter(room)
         if room == self.episode.lure_room and self.held is None:
+            if self._locked:
+                return [self._lure_text()]
             self.held = self.critter.preferred_item
             return ["Got the {}!".format(self.held)]
         if room == HOME:
@@ -158,7 +176,8 @@ class Hunt:
         return [
             self._clue_text(clue)
             for clue in self.episode.clues_for(episodes.ON_ENTER, room)
-            if not (clue.lure_trail and (self._door_stuck or self.held is not None))
+            if not (clue.lure_trail and (self._locked or self.held is not None))
+            and not (clue.until_found and self._found)
         ]
 
     def _tapped_critter(self, room):
@@ -172,8 +191,9 @@ class Hunt:
             "Found {}!".format(name),
             "{} wants the {}".format(self.critter.subject_pronoun, self.critter.preferred_item),
         ]
-        if self._door_stuck:
-            self._door_stuck = False
-            self.episode.unstick_door(self._world)
-            messages.append(episodes.DOOR_OPENS_TEXT)
+        self._found = True
+        if self._locked:
+            self._locked = False
+            self.episode.open_lure_room(self._world)
+            messages.append(self.episode.unlock.reveal)
         return messages

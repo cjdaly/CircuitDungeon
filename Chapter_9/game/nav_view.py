@@ -120,9 +120,13 @@ class NavView:
 
     def say(self, messages, now):
         """Show `messages` as captions, one after another."""
-        self._player.play(
-            [Beat(caption="\n".join(wrap(text))) for text in messages], now
-        )
+        beats = []
+        for text in messages:
+            lines = wrap(text)
+            # A caption holds two lines; anything longer runs on into the next.
+            for i in range(0, len(lines), 2):
+                beats.append(Beat(caption="\n".join(lines[i:i + 2])))
+        self._player.play(beats, now)
 
     def bonk(self, now):
         """A move onto an edge with no exit at all."""

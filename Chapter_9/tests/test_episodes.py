@@ -17,7 +17,6 @@ import episodes  # noqa: E402
 import rooms  # noqa: E402
 
 # A caption is at most 2 Bangers lines of ~14 chars (doc/STYLE.md sec 3).
-CAPTION_MAX = 28
 SPECIES = [sp for sp, _lure, _habit, _sprites in critters.CAST]
 LURE = {sp: lure for sp, lure, _habit, _sprites in critters.CAST}
 NAMES = {sp: [name for _id, name in sprites] for sp, _lure, _habit, sprites in critters.CAST}
@@ -152,11 +151,28 @@ class TestEveryEpisode(unittest.TestCase):
                 self.assertNotIn(name, (critters.HOME, episodes.ODD_CORNER))
             self.assertNotEqual(episode.hide_room, episode.lure_room)
 
-    def test_a_stuck_door_leads_into_the_lure_room(self):
+    def test_every_episode_holds_its_lure_back_one_way_or_the_other(self):
+        for species, episode in self._each():
+            unlock = episode.unlock
+            self.assertIsNotNone(unlock, species)
+            self.assertTrue(unlock.reveal, species)
+            if unlock.blocked_exit is None:
+                self.assertTrue(unlock.locked_text, species)
+            else:
+                room, direction = unlock.blocked_exit
+                self.assertEqual(
+                    self.world.get(room).exit_toward(direction), episode.lure_room, species
+                )
+                self.assertTrue(unlock.blocked_text, species)
+
+    def test_a_clue_points_at_the_critter_or_the_lure_not_both(self):
         for _sp, episode in self._each():
-            if episode.stuck_door is not None:
-                room, direction = episode.stuck_door
-                self.assertEqual(self.world.get(room).exit_toward(direction), episode.lure_room)
+            for clue in episode.clues:
+                self.assertFalse(clue.lure_trail and clue.until_found, clue.content)
+
+    def test_unlocks_vary(self):
+        reveals = [episode.unlock.reveal for _sp, episode in self._each()]
+        self.assertEqual(len(reveals), len(set(reveals)))
 
     def test_every_closed_exit_has_a_reason_and_no_stale_reasons(self):
         for _sp, episode in self._each():
@@ -179,14 +195,6 @@ class TestEveryEpisode(unittest.TestCase):
     def test_has_an_escape_clue(self):
         for _sp, episode in self._each():
             self.assertTrue(episode.clues_for(episodes.ON_ESCAPE, critters.HOME))
-
-    def test_text_fits_a_caption_for_every_name(self):
-        for species, episode in self._each():
-            texts = list(episode.closed_reasons.values())
-            texts += [c.content for c in episode.clues if c.form == episodes.TEXT]
-            for text in texts:
-                for name in NAMES[species]:
-                    self.assertLessEqual(len(text.format(name=name)), CAPTION_MAX, text)
 
 
 class TestEpisodeOne(unittest.TestCase):
@@ -226,8 +234,8 @@ class TestEpisodeOne(unittest.TestCase):
     def test_the_yarn_is_behind_a_stuck_door_off_the_dining_room(self):
         self.assertTrue(self.world.move(rooms.RIGHT))
         self.assertFalse(self.world.move(rooms.UP))
-        self.assertEqual(self.cat.reason_for("Dining Room", rooms.UP), episodes.STUCK_DOOR_TEXT)
-        self.cat.unstick_door(self.world)
+        self.assertEqual(self.cat.reason_for("Dining Room", rooms.UP), "The door's stuck")
+        self.cat.open_lure_room(self.world)
         self.assertTrue(self.world.move(rooms.UP))
         self.assertEqual(self.world.current, self.cat.lure_room)
 
@@ -235,7 +243,7 @@ class TestEpisodeOne(unittest.TestCase):
         critter = critters.make_roster(choice=lambda seq: seq[0]).get("Chirpy")
         critter.escape(self.cat.hide_room)
         held = set()
-        self.cat.unstick_door(self.world)  # as finding her does
+        self.cat.open_lure_room(self.world)  # as finding her does
         for direction in (rooms.RIGHT, rooms.UP):  # Dining Room, Sewing Nook
             self.assertTrue(self.world.move(direction))
         if self.world.current == self.cat.lure_room:

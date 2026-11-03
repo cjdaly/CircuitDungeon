@@ -48,7 +48,7 @@ class HuntCase(unittest.TestCase):
     def setUp(self):
         self.world = rooms.make_world()
         self.roster = critters.make_roster(choice=first_choice)
-        self.hunt = hunt.Hunt(self.world, self.roster)
+        self.hunt = hunt.Hunt(self.world, self.roster, order=["cat"])
         self.opening = self.hunt.start()
         self.cat = self.hunt.critter
 
@@ -73,7 +73,9 @@ class TestEscape(HuntCase):
         self.assertEqual(self.cat.location, "Sun Porch")
 
     def test_opening_announces_the_escape_and_the_clue(self):
-        self.assertEqual(self.opening, ["Chirpy escaped!", "Chirpy loves fresh air!"])
+        self.assertEqual(
+            self.opening, ["9 PM", "Chirpy escaped!", "Chirpy loves fresh air!"]
+        )
 
     def test_only_this_episodes_rooms_are_open(self):
         behind_the_door = {self.hunt.episode.lure_room}
@@ -110,14 +112,15 @@ class TestStuckDoor(HuntCase):
             self.hunt.tapped(), ["Found Chirpy!", "She wants the ball of yarn"]
         )
 
-    def test_an_episode_without_a_door_has_its_lure_open_from_the_start(self):
-        game = hunt.Hunt(rooms.make_world(), critters.make_roster(choice=first_choice))
-        original = episodes.EPISODES["cat"].stuck_door
-        episodes.EPISODES["cat"].stuck_door = None
-        self.addCleanup(setattr, episodes.EPISODES["cat"], "stuck_door", original)
+    def test_an_episode_without_an_unlock_has_its_lure_open_from_the_start(self):
+        cat = episodes.EPISODES["cat"]
+        self.addCleanup(setattr, cat, "unlock", cat.unlock)
+        cat.unlock = None
+        world = rooms.make_world()
+        game = hunt.Hunt(world, critters.make_roster(choice=first_choice), order=["cat"])
         game.start()
-        game._world.move(RIGHT)
-        self.assertIn(UP, game._world.live_exits())
+        world.move(RIGHT)
+        self.assertIn(UP, world.live_exits())
         self.assertEqual(game.entered(), ["Yarn trail! Tap the top edge"])
 
 
@@ -234,16 +237,6 @@ class TestBringingItHome(HuntCase):
 
 class TestEpisodeSequence(unittest.TestCase):
     def test_next_episode_starts_at_the_tree_with_its_own_gate(self):
-        # Reuses the cat's episode under the dog, until cd-342.14 adds real ones.
-        cat = episodes.EPISODES["cat"]
-        dog = episodes.Episode(
-            "dog", ("Living Room", "Hallway"), "Hallway", "Living Room", {}, ()
-        )
-        with_dog = dict(episodes.EPISODES, dog=dog)
-        original = episodes.EPISODES
-        episodes.EPISODES = with_dog
-        self.addCleanup(setattr, episodes, "EPISODES", original)
-
         world = rooms.make_world()
         roster = critters.make_roster(choice=first_choice)
         game = hunt.Hunt(world, roster, order=["cat", "dog"])
@@ -267,19 +260,20 @@ class TestEpisodeSequence(unittest.TestCase):
         messages = game.entered()
 
         self.assertEqual(
-            messages, ["Chirpy curls up on the rug", "Patch escaped!"]
+            messages,
+            ["Chirpy curls up on the rug", "10 PM", "Patch escaped!", "Patch loves the snow!"],
         )
-        self.assertEqual(game.episode, dog)
-        self.assertEqual(world.gate, set(dog.open_rooms))
+        self.assertIs(game.episode, episodes.EPISODES["dog"])
+        dog = game.episode
+        self.assertEqual(world.gate, set(dog.open_rooms) - {dog.lure_room})
         self.assertEqual(game.stage, hunt.HUNTING)
-        self.assertIsNot(cat, dog)
+        self.assertIsNot(episodes.EPISODES["cat"], dog)
 
-    def test_unwritten_episodes_are_skipped(self):
-        world = rooms.make_world()
-        roster = critters.make_roster(choice=first_choice)
-        game = hunt.Hunt(world, roster)
-        self.assertEqual(game.start()[0], "Chirpy escaped!")
-        self.assertEqual(game._order, ["cat"])
+    def test_the_default_order_is_every_critter_cat_first_reindeer_last(self):
+        game = hunt.Hunt(rooms.make_world(), critters.make_roster(choice=first_choice))
+        self.assertEqual(sorted(game._order), sorted(episodes.EPISODES))
+        self.assertEqual(game._order[0], "cat")
+        self.assertEqual(game._order[-1], "reindeer")
 
 
 class TestFontFiles(unittest.TestCase):
@@ -288,6 +282,143 @@ class TestFontFiles(unittest.TestCase):
             glyphs = re.search(r'GLYPHS = "(.*)"', f.read()).group(1)
         self.assertEqual(set(_TITLE), set(glyphs))
         self.assertEqual(set(_CAPTION), set(glyphs))
+
+
+def _route(world, goal):
+    """The live exits to walk from the current room to `goal`, or None."""
+    came_from = {world.current: None}
+    frontier = [world.current]
+    while frontier:
+        name = frontier.pop(0)
+        if name == goal:
+            steps = []
+            while came_from[name] is not None:
+                name, direction = came_from[name]
+                steps.append(direction)
+            return steps[::-1]
+        for direction, dest in world.get(name).exits.items():
+            if world.is_open(dest) and dest not in came_from:
+                came_from[dest] = (name, direction)
+                frontier.append(dest)
+    return None
+
+
+class TestWholeGame(unittest.TestCase):
+    """Plays every episode the way a player has to, in any order."""
+
+    ORDERS = (
+        ["cat", "dog", "robot", "squirrel", "reindeer"],
+        ["cat", "squirrel", "robot", "dog", "reindeer"],
+        ["cat", "robot", "dog", "squirrel", "reindeer"],
+    )
+
+    def setUp(self):
+        self.world = rooms.make_world()
+        self.game = hunt.Hunt(self.world, critters.make_roster(choice=first_choice))
+
+    def go(self, goal):
+        steps = _route(self.world, goal)
+        self.assertIsNotNone(steps, "can't reach {} from {}".format(goal, self.world.current))
+        messages = []
+        for direction in steps:
+            self.assertTrue(self.world.move(direction))
+            messages = self.game.entered()
+        return messages
+
+    def play_episode(self):
+        episode = self.game.episode
+        self.go(episode.hide_room)
+        self.game.tapped()  # found: the lure can now be reached
+        self.go(episode.lure_room)
+        self.assertEqual(self.game.tapped()[0], "Got the {}!".format(self.game.critter.preferred_item))
+        self.go(episode.hide_room)
+        self.game.tapped()
+        self.assertEqual(self.game.stage, hunt.GOING_HOME)
+        return self.go(critters.HOME)
+
+    def test_every_order_can_be_finished(self):
+        for order in self.ORDERS:
+            with self.subTest(order=order):
+                self.setUp()
+                self.game._order = list(order)
+                self.game.start()
+                for _ in order:
+                    self.play_episode()
+                self.assertEqual(self.game.stage, hunt.DONE)
+                self.assertIsNone(self.world.gate)
+
+    def test_the_hour_moves_on_with_each_episode(self):
+        self.game._order = list(self.ORDERS[0])
+        hours = [self.game.start()[0]]
+        for _ in self.ORDERS[0][1:]:
+            messages = self.play_episode()
+            hours.append(messages[1])
+        self.assertEqual(hours, ["9 PM", "10 PM", "11 PM", "Near midnight", "Midnight"])
+
+    def test_no_lure_can_be_had_before_its_critter_is_found(self):
+        for species in self.ORDERS[0]:
+            with self.subTest(species=species):
+                self.setUp()
+                self.game._order = [species]
+                self.game.start()
+                episode = self.game.episode
+                if episode.unlock.blocked_exit is not None:
+                    self.assertIsNone(_route(self.world, episode.lure_room))
+                else:
+                    self.go(episode.lure_room)
+                    self.game.tapped()
+                    self.assertIsNone(self.game.held)
+
+    def test_the_critter_can_always_be_found_first(self):
+        for species in self.ORDERS[0]:
+            with self.subTest(species=species):
+                self.setUp()
+                self.game._order = [species]
+                self.game.start()
+                self.assertIsNotNone(_route(self.world, self.game.episode.hide_room))
+
+    def test_each_found_critter_reveals_its_unlock(self):
+        for species in self.ORDERS[0]:
+            with self.subTest(species=species):
+                self.setUp()
+                self.game._order = [species]
+                self.game.start()
+                self.go(self.game.episode.hide_room)
+                self.assertEqual(self.game.tapped()[-1], self.game.episode.unlock.reveal)
+
+    def test_a_clue_pointing_at_the_critter_stops_once_it_is_found(self):
+        self.game._order = ["dog"]
+        self.game.start()
+        self.assertEqual(self.go("Front Porch"), ["Woof! Tap the bottom edge"])
+        self.go("Yard")
+        self.game.tapped()
+        self.assertEqual(self.go("Front Porch"), ["Tunnel! Tap the right edge"])
+
+    def test_the_snowman_only_falls_once_the_reindeer_is_found(self):
+        self.game._order = ["reindeer"]
+        self.game.start()
+        self.assertEqual(self.go("Yard"), ["He needs that nose"])
+        self.go("Roof")
+        self.game.tapped()
+        self.assertEqual(self.go("Yard"), ["Snowman's flat! Tap the carrot"])
+
+
+class TestPlayerName(unittest.TestCase):
+    def finished(self, player):
+        game = hunt.Hunt(
+            rooms.make_world(), critters.make_roster(choice=first_choice), order=[],
+            player=player,
+        )
+        return game.start(), game
+
+    def test_no_name_is_a_plain_merry_christmas(self):
+        messages, _game = self.finished(None)
+        self.assertEqual(messages, ["All home!", "Merry Christmas!"])
+
+    def test_a_name_goes_in_its_own_caption(self):
+        messages, game = self.finished("Sam")
+        self.assertEqual(messages, ["All home!", "Merry Christmas,", "Sam!"])
+        self.assertEqual(game.tapped(), ["Merry Christmas,", "Sam!"])
 
 
 class TestWrap(unittest.TestCase):
@@ -307,16 +438,19 @@ class TestWrap(unittest.TestCase):
             "Something's here! Tap it.", "Batteries! Just out of reach",
             "All home! More critters soon", "Merry Christmas!", "So close!",
             "Nothing here", "{name} {habit}!", "{name} curls up on the rug",
-            episodes.STUCK_DOOR_TEXT, episodes.DOOR_OPENS_TEXT,
-        ) + tuple(hunt._IMAGE_CLUE_TEXT.values())
-        reasons = tuple(
-            reason
-            for episode in episodes.EPISODES.values()
-            for reason in episode.closed_reasons.values()
-        )
-        for _species, item, habit, sprites in critters.CAST:
+            "All home!", "Merry Christmas,",
+        ) + tuple(hunt._IMAGE_CLUE_TEXT.values()) + hunt._HOURS
+        def episode_text(species):
+            episode = episodes.EPISODES[species]
+            unlock = episode.unlock
+            texts = list(episode.closed_reasons.values())
+            texts += [c.content for c in episode.clues if c.form == episodes.TEXT]
+            texts += [unlock.reveal, unlock.blocked_text, unlock.locked_text, unlock.ready_text]
+            return tuple(text for text in texts if text)
+
+        for species, item, habit, sprites in critters.CAST:
             for _sprite, name in sprites:
-                for template in templates + reasons:
+                for template in templates + episode_text(species):
                     text = template.format(name=name, item=item, habit=habit)
                     with self.subTest(text=text):
                         lines = hunt.wrap(text)

@@ -43,16 +43,17 @@ desktop `main.py` is untouched, and a plain re-deploy puts the game back. To go 
      stuck door up from the Dining Room creaks open.
    - Left twice → Dining Room, up → Sewing Nook: tap to take the ball of yarn.
    - Down, right, right → Sun Porch: tap Chirpy again and she follows you home.
-   - Back left three times to the tree, where she curls up on the rug. Episodes
-     2–5 aren't written yet (`cd-342.14`), so this ends the game and opens the
-     whole map.
+   - Back left three times to the tree, where she curls up on the rug. The next
+     critter escapes straight away; the dog, robot and squirrel come in a random
+     order, then the reindeer. After that the whole map opens (the real finale is
+     `cd-342.6`).
 4. **Leave it alone, set down or hung, for ~30s** → the ornament scene
    (tree, star, snow). **Touch it** → back to the game, where you left off; that
    first touch only wakes it, it doesn't also move you.
 5. Ornament still for 5 min, or handled but untouched in the game for 2 min →
    backlight off; touch wakes it.
 
-Serial (`screen /dev/tty.usbmodem*`) prints `Ch9 ready -- start: ... free=N` at
+Serial (`screen /dev/tty.usbmodem*`) prints `Ch9 ready -- start: ... player=... free=N` at
 boot, `moved <dir> -> <room>` on each move, `tap in <room>: [...]` on each
 center tap, and a stats line every 10s: longest stalls in ms, IMU errors, touch
 connects/drops. `bus rebuild` lines mean the touch chip locked the I2C bus and
@@ -60,6 +61,20 @@ the game recovered (`cd-342.16`); idle hitches of 0.5–2.5s are that. Timeouts
 live in `game/modes.py` (`DEFAULT_IDLE_TIMEOUT`) and `game/app.py`
 (`_INTERACTIVE_BLANK_TIMEOUT`, `_ORNAMENT_BLANK_TIMEOUT`) — all first guesses
 awaiting on-device feel-testing (`cd-342.7`).
+
+## Naming a board
+
+To end the game with `MERRY CHRISTMAS,` then the player's name, add this to the
+board's `settings.toml`, which deploys leave alone:
+
+```
+PLAYER = "Sam"
+```
+
+Use letters, digits and `! ' , . ?` only, since the comic fonts have nothing else.
+Anything else draws as a gap. Without it, the game says `MERRY CHRISTMAS!`.
+
+## Two boards
 
 With two boards plugged in, the second mounts as `CIRCUITPY 1`, and which is
 which depends on plug-in order. Check `DEVICE_ID` in each drive's `settings.toml`

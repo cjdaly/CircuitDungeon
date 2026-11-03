@@ -9,8 +9,8 @@ with dead-end side branches off it: false paths off the early rooms, one
 of which holds the lure, and from the 3rd room (2nd in episode 1) a branch
 to the Odd Corner -- batteries in sight, out of reach, until the finale.
 No loops, so a dead end is really a dead end. Exits into closed rooms get
-an in-world reason when bumped. An episode can also hold its lure behind a
-stuck door that opens once the critter has been found (cd-342.21).
+an in-world reason when bumped. Every episode holds its lure back until the
+critter has been found, each in its own way (see Unlock, and doc/STORY.md).
 
 Episodes are written to be order-independent -- each has its own open set,
 nothing one episode uses up is needed by another -- so the order is a
@@ -26,7 +26,7 @@ the real map).
 """
 
 from critters import HOME
-from rooms import DOWN, LEFT, UP
+from rooms import DOWN, LEFT, RIGHT, UP
 
 ODD_CORNER = "Odd Corner"
 
@@ -45,25 +45,42 @@ TEXT = "text"
 IMAGE = "image"
 CLUE_FORMS = (TEXT, IMAGE)
 
-STUCK_DOOR_TEXT = "The door's stuck"
-DOOR_OPENS_TEXT = "The stuck door creaks open!"
-
 
 class Clue:
-    def __init__(self, when, room, form, content, lure_trail=False):
+    def __init__(self, when, room, form, content, lure_trail=False, until_found=False):
         self.when = when
         self.room = room
         self.form = form
         self.content = content
         # Points at the lure: shows once the lure can be reached, until it's held.
         self.lure_trail = lure_trail
+        # Points at the critter: stops once it's been found.
+        self.until_found = until_found
+
+
+class Unlock:
+    """What keeps the lure out of reach until the critter is found.
+
+    Either an exit into the lure room is shut (`blocked_exit`, with `blocked_text`
+    when bumped), or the room is open but the lure can't be taken yet, and says
+    `locked_text`. `reveal` shows when the critter is found. `ready_text` replaces
+    the usual "<item> here!" afterwards.
+    """
+
+    def __init__(self, reveal, blocked_exit=None, blocked_text=None, locked_text=None,
+                 ready_text=None):
+        self.reveal = reveal
+        self.blocked_exit = blocked_exit
+        self.blocked_text = blocked_text
+        self.locked_text = locked_text
+        self.ready_text = ready_text
 
 
 class Episode:
     """One critter's hunt: which rooms are open, and where things are."""
 
     def __init__(self, species, open_rooms, hide_room, lure_room, closed_reasons, clues,
-                 home_text="{name} is home!", stuck_door=None):
+                 home_text="{name} is home!", unlock=None):
         self.species = species
         self.home_text = home_text
         self.open_rooms = frozenset(open_rooms)
@@ -73,27 +90,31 @@ class Episode:
         # closed one -- shown when the player bumps it.
         self.closed_reasons = dict(closed_reasons)
         self.clues = tuple(clues)
-        # (room, direction) of the exit into lure_room, shut until the critter
-        # is found. None: the lure room is open from the start.
-        self.stuck_door = stuck_door
+        self.unlock = unlock
 
     def open_on(self, world):
-        """Start of the episode: open its rooms, except behind any stuck door."""
-        if self.stuck_door is None:
-            world.set_gate(self.open_rooms)
-        else:
+        """Start of the episode: open its rooms, except behind any blocked exit."""
+        if self.unlock is not None and self.unlock.blocked_exit is not None:
             world.set_gate(self.open_rooms - {self.lure_room})
+        else:
+            world.set_gate(self.open_rooms)
 
-    def unstick_door(self, world):
+    def open_lure_room(self, world):
         world.set_gate(self.open_rooms)
 
     def reason_for(self, room, direction):
-        if (room, direction) == self.stuck_door:
-            return STUCK_DOOR_TEXT
+        if self.unlock is not None and (room, direction) == self.unlock.blocked_exit:
+            return self.unlock.blocked_text
         return self.closed_reasons.get((room, direction))
 
     def clues_for(self, when, room):
         return [c for c in self.clues if c.when == when and c.room == room]
+
+
+# Bump text shared by the episodes. It says something true: the critter is elsewhere.
+_NOT_THAT_WAY = "{name} isn't that way"
+_BOXES = "Too many boxes that way"  # the Odd Corner's other sides
+_TOO_COLD = "brr! too cold out there"
 
 
 EPISODES = {
@@ -112,8 +133,13 @@ EPISODES = {
         hide_room="Sun Porch",
         lure_room="Sewing Nook",
         closed_reasons={
-            ("Living Room", LEFT): "brr! too cold out there",
+            ("Living Room", LEFT): _TOO_COLD,
             ("Kitchen", DOWN): "too dark down there",
+            ("Hallway", LEFT): _TOO_COLD,
+            ("Hallway", RIGHT): _NOT_THAT_WAY,
+            (ODD_CORNER, LEFT): _BOXES,
+            (ODD_CORNER, RIGHT): _BOXES,
+            (ODD_CORNER, UP): _BOXES,
         },
         clues=(
             Clue(ON_ESCAPE, HOME, TEXT, "{name} loves fresh air!"),
@@ -122,7 +148,151 @@ EPISODES = {
             Clue(ON_ENTER, "Kitchen", IMAGE, "breeze"),  # from the open window, to the right
         ),
         home_text="{name} curls up on the rug",
-        stuck_door=("Dining Room", UP),
+        unlock=Unlock(
+            "The stuck door creaks open!",
+            blocked_exit=("Dining Room", UP), blocked_text="The door's stuck",
+        ),
+    ),
+    # The dog digs: a drift off the Front Porch hides the Snow Fort and its ball,
+    # until the dog, found out in the Yard, tunnels through.
+    "dog": Episode(
+        species="dog",
+        open_rooms=(
+            "Living Room", "Entryway", "Bedroom", "Front Porch", "Snow Fort",
+            "Front Walk", ODD_CORNER, "Yard",
+        ),
+        hide_room="Yard",
+        lure_room="Snow Fort",
+        closed_reasons={
+            ("Living Room", RIGHT): _NOT_THAT_WAY,
+            ("Living Room", UP): _NOT_THAT_WAY,
+            ("Bedroom", LEFT): _NOT_THAT_WAY,
+            ("Bedroom", RIGHT): _NOT_THAT_WAY,
+            ("Bedroom", UP): _NOT_THAT_WAY,
+            ("Front Walk", RIGHT): _NOT_THAT_WAY,
+            ("Yard", LEFT): _TOO_COLD,
+            ("Yard", RIGHT): _NOT_THAT_WAY,
+            ("Yard", DOWN): _TOO_COLD,
+            (ODD_CORNER, DOWN): _BOXES,
+            (ODD_CORNER, LEFT): _BOXES,
+            (ODD_CORNER, UP): _BOXES,
+        },
+        clues=(
+            Clue(ON_ESCAPE, HOME, TEXT, "{name} loves the snow!"),
+            Clue(ON_ENTER, "Entryway", TEXT, "Paw prints! Tap the bottom edge", until_found=True),
+            Clue(ON_ENTER, "Front Porch", TEXT, "Woof! Tap the bottom edge", until_found=True),
+            Clue(ON_ENTER, "Front Walk", TEXT, "Woof woof! Tap the bottom edge", until_found=True),
+            Clue(ON_ENTER, "Front Porch", TEXT, "Tunnel! Tap the right edge", lure_trail=True),
+        ),
+        unlock=Unlock(
+            "Dig dig dig! A path opens!",
+            blocked_exit=("Front Porch", RIGHT), blocked_text="The snow's too deep",
+        ),
+    ),
+    # The robot has been at the fuse box, so the Garage is pitch black until it's
+    # found. Nothing is blocked: the room is open, you just can't find anything.
+    "robot": Episode(
+        species="robot",
+        open_rooms=(
+            "Living Room", "Hallway", "Bedroom", "Back Door", "Garage",
+            "Cellar Door", ODD_CORNER, "Basement",
+        ),
+        hide_room="Basement",
+        lure_room="Garage",
+        closed_reasons={
+            ("Living Room", LEFT): _NOT_THAT_WAY,
+            ("Living Room", RIGHT): _NOT_THAT_WAY,
+            ("Bedroom", DOWN): _NOT_THAT_WAY,
+            ("Bedroom", RIGHT): _NOT_THAT_WAY,
+            ("Bedroom", UP): _NOT_THAT_WAY,
+            ("Back Door", LEFT): _TOO_COLD,
+            ("Basement", UP): _NOT_THAT_WAY,
+            ("Basement", RIGHT): _NOT_THAT_WAY,
+            (ODD_CORNER, DOWN): _BOXES,
+            (ODD_CORNER, LEFT): _BOXES,
+            (ODD_CORNER, RIGHT): _BOXES,
+        },
+        clues=(
+            Clue(ON_ESCAPE, HOME, TEXT, "{name} loves gadgets!"),
+            Clue(ON_ENTER, "Hallway", TEXT, "Beep! Tap the left edge", until_found=True),
+            Clue(ON_ENTER, "Back Door", TEXT, "Beep! Tap the bottom edge", until_found=True),
+            Clue(ON_ENTER, "Cellar Door", TEXT, "Beep beep! Tap the right edge", until_found=True),
+            Clue(ON_ENTER, "Back Door", TEXT, "Oil drips! Tap the top edge", lure_trail=True),
+        ),
+        unlock=Unlock(
+            "Zap! The lights come on!",
+            locked_text="Too dark to find anything",
+        ),
+    ),
+    # You walk past the walnuts on the dining table with no reason to take them.
+    # Flurry the owl, wild, points the way near the end.
+    "squirrel": Episode(
+        species="squirrel",
+        open_rooms=(
+            "Living Room", "Dining Room", "Entryway", "Bedroom", "Front Porch",
+            "Snow Fort", "Front Walk", ODD_CORNER, "Tree House",
+        ),
+        hide_room="Tree House",
+        lure_room="Dining Room",
+        closed_reasons={
+            ("Living Room", UP): _NOT_THAT_WAY,
+            ("Dining Room", UP): _NOT_THAT_WAY,
+            ("Dining Room", RIGHT): _NOT_THAT_WAY,
+            ("Bedroom", LEFT): _NOT_THAT_WAY,
+            ("Bedroom", RIGHT): _NOT_THAT_WAY,
+            ("Bedroom", UP): _NOT_THAT_WAY,
+            ("Front Walk", DOWN): _TOO_COLD,
+            (ODD_CORNER, DOWN): _BOXES,
+            (ODD_CORNER, LEFT): _BOXES,
+            (ODD_CORNER, UP): _BOXES,
+        },
+        clues=(
+            Clue(ON_ESCAPE, HOME, TEXT, "{name} loves to climb!"),
+            Clue(ON_ENTER, "Entryway", TEXT, "Nut shells! Tap the bottom edge", until_found=True),
+            Clue(ON_ENTER, "Front Porch", TEXT, "Nut shells! Tap the bottom edge", until_found=True),
+            Clue(ON_ENTER, "Front Walk", TEXT, "Whoo! Tap the right edge", until_found=True),
+        ),
+        unlock=Unlock(
+            "Walnuts on the dining table!",
+            locked_text="Walnuts. You're not hungry",
+        ),
+    ),
+    # Always last. Its failed takeoff from the Roof brings the snow down on the
+    # snowman in the Yard, which frees his carrot nose. Nothing later needs him.
+    "reindeer": Episode(
+        species="reindeer",
+        open_rooms=(
+            "Living Room", "Hallway", "Back Door", "Yard", "Bedroom", "Kids' Bedroom",
+            "Attic", ODD_CORNER, "Roof",
+        ),
+        hide_room="Roof",
+        lure_room="Yard",
+        closed_reasons={
+            ("Living Room", LEFT): _NOT_THAT_WAY,
+            ("Living Room", RIGHT): _NOT_THAT_WAY,
+            ("Back Door", DOWN): _NOT_THAT_WAY,
+            ("Back Door", UP): _NOT_THAT_WAY,
+            ("Yard", UP): _NOT_THAT_WAY,
+            ("Yard", LEFT): _TOO_COLD,
+            ("Yard", DOWN): _TOO_COLD,
+            ("Bedroom", DOWN): _NOT_THAT_WAY,
+            (ODD_CORNER, DOWN): _BOXES,
+            (ODD_CORNER, RIGHT): _BOXES,
+            (ODD_CORNER, UP): _BOXES,
+        },
+        clues=(
+            Clue(ON_ESCAPE, HOME, TEXT, "{name} wants to fly!"),
+            Clue(ON_ENTER, "Hallway", TEXT, "Hoofprints! Tap the right edge", until_found=True),
+            Clue(ON_ENTER, "Bedroom", TEXT, "Clomp! Tap the top edge", until_found=True),
+            Clue(ON_ENTER, "Attic", TEXT, "Clomp! Tap the top edge", until_found=True),
+            Clue(ON_ENTER, "Hallway", TEXT, "Cold air! Tap the left edge", lure_trail=True),
+            Clue(ON_ENTER, "Back Door", TEXT, "Snow crash! Tap the left edge", lure_trail=True),
+        ),
+        unlock=Unlock(
+            "Whump! Snow slides off!",
+            locked_text="He needs that nose",
+            ready_text="Snowman's flat! Tap the carrot",
+        ),
     ),
 }
 
