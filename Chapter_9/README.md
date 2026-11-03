@@ -37,8 +37,8 @@ board see [`doc/DEPLOY.md`](doc/DEPLOY.md).
   Chapter 8's `cd-45v.3`, updated for what on-device testing there actually
   found: a toast is a poor way to answer "what room am I in", so that's now
   `RoomLabel` (persistent), while `RoomBanner` (the original toast) is kept
-  for genuinely transient messages. Font is plain `terminalio.FONT` for
-  now -- see `cd-bp3.11` (investigating a comic-book-style font instead).
+  for genuinely transient messages. Fonts come from `game/comic_fonts.py`
+  (`cd-bp3.13`): Luckiest Guy for room names, Bangers for messages, all caps.
 * **Mixed sprite-scale rendering** (`game/sprite_scale.py`, `cd-zw2.2`) --
   generic helpers for a 16x16 scenery `TileGrid` from a tile sheet + layout,
   and free-positioned 32x32 actor sprites kept clear of the round bezel

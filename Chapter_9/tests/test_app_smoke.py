@@ -18,9 +18,11 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "game"))
 
-_STUBBED = ("displayio", "vectorio", "terminalio", "adafruit_display_text",
-            "adafruit_display_text.bitmap_label")
-_GAME_MODULES = ("app", "nav_view", "room_banner", "ornament")
+_STUBBED = ("displayio", "vectorio", "adafruit_display_text",
+            "adafruit_display_text.bitmap_label",
+            "adafruit_bitmap_font", "adafruit_bitmap_font.bitmap_font")
+_GAME_MODULES = ("app", "nav_view", "room_banner", "comic_fonts", "ornament")
+_GAME_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "game")
 _saved = {}
 _labels = []
 
@@ -49,6 +51,15 @@ class _Shape:
         self.__dict__.update(kw)
 
 
+class _Font:
+    def __init__(self, path):
+        if not os.path.exists(os.path.join(_GAME_DIR, path)):  # relative, as on the device
+            raise OSError("no font file: " + path)
+
+    def load_glyphs(self, glyphs):
+        pass
+
+
 class _Label:
     def __init__(self, font, **kw):
         self.text = ""
@@ -66,15 +77,18 @@ def setUpModule():
     displayio.Palette, displayio.TileGrid = _Palette, _TileGrid
     vectorio = types.ModuleType("vectorio")
     vectorio.Circle = vectorio.Rectangle = vectorio.Polygon = _Shape
-    terminalio = types.ModuleType("terminalio")
-    terminalio.FONT = object()
+    font_pkg = types.ModuleType("adafruit_bitmap_font")
+    font_mod = types.ModuleType("adafruit_bitmap_font.bitmap_font")
+    font_mod.load_font = _Font
+    font_pkg.bitmap_font = font_mod
     pkg = types.ModuleType("adafruit_display_text")
     bl = types.ModuleType("adafruit_display_text.bitmap_label")
     bl.Label = _Label
     pkg.bitmap_label = bl
     sys.modules.update({
-        "displayio": displayio, "vectorio": vectorio, "terminalio": terminalio,
+        "displayio": displayio, "vectorio": vectorio,
         "adafruit_display_text": pkg, "adafruit_display_text.bitmap_label": bl,
+        "adafruit_bitmap_font": font_pkg, "adafruit_bitmap_font.bitmap_font": font_mod,
     })
 
 
@@ -172,11 +186,13 @@ class _Run:
         return [lb for lb in _labels if lb.anchored_position == (120, 100)][0].text
 
     def banner(self):
-        return [lb for lb in _labels if lb.anchored_position == (120, 172)][0].text
+        """The banner's lines, top to bottom, joined by newlines."""
+        lines = [lb for lb in _labels if 146 <= lb.anchored_position[1] <= 198]
+        return "\n".join(lb.text for lb in lines if lb.text)
 
     def message(self):
-        """The banner text as one line, with wrapping and centering undone."""
-        return " ".join(line.strip() for line in self.banner().split("\n"))
+        """The banner text as one line, with wrapping undone."""
+        return self.banner().replace("\n", " ")
 
     def held(self):
         return [lb for lb in _labels if lb.anchored_position == (120, 72)][0].text
@@ -250,14 +266,14 @@ class TestEpisodeOne(unittest.TestCase):
 
     def test_closed_exit_shows_its_reason_and_does_not_move(self):
         r = _Run(windows=_taps(_LEFT_EDGE), seconds=1.5)
-        self.assertEqual(r.room(), "Living Room")
+        self.assertEqual(r.room(), "LIVING ROOM")
         self.assertEqual(r.message(), "BRR! TOO COLD OUT THERE")
 
     def test_center_tap_takes_the_yarn(self):
         r = _Run(windows=_taps(*self.TO_YARN, _CENTER), seconds=2.5)
-        self.assertEqual(r.room(), "Sewing Nook")
+        self.assertEqual(r.room(), "SEWING NOOK")
         self.assertEqual(r.message(), "GOT THE BALL OF YARN!")
-        self.assertEqual(r.held(), "Holding ball of yarn")
+        self.assertEqual(r.held(), "HOLDING BALL OF YARN")
 
     def test_edge_tap_in_the_yarn_room_does_not_take_it(self):
         r = _Run(windows=_taps(*self.TO_YARN, _LEFT_EDGE), seconds=2.5)
@@ -270,7 +286,7 @@ class TestEpisodeOne(unittest.TestCase):
 
     def test_cat_without_yarn_says_what_it_wants(self):
         r = _Run(windows=_taps(_RIGHT_EDGE, _RIGHT_EDGE, _RIGHT_EDGE, _CENTER), seconds=3.0)
-        self.assertEqual(r.room(), "Sun Porch")
+        self.assertEqual(r.room(), "SUN PORCH")
         self.assertEqual(r.message(), "FOUND CHIRPY!")
 
     def test_messages_play_in_sequence(self):
@@ -282,7 +298,7 @@ class TestEpisodeOne(unittest.TestCase):
             *self.TO_YARN, _CENTER, *self.YARN_TO_CAT, _CENTER, *self.CAT_TO_TREE
         )
         r = _Run(windows=touches, seconds=6.0)
-        self.assertEqual(r.room(), "Living Room")
+        self.assertEqual(r.room(), "LIVING ROOM")
         self.assertEqual(r.held(), "")
         self.assertEqual(r.message(), "CHIRPY CURLS UP ON THE RUG")
 
@@ -295,18 +311,18 @@ class TestEpisodeOne(unittest.TestCase):
             _LEFT_EDGE,
         )
         r = _Run(windows=touches, seconds=7.0)
-        self.assertEqual(r.room(), "Entryway")
+        self.assertEqual(r.room(), "ENTRYWAY")
 
 
 class TestAppSmoke(unittest.TestCase):
     def test_starts_in_living_room_interactive(self):
         r = _Run(seconds=1.0)
-        self.assertEqual(r.room(), "Living Room")
+        self.assertEqual(r.room(), "LIVING ROOM")
         self.assertIs(r.display.root_group, r.nav_group)
 
     def test_tap_on_right_edge_moves_to_dining_room(self):
         r = _Run(windows=[(0.5, 0.7, _RIGHT_EDGE)], seconds=3.0)
-        self.assertEqual(r.room(), "Dining Room")
+        self.assertEqual(r.room(), "DINING ROOM")
 
     def test_swipe_from_left_edge_moves_when_that_exit_is_open(self):
         r = _Run(
@@ -316,17 +332,17 @@ class TestAppSmoke(unittest.TestCase):
             ],
             seconds=3.0,
         )
-        self.assertEqual(r.room(), "Living Room")
+        self.assertEqual(r.room(), "LIVING ROOM")
 
     def test_swipe_from_center_does_not_move(self):
         r = _Run(windows=[(0.5, 0.9, _swipe_right_from(100, 120))], seconds=3.0)
-        self.assertEqual(r.room(), "Living Room")
+        self.assertEqual(r.room(), "LIVING ROOM")
 
     def test_blocked_edge_flashes_banner(self):
         # Living Room has no DOWN exit (UP is the Hallway, cd-342.12).
         r = _Run(windows=[(0.5, 0.7, _at(120, 230))], seconds=2.0)
-        self.assertEqual(r.room(), "Living Room")
-        self.assertEqual(r.banner(), "can't go down")
+        self.assertEqual(r.room(), "LIVING ROOM")
+        self.assertEqual(r.banner(), "CAN'T GO DOWN")
 
     def test_idle_and_still_goes_to_ornament(self):
         r = _Run(seconds=35.0)
@@ -342,7 +358,7 @@ class TestAppSmoke(unittest.TestCase):
         # if it weren't swallowed as the wake-up touch.
         r = _Run(windows=[(40.0, 40.2, _RIGHT_EDGE)], seconds=45.0)
         self.assertIs(r.display.root_group, r.nav_group)
-        self.assertEqual(r.room(), "Living Room")
+        self.assertEqual(r.room(), "LIVING ROOM")
 
     def test_navigation_works_again_after_waking_from_ornament(self):
         r = _Run(
@@ -352,7 +368,7 @@ class TestAppSmoke(unittest.TestCase):
             ],
             seconds=45.0,
         )
-        self.assertEqual(r.room(), "Dining Room")
+        self.assertEqual(r.room(), "DINING ROOM")
 
     def test_interactive_blanks_when_handled_but_untouched(self):
         r = _Run(jerk=10.0, seconds=125.0)

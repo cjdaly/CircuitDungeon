@@ -31,7 +31,7 @@ _IMAGE_CLUE_TEXT = {
     "breeze": "You feel a chilly breeze",
 }
 
-_BANNER_CHARS = 15  # scale-2 terminalio on the round panel, see nav_view
+_BANNER_CHARS = 15  # Bangers on the round panel; tests check the real pixel widths
 
 
 def wrap(text, width=_BANNER_CHARS):

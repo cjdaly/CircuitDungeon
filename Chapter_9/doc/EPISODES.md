@@ -292,7 +292,11 @@ Entryway x- Living Room -- Dining Room -- Kitchen -- Sun Porch (Chirpy)
 
 ## 10. Open: does the reindeer fly? (Chris, 2026-10-17)
 
-Chris isn't sure. A flying reindeer seems at odds with the critters having
+**DECIDED FOR NOW (Chris, 2026-11-02): option (c)**, the fresh battery is what
+makes the reindeer fly. Chris may revisit this once the whole story arc is
+clearer.
+
+Chris wasn't sure. A flying reindeer seems at odds with the critters having
 to climb on each other to reach the batteries. Comic-logic options that
 make it fit:
 

@@ -72,7 +72,7 @@ fi
 # qmi8658c is vendored (not in the Adafruit bundle) -- copy it straight from
 # Chapter_8/vendor/, not via circup. See Chapter_8/doc/HARDWARE.md.
 missing=()
-for lib in adafruit_display_text adafruit_register; do
+for lib in adafruit_bitmap_font adafruit_display_text adafruit_register; do
   [ -d "$TARGET/lib/$lib" ] || missing+=("$lib/")
 done
 for mpy in adafruit_cst8xx adafruit_gc9a01a adafruit_ticks; do
@@ -82,7 +82,7 @@ done
 if [ ${#missing[@]} -ne 0 ]; then
   echo
   echo "deploy: WARNING — missing from $TARGET/lib/ :  ${missing[*]}" >&2
-  echo "        circup --path $TARGET install adafruit_cst8xx adafruit_gc9a01a adafruit_register adafruit_display_text adafruit_ticks" >&2
+  echo "        circup --path $TARGET install adafruit_bitmap_font adafruit_cst8xx adafruit_gc9a01a adafruit_register adafruit_display_text adafruit_ticks" >&2
   echo "        cp $VENDOR/qmi8658c.py $TARGET/lib/" >&2
 fi
 

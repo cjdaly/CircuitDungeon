@@ -5,8 +5,8 @@ as Chapter 8, so **the one-time device setup is identical** — CircuitPython
 10.2.1 firmware, the `lib/` bundle libraries, the vendored `qmi8658c.py`, and
 the per-unit `settings.toml` (`DEVICE_ID`, battery info). Follow steps 1–4 of
 [`Chapter_8/doc/DEPLOY.md`](../../Chapter_8/doc/DEPLOY.md); a unit that's
-already running Chapter 8 needs nothing more. (`adafruit_bitmap_font` isn't
-needed yet — Ch9 doesn't load the comic fonts until `cd-bp3.13`.)
+already running Chapter 8 needs nothing more. Ch9 needs `adafruit_bitmap_font`
+in `lib/` for its comic fonts (`game/fonts/`).
 
 ## Deploy
 

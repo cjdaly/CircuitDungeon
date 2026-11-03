@@ -26,6 +26,7 @@ import math
 import displayio
 import vectorio
 
+import comic_fonts
 import edge_gesture
 import rooms
 from hunt import wrap
@@ -36,9 +37,8 @@ _BLOCKED_FLASH_COLOR = 0xE04040
 
 _ROOM_NAME_Y = 100  # center-ish; clear of the edge markers' row/column
 _BANNER_Y = 172  # below the room name, above the DOWN marker
-_BANNER_BAR_HEIGHT = 52  # two scale-2 lines
 _HELD_Y = 72  # above the room name, below the UP marker
-_HELD_COLOR = 0xFFD040
+_TEXT_YELLOW = 0xFFE040  # messages and the held item; the room name stays white
 _MESSAGE_BASE_S = 2.0  # how long a message stays up: base + per character
 _MESSAGE_PER_CHAR_S = 0.05
 
@@ -91,11 +91,11 @@ class NavView:
             )
             self._markers[direction] = palette
 
-        self._label = RoomLabel(self.group, width, y=_ROOM_NAME_Y)
-        self._held = RoomLabel(self.group, width, y=_HELD_Y, color=_HELD_COLOR, scale=1)
-        self._banner = RoomBanner(
-            self.group, width, y=_BANNER_Y, bar_height=_BANNER_BAR_HEIGHT
+        self._label = RoomLabel(self.group, width, comic_fonts.title(), y=_ROOM_NAME_Y)
+        self._held = RoomLabel(
+            self.group, width, comic_fonts.caption(), y=_HELD_Y, color=_TEXT_YELLOW
         )
+        self._banner = RoomBanner(self.group, width, comic_fonts.caption(), y=_BANNER_Y)
         self._live_exits = set()
         self._messages = []
 
@@ -115,12 +115,9 @@ class NavView:
             self._show_next(now)
 
     def _show_next(self, now):
-        text = self._messages.pop(0).upper()
-        lines = wrap(text)
-        widest = max(len(line) for line in lines)
-        centered = [" " * ((widest - len(line)) // 2) + line for line in lines]
+        text = self._messages.pop(0)
         self._banner.show(
-            "\n".join(centered), now,
+            "\n".join(wrap(text)), now, color=_TEXT_YELLOW,
             duration=_MESSAGE_BASE_S + _MESSAGE_PER_CHAR_S * len(text),
         )
 

@@ -4,6 +4,7 @@
 #   python3 Chapter_9/tests/test_hunt.py
 
 import os
+import re
 import sys
 import unittest
 
@@ -14,6 +15,29 @@ import episodes  # noqa: E402
 import hunt  # noqa: E402
 import rooms  # noqa: E402
 from rooms import DOWN, LEFT, RIGHT, UP  # noqa: E402
+
+_GAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "game")
+
+# Widths available on the round panel, in pixels, from nav_view's layout.
+_BANNER_PX = 184  # the panel's width at the bottom of a banner's second line
+_ROOM_NAME_PX = 178  # between the left and right edge markers
+_HELD_PX = 207  # the panel's width at the top of the held-item label
+
+
+def _advance_widths(filename):
+    """{character: advance width in pixels} from a font file in game/fonts."""
+    with open(os.path.join(_GAME, "fonts", filename)) as f:
+        found = re.findall(r"ENCODING (\d+).*?DWIDTH (\d+)", f.read(), re.S)
+    return {chr(int(code)): int(width) for code, width in found}
+
+
+_TITLE = _advance_widths("luckiestguy-spaced45-24.bdf")
+_CAPTION = _advance_widths("bangers-spaced45-24.bdf")
+
+
+def _px(text, font):
+    """Width of `text` as drawn: upper-cased, and every character must exist."""
+    return sum(font[c] for c in text.upper())
 
 
 def first_choice(options):
@@ -205,6 +229,14 @@ class TestEpisodeSequence(unittest.TestCase):
         self.assertEqual(game._order, ["cat"])
 
 
+class TestFontFiles(unittest.TestCase):
+    def test_glyph_list_matches_both_font_files(self):
+        with open(os.path.join(_GAME, "comic_fonts.py")) as f:
+            glyphs = re.search(r'GLYPHS = "(.*)"', f.read()).group(1)
+        self.assertEqual(set(_TITLE), set(glyphs))
+        self.assertEqual(set(_CAPTION), set(glyphs))
+
+
 class TestWrap(unittest.TestCase):
     def test_short_text_stays_on_one_line(self):
         self.assertEqual(hunt.wrap("Nothing here"), ["Nothing here"])
@@ -222,6 +254,7 @@ class TestWrap(unittest.TestCase):
             "Something's here! Tap it.", "Batteries! Just out of reach",
             "All home! More critters soon", "Merry Christmas!", "So close!",
             "Nothing here", "{name} {habit}!", "{name} curls up on the rug",
+            "can't go right",
         ) + tuple(hunt._IMAGE_CLUE_TEXT.values())
         reasons = tuple(
             reason
@@ -236,6 +269,18 @@ class TestWrap(unittest.TestCase):
                         lines = hunt.wrap(text)
                         self.assertLessEqual(len(lines), 2, lines)
                         self.assertLessEqual(max(len(ln) for ln in lines), 15, lines)
+                        for line in lines:
+                            self.assertLessEqual(_px(line, _CAPTION), _BANNER_PX, line)
+
+    def test_every_room_name_fits_between_the_side_markers(self):
+        for room in rooms.make_world().all_rooms():
+            with self.subTest(room=room.name):
+                self.assertLessEqual(_px(room.name, _TITLE), _ROOM_NAME_PX)
+
+    def test_every_held_label_fits_the_panel(self):
+        for _species, item, _habit, _sprites in critters.CAST:
+            with self.subTest(item=item):
+                self.assertLessEqual(_px("Holding " + item, _CAPTION), _HELD_PX)
 
 
 if __name__ == "__main__":
