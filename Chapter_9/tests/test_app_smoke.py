@@ -21,7 +21,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "game"))
 _STUBBED = ("displayio", "vectorio", "bitmaptools", "adafruit_display_text",
             "adafruit_display_text.bitmap_label",
             "adafruit_bitmap_font", "adafruit_bitmap_font.bitmap_font")
-_GAME_MODULES = ("app", "nav_view", "room_banner", "comic", "comic_fonts", "ornament")
+_GAME_MODULES = ("app", "nav_view", "room_banner", "comic", "comic_fonts", "ornament",
+                 "scene_view")
 _GAME_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "game")
 _saved = {}
 _labels = []
@@ -47,6 +48,13 @@ class _Palette(dict):
 
     def make_transparent(self, index):
         pass
+
+
+class _OnDiskBitmap(_Bitmap):
+    def __init__(self, path):
+        if not os.path.exists(os.path.join(_GAME_DIR, path.lstrip("/"))):
+            raise OSError("no bitmap file: " + path)
+        self.pixel_shader = _Palette()
 
 
 class _TileGrid:
@@ -90,6 +98,7 @@ def setUpModule():
     displayio = types.ModuleType("displayio")
     displayio.Group, displayio.Bitmap = _Group, _Bitmap
     displayio.Palette, displayio.TileGrid = _Palette, _TileGrid
+    displayio.OnDiskBitmap = _OnDiskBitmap
     vectorio = types.ModuleType("vectorio")
     vectorio.Circle = vectorio.Rectangle = vectorio.Polygon = _Shape
     font_pkg = types.ModuleType("adafruit_bitmap_font")
@@ -215,7 +224,7 @@ class _Run:
         return found
 
     def room(self):
-        return [lb for lb in _labels if lb.anchored_position == (120, 100)][0].text
+        return [lb for lb in _labels if lb.anchored_position == (120, 50)][0].text
 
     def message(self):
         """The caption's text as one line, with wrapping undone."""
@@ -226,8 +235,10 @@ class _Run:
         words = [lb.text for lb in self.visible_labels() if lb.anchored_position == (120, 120)]
         return words[0] if words else None
 
-    def held(self):
-        return [lb for lb in _labels if lb.anchored_position == (120, 72)][0].text
+    def holding(self):
+        """Whether the held-item icon is showing (scene_view's 6th layer)."""
+        layers = [g for g in self.nav_group[1] if isinstance(g, _Group) and len(g) == 7][0]
+        return not layers[5].hidden
 
     def scene_x(self):
         return self.nav_group[1].x
@@ -320,25 +331,25 @@ class TestEpisodeOne(unittest.TestCase):
         r = _Run(windows=_taps(*self.TO_YARN, _CENTER), seconds=_after_taps(len(self.TO_YARN) + 1))
         self.assertEqual(r.room(), "SEWING NOOK")
         self.assertEqual(r.message(), "GOT THE BALL OF YARN!")
-        self.assertEqual(r.held(), "HOLDING BALL OF YARN")
+        self.assertTrue(r.holding())
 
     def test_edge_tap_in_the_yarn_room_does_not_take_it(self):
         r = _Run(windows=_taps(*self.TO_YARN, _LEFT_EDGE), seconds=_after_taps(len(self.TO_YARN) + 1))
-        self.assertEqual(r.held(), "")
+        self.assertFalse(r.holding())
 
     def test_a_swipe_from_the_center_does_not_count_as_a_tap(self):
         at = _OPENING_S + len(self.TO_YARN) * _TAP_SPACING
         touches = _taps(*self.TO_YARN) + [(at, at + 0.4, _swipe_right_from(90, 120))]
         r = _Run(windows=touches, seconds=at + 1.0)
-        self.assertEqual(r.held(), "")
+        self.assertFalse(r.holding())
 
     def test_cat_without_yarn_says_what_it_wants(self):
         r = _Run(
             windows=_taps(_RIGHT_EDGE, _RIGHT_EDGE, _RIGHT_EDGE, _CENTER),
-            seconds=_after_taps(4),
+            seconds=_after_taps(4, wait=0.5),
         )
         self.assertEqual(r.room(), "SUN PORCH")
-        self.assertEqual(r.message(), "FOUND CHIRPY!")
+        self.assertEqual(r.burst(), "FOUND!")
 
     def test_messages_play_in_sequence(self):
         r = _Run(
@@ -358,7 +369,7 @@ class TestEpisodeOne(unittest.TestCase):
         )
         r = _Run(windows=touches, seconds=_after_taps(len(touches)))
         self.assertEqual(r.room(), "LIVING ROOM")
-        self.assertEqual(r.held(), "")
+        self.assertFalse(r.holding())
         self.assertEqual(r.message(), "CHIRPY CURLS UP ON THE RUG")
 
         r = _Run(windows=touches, seconds=_after_taps(len(touches), wait=4.0))
@@ -380,11 +391,11 @@ class TestOverlays(unittest.TestCase):
         self.assertEqual(r.message(), "CHIRPY ESCAPED!")
 
     def test_a_center_tap_during_a_caption_only_advances(self):
-        yarn_room = TestEpisodeOne.TO_YARN
-        at = _OPENING_S + (len(yarn_room) - 1) * _TAP_SPACING + 0.5  # "Ball of yarn here!" is up
-        r = _Run(windows=_taps(*yarn_room) + [(at, at + 0.2, _CENTER)], seconds=at + 1.0)
-        self.assertEqual(r.room(), "SEWING NOOK")
-        self.assertEqual(r.held(), "")
+        to_odd_corner = (_RIGHT_EDGE, _RIGHT_EDGE, _TOP_EDGE)
+        at = _OPENING_S + (len(to_odd_corner) - 1) * _TAP_SPACING + 0.5  # "Batteries!" is up
+        r = _Run(windows=_taps(*to_odd_corner) + [(at, at + 0.2, _CENTER)], seconds=at + 1.0)
+        self.assertEqual(r.room(), "ODD CORNER")
+        self.assertEqual(r.message(), "")  # dismissed, and no "So close!" from a real tap
 
     def test_moving_works_as_soon_as_the_last_caption_is_tapped_away(self):
         r = _Run(

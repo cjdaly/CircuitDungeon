@@ -15,7 +15,7 @@ import edge_gesture  # noqa: E402
 import rooms  # noqa: E402
 
 WIDTH = HEIGHT = 240
-MARGIN = edge_gesture.EDGE_MARGIN
+RADIUS = edge_gesture.CENTER_RADIUS
 MID = WIDTH // 2
 
 
@@ -41,8 +41,8 @@ class TestEdgeGestureTracker(unittest.TestCase):
         self._tap(2, MID)
         self.assertFalse(self.tracker.center_tapped)
 
-    def test_corner_tap_is_not_a_center_tap(self):
-        self.assertIsNone(self._tap(2, 2))
+    def test_off_axis_tap_in_the_ring_is_not_a_center_tap(self):
+        self._tap(40, 60)
         self.assertFalse(self.tracker.center_tapped)
 
     def test_swipe_starting_in_the_middle_is_not_a_center_tap(self):
@@ -56,7 +56,7 @@ class TestEdgeGestureTracker(unittest.TestCase):
         self.assertTrue(self.tracker.gesture_done)
         self._tap(2, MID, t=1.0)
         self.assertTrue(self.tracker.gesture_done)
-        self._tap(2, 2, t=2.0)  # a corner has no direction, but it's still a tap
+        self._tap(40, 60, t=2.0)
         self.assertTrue(self.tracker.gesture_done)
 
     def test_a_swipe_counts_as_done(self):
@@ -85,9 +85,33 @@ class TestEdgeGestureTracker(unittest.TestCase):
     def test_tap_in_the_middle_is_none(self):
         self.assertIsNone(self._tap(MID, MID))
 
-    def test_tap_in_a_corner_is_ambiguous_and_dropped(self):
-        self.assertIsNone(self._tap(2, 2))
-        self.assertIsNone(self._tap(WIDTH - 2, HEIGHT - 2))
+    def test_off_axis_tap_goes_toward_the_nearer_edge(self):
+        # The round panel's ring is split along the diagonals, no dead corners.
+        self.assertEqual(self._tap(30, 80), rooms.LEFT)
+        self.assertEqual(self._tap(80, 30), rooms.UP)
+        self.assertEqual(self._tap(WIDTH - 30, HEIGHT - 80), rooms.RIGHT)
+        self.assertEqual(self._tap(WIDTH - 80, HEIGHT - 30), rooms.DOWN)
+
+    def test_tap_well_inside_an_edge_wedge_still_moves(self):
+        # 50px in from the left edge -- missed by the old 45px band.
+        self.assertEqual(self._tap(50, MID), rooms.LEFT)
+        self.assertEqual(self._tap(MID, HEIGHT - 50), rooms.DOWN)
+
+    def test_a_drifting_tap_still_counts(self):
+        # The finger slides 20px while pressing -- short of a swipe.
+        self.tracker.update((10, MID), 0.0)
+        self.tracker.update((25, MID + 13), 0.1)
+        self.assertEqual(self.tracker.update(None, 0.15), rooms.LEFT)
+
+    def test_a_slow_deliberate_tap_still_counts(self):
+        self.tracker.update((MID, 10), 0.0)
+        self.tracker.update((MID, 10), 0.7)
+        self.assertEqual(self.tracker.update(None, 0.75), rooms.UP)
+
+    def test_a_resting_thumb_does_not_move(self):
+        self.tracker.update((10, MID), 0.0)
+        self.tracker.update((10, MID), 2.0)
+        self.assertIsNone(self.tracker.update(None, 2.05))
 
     def _swipe(self, start, end):
         self.assertIsNone(self.tracker.update(start, 0.0))
@@ -110,9 +134,10 @@ class TestEdgeGestureTracker(unittest.TestCase):
         self.assertEqual(self._swipe((2, MID), (2, MID + 60)), rooms.UP)
         self.assertEqual(self._swipe((2, 2), (70, 2)), rooms.LEFT)
 
-    def test_margin_boundary(self):
-        self.assertEqual(self._tap(MARGIN - 1, MID), rooms.LEFT)
-        self.assertIsNone(self._tap(MARGIN, MID))
+    def test_center_radius_boundary(self):
+        self.assertEqual(self._tap(MID - RADIUS, MID), rooms.LEFT)
+        self.assertIsNone(self._tap(MID - RADIUS + 1, MID))
+        self.assertTrue(self.tracker.center_tapped)
 
     def test_consecutive_gestures_each_get_their_own_start(self):
         self.assertEqual(self._tap(2, MID, t=0.0), rooms.LEFT)

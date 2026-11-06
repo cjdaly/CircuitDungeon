@@ -143,6 +143,14 @@ over the room's colour key — not a map you walk around in.
   it sits: centre is now where the art goes, so the label moves into a
   top caption box. Check on the device that it still reads, and that it
   doesn't collide with the UP edge marker.
+- **Built 2026-11-06 (`cd-342.26`):** the room name is a persistent Bangers
+  label at the top (y=50), and the middle shows what's in the room to tap
+  (`scene_view.py`, art in `scene_art.py`, 16x16 drawn at 4x like the critters):
+  each critter peeks over its hiding spot (potted plant, snowy bush, cardboard
+  box, leaf pile, chimney) while the spot rustles; found, it stands in front;
+  lures bob in their rooms; the item in hand sits bottom left, a critter
+  following you home hops bottom right. No room backdrops yet — the black ink
+  outlines are lost on the dark background until they land.
 - **First visit:** iris in, then 1–2 captions of story/flavour. **Revisits:**
   iris in, location caption only.
 - **A hiding critter** is never fully visible: a tail sticking out from
@@ -179,11 +187,14 @@ lives in flash (38KB of 16MB) and costs almost no RAM.
 
 ## 9. Constraints from what's already built
 
-- **Touch zones.** Edge navigation (`edge_gesture.EDGE_MARGIN` = 45px,
-  tuned on hardware) claims everything within 45px of the square frame's
-  edges, leaving a **150x150 centre square** for in-panel taps. So:
-  - *Tap targets* (a bush to search, a box, an item) must sit in that
-    centre square.
+- **Touch zones.** The round panel is split radially (`edge_gesture`):
+  a **centre disk** (`CENTER_RADIUS` = 60px) for in-panel taps, and the
+  ring outside it cut into four wedges along the diagonals — tap a wedge
+  to go that way. Swipes drag the world from anywhere. (Was 45px bands
+  along the square frame's edges until 2026-11-06; on round glass they
+  were thin slivers and edge taps kept missing.) So:
+  - *Tap targets* (a bush to search, a box, an item) must sit inside the
+    centre disk (120px across).
   - *Captions* in a top/bottom band sit inside an edge zone. While any
     caption or balloon is up, **a tap anywhere advances or dismisses it,
     and navigation is suspended** until the overlay clears. Otherwise

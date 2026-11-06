@@ -26,9 +26,14 @@ _TOUCH_ERRORS = (ValueError, OSError, RuntimeError)
 
 # Gesture thresholds, in touch-panel units (assumed == screen pixels, 240x240)
 # and seconds.
-_TAP_MAX_MOVE = 12
-_TAP_MAX_DURATION = 0.4
+# Anything shorter than a swipe is a tap -- no dead band between them, since
+# a finger pressing near the bezel drifts and a missed tap reads as "broken"
+# (cd-342 feedback 2026-11-06; was 12px / 0.4s, which dropped drifty or
+# deliberate taps silently). The duration cap only stops a resting thumb
+# from firing a move when it lets go.
 _SWIPE_MIN_MOVE = 30
+_TAP_MAX_MOVE = _SWIPE_MIN_MOVE - 1
+_TAP_MAX_DURATION = 1.0
 
 
 class SafeTouch:

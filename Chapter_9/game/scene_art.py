@@ -1,0 +1,281 @@
+# SPDX-License-Identifier: MIT
+"""Hand-drawn 16x16 scene art: lures, hiding spots, props -- cd-342.26.
+
+Each picture is 16 rows of 16 characters; KEY maps a character to an index in
+COLORS (DawnBringer's DB16, the critters' palette, doc/STYLE.md sec 3), and '.'
+is see-through. scene_view.py paints them into one sheet at start-up and draws
+them at 4x, the same pixel size as the critters (16px source, nn-doubled to 32,
+shown at 2x).
+
+Plain strings, no display code, so tests/test_scene_art.py checks the shapes
+under desktop Python and tools/preview.py can show them.
+"""
+
+COLORS = (
+    0x000000,  # 0  see-through
+    0x140C1C,  # 1  # ink
+    0x442434,  # 2  p plum
+    0x30346D,  # 3  n navy
+    0x4E4A4E,  # 4  d dark grey
+    0x854C30,  # 5  o brown
+    0x346524,  # 6  G dark green
+    0xD04648,  # 7  r red
+    0x757161,  # 8  g grey
+    0x597DCE,  # 9  b blue
+    0xD27D2C,  # 10 O orange
+    0x8595A1,  # 11 s steel
+    0x6DAA2C,  # 12 l leaf green
+    0xD2AA99,  # 13 k skin / tan
+    0x6DC2CA,  # 14 c cyan
+    0xDAD45E,  # 15 y yellow
+    0xDEEED6,  # 16 w white
+)
+KEY = {
+    ".": 0, "#": 1, "p": 2, "n": 3, "d": 4, "o": 5, "G": 6, "r": 7, "g": 8,
+    "b": 9, "O": 10, "s": 11, "l": 12, "k": 13, "c": 14, "y": 15, "w": 16,
+}
+
+TILE = 16
+
+ART = {
+    # ---- lures ----------------------------------------------------------- #
+    "ball of yarn": (
+        "................",
+        ".....######.....",
+        "...##rrrrrr##...",
+        "..#rrwwrrrrrr#..",
+        ".#rrwrrwwrrrrr#.",
+        ".#rwrrrrrwwrrr#.",
+        "#rrwrrwwrrrwrrr#",
+        "#rwrrwrrwrrrwrr#",
+        "#rwrwrrrrwrrwrr#",
+        "#rrwrrrwwrrwrrr#",
+        ".#rrrwwrrrwrrr#.",
+        ".#rrrrrrwwrrrp#.",
+        "..#rrrrrrrrrp#..",
+        "...##rrrrpp##...",
+        ".....######.....",
+        "................",
+    ),
+    "squeaky ball": (
+        "................",
+        ".....######.....",
+        "...##bbbbbb##...",
+        "..#bwwbbbbbbb#..",
+        ".#bwwbbbbbbbbb#.",
+        ".#bwbbbbbbbbbb#.",
+        "#yyyyyyyyyyyyyy#",
+        "#yyyyyyyyyyyyyy#",
+        "#bbbbbbbbbbbbbb#",
+        "#bbbbbbbbbbbbbn#",
+        ".#bbbbbbbbbbbn#.",
+        ".#bbbbbbbbbbnn#.",
+        "..#nbbbbbbbnn#..",
+        "...##nnnnnn##...",
+        ".....######.....",
+        "................",
+    ),
+    "walnuts": (
+        "................",
+        "................",
+        "................",
+        "....####........",
+        "...#kkko#.####..",
+        "..#kokkoo#kkko#.",
+        "..#kkokko#okkko#",
+        "..#okkoko#kokko#",
+        "#wwwwwwwwwwwwww#",
+        "#bbbbbbbbbbbbbb#",
+        "#wbbbbbbbbbbbbn#",
+        ".#bbbbbbbbbbbn#.",
+        "..#nbbbbbbbbn#..",
+        "...##nnnnnnn#...",
+        ".....#######....",
+        "................",
+    ),
+    "carrot": (
+        "..........#..#..",
+        ".........#l##l#.",
+        ".........#llGl#.",
+        "........###lG#..",
+        ".......#OOO##...",
+        "......#OOOOO#...",
+        ".....#OOyOOO#...",
+        "....#OOOOyOo#...",
+        "....#OyOOOOo#...",
+        "...#OOOOOOo#....",
+        "...#OOOyOo#.....",
+        "..#OOOOOo#......",
+        "..#OOOo##.......",
+        ".#OOo#..........",
+        ".###............",
+        "................",
+    ),
+    "oil can": (
+        "................",
+        "##..............",
+        "#s#.............",
+        ".#s#............",
+        "..#s#...##......",
+        "...#s#.#yy#.....",
+        "....#s######....",
+        ".....#swsssd#...",
+        "....#sswsssd####",
+        "....#sswsssd#..#",
+        "....#sswrrrd#..#",
+        "....#sswrrrd#..#",
+        "....#sswsssd####",
+        "....#sswsssd#...",
+        "....#ddddddd#...",
+        ".....#######....",
+    ),
+    "batteries": (
+        "................",
+        "....##....##....",
+        "...#ss#..#ss#...",
+        "..######.######.",
+        "..#wllG#.#wllG#.",
+        "..#wllG#.#wllG#.",
+        "..#yyyy#.#yyyy#.",
+        "..#yyyy#.#yyyy#.",
+        "..#wllG#.#wllG#.",
+        "..#wllG#.#wllG#.",
+        "..#wllG#.#wllG#.",
+        "..#wllG#.#wllG#.",
+        "..#wllG#.#wllG#.",
+        "..#dddd#.#dddd#.",
+        "..######.######.",
+        "................",
+    ),
+    # The carrot as the snowman's nose, until the reindeer knocks it flat.
+    "snowman": (
+        ".....######.....",
+        "....#wwwwww#....",
+        "...#ww#ww#ws#...",
+        "...#wwwwwwws#OO#",
+        "...#wwwwwwOOOO#.",
+        "....#swwwwsss#..",
+        "...#rrrrrrrrrr#.",
+        "..#swwwwwwwwws#.",
+        ".#wwwwwww#wwwws#",
+        ".#wwwwwwwwwwwws#",
+        "#wwwwwwww#wwwwws",
+        "#wwwwwwwwwwwwwws",
+        "#wwwwwwwwwwwwwss",
+        ".#swwwwwwwwwsss#",
+        "..##ssssssssss#.",
+        "....##########..",
+    ),
+    # ---- hiding spots: the critter peeks over the top ---------------------- #
+    "potted plant": (
+        "......#..#......",
+        "..#..#l##l#..#..",
+        ".#l##lGllGl##l#.",
+        ".#lGlGlllGlGlG#.",
+        "#lGllGlGllGllGl#",
+        "#GlGlGllGlGlGlG#",
+        ".#GGlGGlGGlGGG#.",
+        "################",
+        "#OOOOOOOOOOOOOO#",
+        "#oooooooooooooo#",
+        ".#OOOOOOOOOOOo#.",
+        ".#OOkOOOOOOOOo#.",
+        ".#OkOOOOOOOOOo#.",
+        "..#OOOOOOOOOo#..",
+        "..#ooooooooooo#.",
+        "...##########...",
+    ),
+    "snowy bush": (
+        "................",
+        "....####..###...",
+        "..##wwww##www#..",
+        ".#wwwwwwwwwwws#.",
+        "#wwwsGwwwwswwws#",
+        "#swsGlGwswGGswG#",
+        "#GGGlGlGGGlGGGG#",
+        "#GlGGGGlGGGGlGG#",
+        "#wwGGlGGGwGGGww#",
+        "#wwwwGGGwwwGwww#",
+        "#swwwwwwwwwwwws#",
+        "#wwwwwwswwwwwww#",
+        "#sswwwwwwwwwwss#",
+        "#ssswwwwwwwwsss#",
+        ".#ssssssssssss#.",
+        "..############..",
+    ),
+    "cardboard box": (
+        "................",
+        "................",
+        "################",
+        "#kkkkkkkkkkkkkk#",
+        "#kkkkkkyykkkkkk#",
+        "################",
+        "#OOOOOOyyOOOOOo#",
+        "#OOOOOOyyOOOOOo#",
+        "#OOOOOOyyOOOOOo#",
+        "#OOOOOOOOOOOOOo#",
+        "#OO####OOOOOOOo#",
+        "#OO#ww#OOOOOOOo#",
+        "#OO####OOOOOOOo#",
+        "#OOOOOOOOOOOOOo#",
+        "#oooooooooooooo#",
+        "################",
+    ),
+    "leaf pile": (
+        "................",
+        "................",
+        "......##..##....",
+        "....##Oy##rO#...",
+        "...#OyOrOOyrO#..",
+        "..#rOOyOrOOyOr#.",
+        ".#OyrOOyOOrOyOO#",
+        ".#yOOrOyrOOyOrO#",
+        "#OrOyOOrOyOOrOyO",
+        "#OOyOrOOyOrOOyO#",
+        "#rOOyOOrOOyOrOO#",
+        "#OyOrOyOOrOyOOr#",
+        "#oOOoOOoOOoOOoO#",
+        "#ooooooooooooooo",
+        ".##############.",
+        "................",
+    ),
+    "chimney": (
+        "................",
+        "..############..",
+        ".#wwwwwwwwwwwws#",
+        ".#swwwwwwwwwwss#",
+        ".##############.",
+        "..#rrrprrrrprr#.",
+        "..#pppppppppppp#",
+        "..#rprrrrprrrr#.",
+        "..#pppppppppppp#",
+        "..#rrrprrrrprr#.",
+        "..#pppppppppppp#",
+        "..#rprrrrprrrr#.",
+        "..#pppppppppppp#",
+        "..#rrrprrrrprr#.",
+        "..#pppppppppppp#",
+        "..#rprrrrprrrr#.",
+    ),
+}
+
+NAMES = tuple(ART)  # sheet order
+
+# Where each episode's critter hides (episodes.Episode.hide_room -> art).
+HIDING_SPOTS = {
+    "Sun Porch": "potted plant",
+    "Yard": "snowy bush",
+    "Basement": "cardboard box",
+    "Tree House": "leaf pile",
+    "Roof": "chimney",
+}
+
+# How far down each hiding spot's top edge is, in its own 16px rows -- where a
+# peeking critter's chin goes.
+SPOT_TOP = {
+    "potted plant": 1,
+    "snowy bush": 1,
+    "cardboard box": 2,
+    "leaf pile": 2,
+    "chimney": 1,
+}

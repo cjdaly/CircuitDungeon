@@ -59,7 +59,6 @@ def main():
 
     import comic
     import comic_fonts
-    import edge_gesture
     import hardware
     from beats import BeatPlayer
     from room_banner import RoomLabel
@@ -77,7 +76,7 @@ def main():
     ))
     scene = displayio.Group()
     root.append(scene)
-    RoomLabel(scene, hardware.WIDTH, comic_fonts.title(), y=edge_gesture.EDGE_MARGIN).show(
+    RoomLabel(scene, hardware.WIDTH, comic_fonts.title(), y=45).show(
         "Living Room"
     )
     stage = comic.Stage(hardware.WIDTH, hardware.HEIGHT, shake_target=scene)

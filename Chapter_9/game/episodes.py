@@ -63,17 +63,21 @@ class Unlock:
 
     Either an exit into the lure room is shut (`blocked_exit`, with `blocked_text`
     when bumped), or the room is open but the lure can't be taken yet, and says
-    `locked_text`. `reveal` shows when the critter is found. `ready_text` replaces
-    the usual "<item> here!" afterwards.
+    `locked_text`. `reveal` shows when the critter is found. `ready_text`, if any,
+    shows on entering the lure room afterwards.
+
+    `locked_art` is what the lure room shows while it's locked (scene_art.ART):
+    None draws nothing, as in a dark room.
     """
 
     def __init__(self, reveal, blocked_exit=None, blocked_text=None, locked_text=None,
-                 ready_text=None):
+                 ready_text=None, locked_art=None):
         self.reveal = reveal
         self.blocked_exit = blocked_exit
         self.blocked_text = blocked_text
         self.locked_text = locked_text
         self.ready_text = ready_text
+        self.locked_art = locked_art
 
 
 class Episode:
@@ -255,6 +259,7 @@ EPISODES = {
         unlock=Unlock(
             "Walnuts on the dining table!",
             locked_text="Walnuts. You're not hungry",
+            locked_art="walnuts",  # in plain sight, you just don't want them yet
         ),
     ),
     # Always last. Its failed takeoff from the Roof brings the snow down on the
@@ -291,7 +296,8 @@ EPISODES = {
         unlock=Unlock(
             "Whump! Snow slides off!",
             locked_text="He needs that nose",
-            ready_text="Snowman's flat! Tap the carrot",
+            ready_text="The snowman's flat!",
+            locked_art="snowman",
         ),
     ),
 }

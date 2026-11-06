@@ -15,16 +15,28 @@ open. Then the player:
 Each method returns the messages to show, as plain strings; this module has no
 display code, so it runs under plain desktop Python (see tests/test_hunt.py).
 
-v1 is text-only. The comic overlay kit (cd-342.9), escape cutscene (cd-342.10)
-and image clues (cd-342.13) replace how these get shown, and the real ending is
+What's in the room to see and tap -- the critter, the lure, the item in hand --
+comes from scene() (cd-342.26), and .event says what a tap just did, so the view
+can draw it rather than the text telling you to tap. The escape cutscene
+(cd-342.10) and image clues (cd-342.13) are still to come, and the real ending is
 cd-342.6.
 """
 import episodes
 from critters import HOME
+from scene_art import HIDING_SPOTS
 
 HUNTING = "hunting"
 GOING_HOME = "going_home"
 DONE = "done"
+
+# What the last tapped() did, for the view to show it (Hunt.event).
+FOUND = "found"
+TOOK = "took"
+RETRIEVED = "retrieved"
+
+# How the critter looks in the room where it hides (Scene.pose).
+HIDING = "hiding"
+WAITING = "waiting"  # found, waiting for its lure
 
 # Stand-in text until cd-342.13 draws image clues.
 _IMAGE_CLUE_TEXT = {
@@ -52,8 +64,25 @@ def wrap(text, width=_BANNER_CHARS):
     return lines
 
 
-def _capitalized(text):
-    return text[0].upper() + text[1:]
+class Scene:
+    """What the current room shows, as plain data. Every field is None when absent.
+
+    spot: scene_art name of the critter's hiding spot
+    critter: its sprite id (critters.Critter.sprite), when it's in this room
+    pose: HIDING (peeking out) or WAITING (found)
+    lure: scene_art name of what's at the lure spot (the lure, or what hides it)
+    follower: sprite id of a critter following you home
+    held: the item in hand
+    """
+
+    def __init__(self, spot=None, critter=None, pose=None, lure=None, follower=None,
+                 held=None):
+        self.spot = spot
+        self.critter = critter
+        self.pose = pose
+        self.lure = lure
+        self.follower = follower
+        self.held = held
 
 
 class Hunt:
@@ -72,6 +101,7 @@ class Hunt:
         self._found = False
         self._locked = False
         self._player = player  # who this board is for, if it says
+        self.event = None  # FOUND / TOOK / RETRIEVED, set by tapped()
 
     def start(self):
         """Begin the game. Returns the first escape's messages."""
@@ -128,18 +158,39 @@ class Hunt:
         if self.stage == HUNTING:
             messages.extend(self._room_clues(room))
             if room == self.episode.lure_room and self.held is None:
-                messages.append(self._lure_text())
-            if room == self.episode.hide_room:
-                messages.append("Something's here! Tap it.")
+                lure_text = self._lure_text()
+                if lure_text:
+                    messages.append(lure_text)
         return messages
 
     def _lure_text(self):
+        """The lure room's own words, if it has any: the lure itself is drawn."""
         unlock = self.episode.unlock
         if self._locked:
             return unlock.locked_text.format(name=self.critter.name)
         if unlock is not None and unlock.ready_text:
             return unlock.ready_text
-        return "{} here! Tap it.".format(_capitalized(self.critter.preferred_item))
+        return None
+
+    def scene(self):
+        """What the current room shows (Scene)."""
+        if self.stage == DONE:
+            return Scene()
+        room = self._world.current
+        episode = self.episode
+        scene = Scene(held=self.held)
+        if room == episodes.ODD_CORNER:
+            scene.lure = "batteries"
+        if room == episode.hide_room:
+            scene.spot = HIDING_SPOTS.get(room)
+            if self.stage == HUNTING:
+                scene.critter = self.critter.sprite
+                scene.pose = WAITING if self._found else HIDING
+        if room == episode.lure_room and self.stage == HUNTING and self.held is None:
+            scene.lure = episode.unlock.locked_art if self._locked else self.critter.preferred_item
+        if self.stage == GOING_HOME:
+            scene.follower = self.critter.sprite
+        return scene
 
     def bumped(self, direction):
         """A blocked move: the in-world reason, or None if there's simply no exit."""
@@ -150,6 +201,7 @@ class Hunt:
 
     def tapped(self):
         """The player tapped the middle of the screen."""
+        self.event = None
         room = self._world.current
         if self.stage == DONE:
             return self._merry_christmas()
@@ -161,6 +213,7 @@ class Hunt:
             if self._locked:
                 return [self._lure_text()]
             self.held = self.critter.preferred_item
+            self.event = TOOK
             return ["Got the {}!".format(self.held)]
         if room == HOME:
             return self._escape_clues()
@@ -186,11 +239,14 @@ class Hunt:
         if self.critter.try_retrieve(room, held):
             self.stage = GOING_HOME
             self.held = None
+            self.event = RETRIEVED
             return ["{} follows you home!".format(name)]
+        # Finding it: the view shouts FOUND! first (event), then these.
         messages = [
-            "Found {}!".format(name),
             "{} wants the {}".format(self.critter.subject_pronoun, self.critter.preferred_item),
         ]
+        if not self._found:
+            self.event = FOUND
         self._found = True
         if self._locked:
             self._locked = False

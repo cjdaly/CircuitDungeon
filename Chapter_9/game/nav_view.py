@@ -4,12 +4,13 @@
 
 Lifted from Chapter_8/game/room_nav_demo.py (cd-45v.4's prototype, feel-tested
 on real hardware 2026-09-13) and turned into a reusable view instead of a
-standalone script. A small circle at the midpoint of each edge's margin band
+standalone script. A small circle near the outer end of each direction's tap wedge
 shows, live, whether that direction is a real exit from the current room
 (pulsing green if so, dim/static if not); touching a zone snaps its dot to
 gold (live exit) or red (blocked) immediately, so the margin feel and the
-room graph can both be judged by eye. The room's name sits persistently in
-the center (room_banner.RoomLabel). Messages and bump feedback are comic overlays
+room graph can both be judged by eye. The room's name sits persistently at
+the top (room_banner.RoomLabel); the middle is for what's in the room to see
+and tap (scene_view.SceneView, cd-342.26). Messages and bump feedback are comic overlays
 (comic.py, beats.py); while one is up the app suspends navigation, because a tap
 on a caption in an edge zone must not walk you out of the room (doc/STYLE.md sec 9).
 
@@ -29,17 +30,19 @@ import vectorio
 
 import comic
 import comic_fonts
-import edge_gesture
+import hunt
 import rooms
 from beats import Beat, BeatPlayer
 from hunt import wrap
 from room_banner import RoomLabel
+from scene_view import SceneView
 
 _BG_COLOR = 0x101018
 
-_ROOM_NAME_Y = 100  # center-ish; clear of the edge markers' row/column
-_HELD_Y = 72  # above the room name, below the UP marker
-_TEXT_YELLOW = 0xFFE040  # the held item; the room name stays white
+_ROOM_NAME_Y = 50  # top band, under the UP marker; the middle is the scene's
+_FOUND_BURST = "Found!"
+# Hearts either side of a critter that's coming home with you (screen px).
+_HEARTS = (("heart", 56, 92), ("heart", 152, 92))
 
 _MARKER_RADIUS = 9
 _AVAILABLE_DIM = 0x1A4028
@@ -49,9 +52,9 @@ _ACTIVE_GO_COLOR = 0xFFD040  # gold -- touching a zone that IS a live exit
 _ACTIVE_BLOCKED_COLOR = 0xFF4040  # red -- touching a zone that is NOT
 _PULSE_PERIOD = 1.4  # seconds per idle pulse cycle, available zones only
 
-# Markers sit at each edge's margin-band midpoint -- literally where a
-# gesture needs to start, matching edge_gesture.EDGE_MARGIN.
-_MARGIN_MID = edge_gesture.EDGE_MARGIN // 2
+# Markers sit near the outer end of each direction's tap wedge
+# (edge_gesture.CENTER_RADIUS out to the bezel), clear of the centre text.
+_MARGIN_MID = 22
 
 
 def _blend(color_a, color_b, t):
@@ -76,6 +79,8 @@ class NavView:
         self.group.append(displayio.TileGrid(bg_bitmap, pixel_shader=bg_palette))
         self._scene = displayio.Group()  # what a shake moves
         self.group.append(self._scene)
+        self._things = SceneView()
+        self._scene.append(self._things.group)
 
         positions = {
             rooms.UP: (width // 2, _MARGIN_MID),
@@ -92,10 +97,7 @@ class NavView:
             )
             self._markers[direction] = palette
 
-        self._label = RoomLabel(self._scene, width, comic_fonts.title(), y=_ROOM_NAME_Y)
-        self._held = RoomLabel(
-            self._scene, width, comic_fonts.caption(), y=_HELD_Y, color=_TEXT_YELLOW
-        )
+        self._label = RoomLabel(self._scene, width, comic_fonts.caption(), y=_ROOM_NAME_Y)
         self._stage = comic.Stage(width, height, shake_target=self._scene)
         self.group.append(self._stage.group)
         self._player = BeatPlayer(self._stage)
@@ -106,9 +108,9 @@ class NavView:
         self._label.show(name)
         self._live_exits = set(live_exits)
 
-    def show_held(self, item):
-        """Show what the player is carrying; None clears it."""
-        self._held.show("Holding {}".format(item) if item else "")
+    def show_scene(self, scene, now):
+        """Draw what's in the room (a hunt.Scene). Call after anything changes it."""
+        self._things.show(scene, now)
 
     @property
     def overlay_up(self):
@@ -118,14 +120,25 @@ class NavView:
         """A tap while an overlay is up: on to the next beat."""
         self._player.tap(now)
 
-    def say(self, messages, now):
-        """Show `messages` as captions, one after another."""
+    def say(self, messages, now, event=None, want=None):
+        """Show `messages` as captions, one after another.
+
+        `event` is what a tap just did (hunt.Hunt.event): finding a critter
+        shouts FOUND! first and puts `want`, the scene_art name of its lure, in a
+        thought bubble over the first caption; bringing one home adds hearts.
+        """
         beats = []
         for text in messages:
             lines = wrap(text)
             # A caption holds two lines; anything longer runs on into the next.
             for i in range(0, len(lines), 2):
                 beats.append(Beat(caption="\n".join(lines[i:i + 2])))
+        if event == hunt.FOUND:
+            if beats and want is not None:
+                beats[0].thought = self._things.icon(want)
+            beats.insert(0, Beat(burst=_FOUND_BURST))
+        elif event == hunt.RETRIEVED and beats:
+            beats[0].emanata = _HEARTS
         self._player.play(beats, now)
 
     def bonk(self, now):
@@ -146,5 +159,6 @@ class NavView:
                 palette[0] = available_idle
             else:
                 palette[0] = _BLOCKED_IDLE
+        self._things.update(now)
         self._player.update(now)
         self._stage.update(now)

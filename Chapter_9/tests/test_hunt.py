@@ -20,8 +20,7 @@ _GAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "game")
 
 # Widths available on the round panel, in pixels, from nav_view's layout.
 _CAPTION_PX = 160  # keeps a two-line caption box's lower corners on the panel
-_ROOM_NAME_PX = 178  # between the left and right edge markers
-_HELD_PX = 207  # the panel's width at the top of the held-item label
+_ROOM_NAME_PX = 160  # the panel's width, inside its ink ring, at the room name's top
 
 
 def _advance_widths(filename):
@@ -99,18 +98,17 @@ class TestStuckDoor(HuntCase):
     def test_finding_the_critter_opens_it(self):
         self.walk(RIGHT, RIGHT, RIGHT)
         self.assertEqual(
-            self.hunt.tapped(),
-            ["Found Chirpy!", "She wants the ball of yarn", "The stuck door creaks open!"],
+            self.hunt.tapped(), ["She wants the ball of yarn", "The stuck door creaks open!"]
         )
+        self.assertEqual(self.hunt.event, hunt.FOUND)
         self.walk(LEFT, LEFT)
         self.assertIn(UP, self.world.live_exits())
 
     def test_it_only_creaks_open_once(self):
         self.walk(RIGHT, RIGHT, RIGHT)
         self.hunt.tapped()
-        self.assertEqual(
-            self.hunt.tapped(), ["Found Chirpy!", "She wants the ball of yarn"]
-        )
+        self.assertEqual(self.hunt.tapped(), ["She wants the ball of yarn"])
+        self.assertIsNone(self.hunt.event)  # already found: no second FOUND!
 
     def test_an_episode_without_an_unlock_has_its_lure_open_from_the_start(self):
         cat = episodes.EPISODES["cat"]
@@ -125,15 +123,17 @@ class TestStuckDoor(HuntCase):
 
 
 class TestFindingThings(HuntCase):
-    def test_lure_room_says_to_tap(self):
+    def test_lure_room_says_nothing_its_lure_is_drawn(self):
         self.find_cat()
-        self.assertEqual(self.walk(UP), ["Ball of yarn here! Tap it."])
+        self.assertEqual(self.walk(UP), [])
+        self.assertEqual(self.hunt.scene().lure, "ball of yarn")
 
     def test_tapping_the_lure_takes_it(self):
         self.find_cat()
         self.walk(UP)
         self.assertEqual(self.hunt.tapped(), ["Got the ball of yarn!"])
         self.assertEqual(self.hunt.held, "ball of yarn")
+        self.assertEqual(self.hunt.event, hunt.TOOK)
 
     def test_lure_room_goes_quiet_once_taken(self):
         self.find_cat()
@@ -143,18 +143,15 @@ class TestFindingThings(HuntCase):
         self.assertEqual(self.hunt.tapped(), ["Nothing here"])
 
     def test_critter_without_the_lure_says_what_it_wants(self):
-        self.assertEqual(
-            self.walk(RIGHT, RIGHT, RIGHT), ["Something's here! Tap it."]
-        )
-        self.assertEqual(
-            self.hunt.tapped()[:2], ["Found Chirpy!", "She wants the ball of yarn"]
-        )
+        self.assertEqual(self.walk(RIGHT, RIGHT, RIGHT), [])  # she's drawn, peeking
+        self.assertEqual(self.hunt.tapped()[0], "She wants the ball of yarn")
+        self.assertEqual(self.hunt.event, hunt.FOUND)
         self.assertEqual(self.cat.state, critters.HIDING)
 
     def test_critters_without_a_chosen_pronoun_are_it(self):
         self.cat.name = critters.SPARE[0][1]
         self.walk(RIGHT, RIGHT, RIGHT)
-        self.assertEqual(self.hunt.tapped()[1], "It wants the ball of yarn")
+        self.assertEqual(self.hunt.tapped()[0], "It wants the ball of yarn")
 
     def test_empty_room_tap(self):
         self.walk(UP)
@@ -207,6 +204,7 @@ class TestBringingItHome(HuntCase):
     def test_tapping_with_the_lure_brings_it_along(self):
         self.fetch()
         self.assertEqual(self.hunt.tapped(), ["Chirpy follows you home!"])
+        self.assertEqual(self.hunt.event, hunt.RETRIEVED)
         self.assertEqual(self.cat.state, critters.RETURNED)
         self.assertIsNone(self.hunt.held)
         self.assertEqual(self.hunt.stage, hunt.GOING_HOME)
@@ -400,7 +398,91 @@ class TestWholeGame(unittest.TestCase):
         self.assertEqual(self.go("Yard"), ["He needs that nose"])
         self.go("Roof")
         self.game.tapped()
-        self.assertEqual(self.go("Yard"), ["Snowman's flat! Tap the carrot"])
+        self.assertEqual(self.go("Yard"), ["The snowman's flat!"])
+
+
+class TestScene(HuntCase):
+    """What each room shows, for scene_view to draw (cd-342.26)."""
+
+    def test_an_empty_room_shows_nothing(self):
+        self.walk(UP)
+        scene = self.hunt.scene()
+        self.assertEqual(
+            (scene.spot, scene.critter, scene.lure, scene.follower, scene.held),
+            (None, None, None, None, None),
+        )
+
+    def test_she_peeks_out_of_her_hiding_spot(self):
+        self.walk(RIGHT, RIGHT, RIGHT)
+        scene = self.hunt.scene()
+        self.assertEqual(scene.spot, "potted plant")
+        self.assertEqual(scene.critter, self.cat.sprite)
+        self.assertEqual(scene.pose, hunt.HIDING)
+
+    def test_once_found_she_waits_in_front_of_it(self):
+        self.walk(RIGHT, RIGHT, RIGHT)
+        self.hunt.tapped()
+        self.assertEqual(self.hunt.scene().pose, hunt.WAITING)
+
+    def test_the_lure_goes_into_your_hand(self):
+        self.find_cat()
+        self.walk(UP)
+        self.hunt.tapped()
+        scene = self.hunt.scene()
+        self.assertIsNone(scene.lure)
+        self.assertEqual(scene.held, "ball of yarn")
+
+    def test_she_follows_you_home_and_leaves_her_spot(self):
+        self.find_cat()
+        self.walk(UP)
+        self.hunt.tapped()
+        self.walk(DOWN, RIGHT, RIGHT)
+        self.hunt.tapped()
+        scene = self.hunt.scene()
+        self.assertIsNone(scene.critter)
+        self.assertEqual(scene.spot, "potted plant")
+        self.assertEqual(scene.follower, self.cat.sprite)
+        self.assertIsNone(scene.held)
+        self.walk(LEFT)
+        self.assertEqual(self.hunt.scene().follower, self.cat.sprite)
+
+    def test_the_batteries_are_always_in_the_odd_corner(self):
+        self.walk(RIGHT, RIGHT, UP)
+        self.assertEqual(self.hunt.scene().lure, "batteries")
+
+    def test_the_end_shows_nothing(self):
+        game = hunt.Hunt(rooms.make_world(), critters.make_roster(choice=first_choice), order=[])
+        game.start()
+        self.assertIsNone(game.scene().lure)
+
+
+class TestLockedLures(unittest.TestCase):
+    """A lure room that's open from the start shows what hides the lure."""
+
+    def start(self, species):
+        self.world = rooms.make_world()
+        self.game = hunt.Hunt(
+            self.world, critters.make_roster(choice=first_choice), order=[species])
+        self.game.start()
+        return episodes.EPISODES[species]
+
+    def lure_while_locked_then_after(self, species):
+        episode = self.start(species)
+        self.world.current = episode.lure_room
+        before = self.game.scene().lure
+        self.world.current = episode.hide_room
+        self.game.tapped()
+        self.world.current = episode.lure_room
+        return before, self.game.scene().lure
+
+    def test_the_dark_garage_shows_nothing_until_the_lights_come_on(self):
+        self.assertEqual(self.lure_while_locked_then_after("robot"), (None, "oil can"))
+
+    def test_the_walnuts_are_in_plain_sight(self):
+        self.assertEqual(self.lure_while_locked_then_after("squirrel"), ("walnuts", "walnuts"))
+
+    def test_the_carrot_is_the_snowmans_nose_until_he_falls(self):
+        self.assertEqual(self.lure_while_locked_then_after("reindeer"), ("snowman", "carrot"))
 
 
 class TestPlayerName(unittest.TestCase):
@@ -432,10 +514,10 @@ class TestWrap(unittest.TestCase):
 
     def test_every_message_for_every_critter_fits_two_lines(self):
         templates = (
-            "{name} escaped!", "{name} is home!", "Found {name}!",
+            "{name} escaped!", "{name} is home!",
             "{name} follows you home!", "{name} is with you. Go home!",
-            "It wants the {item}", "She wants the {item}", "Got the {item}!", "{item} here! Tap it.",
-            "Something's here! Tap it.", "Batteries! Just out of reach",
+            "It wants the {item}", "She wants the {item}", "Got the {item}!",
+            "Batteries! Just out of reach",
             "All home! More critters soon", "Merry Christmas!", "So close!",
             "Nothing here", "{name} {habit}!", "{name} curls up on the rug",
             "All home!", "Merry Christmas,",
@@ -459,15 +541,10 @@ class TestWrap(unittest.TestCase):
                         for line in lines:
                             self.assertLessEqual(_px(line, _CAPTION), _CAPTION_PX, line)
 
-    def test_every_room_name_fits_between_the_side_markers(self):
+    def test_every_room_name_fits_across_the_top(self):
         for room in rooms.make_world().all_rooms():
             with self.subTest(room=room.name):
-                self.assertLessEqual(_px(room.name, _TITLE), _ROOM_NAME_PX)
-
-    def test_every_held_label_fits_the_panel(self):
-        for _species, item, _habit, _sprites in critters.CAST:
-            with self.subTest(item=item):
-                self.assertLessEqual(_px("Holding " + item, _CAPTION), _HELD_PX)
+                self.assertLessEqual(_px(room.name, _CAPTION), _ROOM_NAME_PX)
 
 
 if __name__ == "__main__":

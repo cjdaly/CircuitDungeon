@@ -14,3 +14,7 @@ pics-raw/
 *.db
 .beads-credential-key
 .beads/proxieddb/
+
+# Ch9 desktop screen previews (tools/preview.py)
+Chapter_9/preview/
+__pycache__/
