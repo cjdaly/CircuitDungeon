@@ -82,8 +82,33 @@ class TestSafeTouchErrors(unittest.TestCase):
         self.touch.poll(0.1)
         self.assertTrue(self.touch.connected)
 
-    def test_poll_errors_drop_the_connection(self):
-        for error in (BAD_CHIP_ID, NO_ACK, TIMEOUT):
+    def test_a_quiet_chip_is_retried_on_the_next_poll(self):
+        for error in (NO_ACK, OSError(19, "ENODEV")):
+            with self.subTest(error=error):
+                FakeChip.ctor_calls = 0
+                FakeChip.ctor_error = error
+                self.touch = touch.SafeTouch(i2c=None, retry_interval=1.0)
+                self.touch.poll(0.0)
+                FakeChip.ctor_error = None
+                self.touch.poll(0.05)
+                self.assertEqual(FakeChip.ctor_calls, 2)
+                self.assertTrue(self.touch.connected)
+
+    def test_a_quiet_tick_keeps_the_connection(self):
+        for error in (NO_ACK, OSError(19, "ENODEV"), OSError(5, "EIO")):
+            with self.subTest(error=error):
+                self.touch = touch.SafeTouch(i2c=None, retry_interval=1.0)
+                FakeChip.touches_result = ()
+                self.touch.poll(0.0)
+                FakeChip.touches_result = error
+                self.assertIsNone(self.touch.poll(0.05))
+                self.assertTrue(self.touch.connected)
+                self.assertEqual(self.touch.drops, 0)
+                FakeChip.touches_result = ({"x": 3, "y": 4},)
+                self.assertEqual(self.touch.poll(0.1), (3, 4))  # a tap 50ms later lands
+
+    def test_a_timeout_or_bad_chip_id_drops_the_connection(self):
+        for error in (BAD_CHIP_ID, TIMEOUT):
             with self.subTest(error=error):
                 self.touch = touch.SafeTouch(i2c=None, retry_interval=1.0)
                 FakeChip.touches_result = ()
@@ -92,7 +117,13 @@ class TestSafeTouchErrors(unittest.TestCase):
                 FakeChip.touches_result = error
                 self.assertIsNone(self.touch.poll(0.1))
                 self.assertFalse(self.touch.connected)
+                self.assertEqual(self.touch.drops, 1)
 
+    def test_a_timeout_backs_off_before_reconnecting(self):
+        FakeChip.ctor_error = TIMEOUT
+        self.touch.poll(0.0)
+        self.touch.poll(0.5)
+        self.assertEqual(FakeChip.ctor_calls, 1)
 
 if __name__ == "__main__":
     unittest.main()

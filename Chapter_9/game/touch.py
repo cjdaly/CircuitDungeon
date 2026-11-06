@@ -7,10 +7,17 @@ board. Chapter_8's version was proven on real hardware 2026-09-13 via
 room_nav_demo.py's edge-gesture navigation; this is a straight port, not a
 rewrite.
 
-SafeTouch connects lazily: construction never raises, poll() attempts a
-(re)connect at most once per _RETRY_INTERVAL and otherwise just reports "no
-touch" -- callers stay alive whether or not touch has come up yet. Check
-.connected if you want to show that state explicitly.
+SafeTouch connects lazily: construction never raises, and poll() just reports
+"no touch" while it can't reach the chip -- callers stay alive whether or not
+touch has come up yet. Check .connected if you want to show that state.
+
+The CST816 goes quiet on the bus about half the time, even at rest (Chapter_8/
+doc/HARDWARE.md). A quiet tick is a fast NACK, and the next tick usually works,
+so SafeTouch keeps its connection and tries again on the very next poll. Only a
+timeout (the bus wedge, cd-342.16) or a bad chip ID drops the connection and
+waits _RETRY_INTERVAL before trying again. Treating every NACK that way, as it
+used to, left touch deaf for a second at a time -- long enough to swallow a
+quick tap whole, while a swipe usually outlasted it (playtest 2026-11-06).
 
 adafruit_cst8xx is imported lazily inside SafeTouch.poll() rather than at
 module level, so GestureTracker (pure logic, no hardware) stays importable
@@ -23,6 +30,14 @@ _RETRY_INTERVAL = 1.0  # seconds between reconnect attempts while not connected
 # ValueError/OSError: the chip didn't ACK. RuntimeError: it answered with a bad
 # chip ID ("Did not find supported CST8XX chip"), seen on ws-1 while idle.
 _TOUCH_ERRORS = (ValueError, OSError, RuntimeError)
+_ETIMEDOUT = 116  # the bus is wedged: every read takes the full 1s timeout
+
+
+def _just_quiet(error):
+    """True for a fast NACK, the chip's normal duty-cycling; worth retrying at once."""
+    if isinstance(error, ValueError):
+        return True
+    return isinstance(error, OSError) and error.args[:1] != (_ETIMEDOUT,)
 
 # Gesture thresholds, in touch-panel units (assumed == screen pixels, 240x240)
 # and seconds.
@@ -46,7 +61,8 @@ class SafeTouch:
         self._ctp = None
         self._next_attempt = 0.0
         self.connects = 0
-        self.drops = 0
+        self.drops = 0  # real drops: a timeout or a bad chip ID
+        self.quiet = 0  # quiet ticks shrugged off (not printed; for the REPL)
 
     @property
     def connected(self):
@@ -61,8 +77,8 @@ class SafeTouch:
     def poll(self, now):
         """Return (x, y) of the first active touch this tick, or None.
 
-        Swallows every I2C error -- both "not connected yet" and a dropped
-        connection read as "no touch" rather than an exception.
+        Swallows every I2C error -- "not connected yet", a quiet tick and a
+        dropped connection all read as "no touch" rather than an exception.
         """
         if self._ctp is None:
             if now < self._next_attempt:
@@ -71,16 +87,20 @@ class SafeTouch:
                 import adafruit_cst8xx
 
                 self._ctp = adafruit_cst8xx.Adafruit_CST8XX(self._i2c, address=self._address)
-            except _TOUCH_ERRORS:
-                self._next_attempt = now + self._retry_interval
+            except _TOUCH_ERRORS as error:
+                if not _just_quiet(error):
+                    self._next_attempt = now + self._retry_interval
                 return None
             self.connects += 1
 
         try:
             touches = self._ctp.touches
-        except _TOUCH_ERRORS:
+        except _TOUCH_ERRORS as error:
+            if _just_quiet(error):
+                self.quiet += 1  # keep the connection; try again next tick
+                return None
             self.drops += 1
-            self._ctp = None  # dropped -- next poll() retries the connection
+            self._ctp = None  # dropped -- retry the connection after a pause
             self._next_attempt = now + self._retry_interval
             return None
         if not touches:
