@@ -83,6 +83,15 @@ inky; `epx` softens them. **DECIDED 2026-10-17: `nn`.**
 
 ## 4. The escape — storyboard
 
+**Built 2026-11-06 (`cd-342.10`, `cd-342.27`):** `escape.py` (the beats) and
+`home_view.py` (the Living Room and each shot): wide tree at 2x with five
+presents in their critters' colours (`scene_art.BOX_COLORS`), rattle → 4x
+close-up pulse with `!` → `POP!` lid flies → eyes over the rim → the critter
+at 3x with its name → it bolts from the tipped box toward its first step, with
+`ZOOM!` and speed lines. Close-ups hide the room name and edge markers. The
+box doesn't tip mid-shot (it's simply tipped in the bolt), and there's no dust
+puff yet.
+
 Each beat is a panel. Taps skip ahead; otherwise it plays through
 (~8–10s total).
 

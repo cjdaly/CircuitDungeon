@@ -98,7 +98,7 @@ class TestStuckDoor(HuntCase):
     def test_finding_the_critter_opens_it(self):
         self.walk(RIGHT, RIGHT, RIGHT)
         self.assertEqual(
-            self.hunt.tapped(), ["She wants the ball of yarn", "The stuck door creaks open!"]
+            self.hunt.tapped(), ["Chirpy wants the yarn", "The stuck door creaks open!"]
         )
         self.assertEqual(self.hunt.event, hunt.FOUND)
         self.walk(LEFT, LEFT)
@@ -107,7 +107,7 @@ class TestStuckDoor(HuntCase):
     def test_it_only_creaks_open_once(self):
         self.walk(RIGHT, RIGHT, RIGHT)
         self.hunt.tapped()
-        self.assertEqual(self.hunt.tapped(), ["She wants the ball of yarn"])
+        self.assertEqual(self.hunt.tapped(), ["Chirpy wants the yarn"])
         self.assertIsNone(self.hunt.event)  # already found: no second FOUND!
 
     def test_an_episode_without_an_unlock_has_its_lure_open_from_the_start(self):
@@ -144,14 +144,14 @@ class TestFindingThings(HuntCase):
 
     def test_critter_without_the_lure_says_what_it_wants(self):
         self.assertEqual(self.walk(RIGHT, RIGHT, RIGHT), [])  # she's drawn, peeking
-        self.assertEqual(self.hunt.tapped()[0], "She wants the ball of yarn")
+        self.assertEqual(self.hunt.tapped()[0], "Chirpy wants the yarn")
         self.assertEqual(self.hunt.event, hunt.FOUND)
         self.assertEqual(self.cat.state, critters.HIDING)
 
-    def test_critters_without_a_chosen_pronoun_are_it(self):
+    def test_every_critter_says_its_own_name(self):
         self.cat.name = critters.SPARE[0][1]
         self.walk(RIGHT, RIGHT, RIGHT)
-        self.assertEqual(self.hunt.tapped()[0], "It wants the ball of yarn")
+        self.assertEqual(self.hunt.tapped()[0], "Tinsel wants the yarn")
 
     def test_empty_room_tap(self):
         self.walk(UP)
@@ -485,6 +485,60 @@ class TestLockedLures(unittest.TestCase):
         self.assertEqual(self.lure_while_locked_then_after("reindeer"), ("snowman", "carrot"))
 
 
+class TestEscapeAndBoxes(HuntCase):
+    """The presents under the tree, and what the escape cutscene is told (cd-342.27/.10)."""
+
+    def box(self, species):
+        boxes = {b[0]: b[1:] for b in self.hunt.scene().boxes}
+        return boxes[species]
+
+    def test_the_start_is_an_escape_that_bolts_toward_the_hiding_place(self):
+        self.assertEqual(self.hunt.event, hunt.ESCAPED)
+        self.assertEqual(self.hunt.escape.species, "cat")
+        self.assertEqual(self.hunt.escape.name, "Chirpy")
+        self.assertEqual(self.hunt.escape.direction, RIGHT)  # to the Dining Room
+        self.assertEqual(self.opening[self.hunt.escape_at], "Chirpy escaped!")
+
+    def test_every_episode_bolts_along_its_first_step(self):
+        for species, _lure, _habit, _sprites in critters.CAST:
+            with self.subTest(species=species):
+                world = rooms.make_world()
+                game = hunt.Hunt(world, critters.make_roster(choice=first_choice), order=[species])
+                game.start()
+                path = episodes.spine(world, episodes.EPISODES[species])
+                home = world.get(critters.HOME)
+                self.assertEqual(home.exits[game.escape.direction], path[1])
+
+    def test_only_the_tree_shows_boxes_one_per_critter_in_cast_order(self):
+        boxes = self.hunt.scene().boxes
+        self.assertEqual([b[0] for b in boxes], [c[0] for c in critters.CAST])
+        self.walk(RIGHT)
+        self.assertIsNone(self.hunt.scene().boxes)
+
+    def test_her_box_is_empty_and_the_rest_are_shut(self):
+        self.assertEqual(self.box("cat"), (hunt.BOX_EMPTY, self.cat.sprite))
+        self.assertEqual(self.box("dog")[0], hunt.BOX_CLOSED)
+
+    def test_her_box_stays_empty_until_she_is_back_then_she_sits_on_it(self):
+        self.hunt._order = ["cat", "dog"]
+        self.find_cat()
+        self.walk(UP)
+        self.hunt.tapped()
+        self.walk(DOWN, RIGHT, RIGHT)
+        self.hunt.tapped()  # she follows you
+        self.walk(LEFT, LEFT)
+        messages = self.walk(LEFT)
+        self.assertEqual(self.box("cat")[0], hunt.BOX_HOME)
+        self.assertEqual(self.box("dog")[0], hunt.BOX_EMPTY)
+        self.assertEqual(self.hunt.event, hunt.ESCAPED)
+        self.assertEqual(messages[0], "Chirpy curls up on the rug")
+        self.assertEqual(messages[self.hunt.escape_at], self.hunt.critter.name + " escaped!")
+
+    def test_moving_or_tapping_clears_the_escape_event(self):
+        self.walk(RIGHT)
+        self.assertIsNone(self.hunt.event)
+
+
 class TestPlayerName(unittest.TestCase):
     def finished(self, player):
         game = hunt.Hunt(
@@ -516,7 +570,7 @@ class TestWrap(unittest.TestCase):
         templates = (
             "{name} escaped!", "{name} is home!",
             "{name} follows you home!", "{name} is with you. Go home!",
-            "It wants the {item}", "She wants the {item}", "Got the {item}!",
+            "{name} wants the {short}", "Got the {item}!",
             "Batteries! Just out of reach",
             "All home! More critters soon", "Merry Christmas!", "So close!",
             "Nothing here", "{name} {habit}!", "{name} curls up on the rug",
@@ -533,13 +587,23 @@ class TestWrap(unittest.TestCase):
         for species, item, habit, sprites in critters.CAST:
             for _sprite, name in sprites:
                 for template in templates + episode_text(species):
-                    text = template.format(name=name, item=item, habit=habit)
+                    short = hunt._SHORT_ITEM.get(item, item)
+                    text = template.format(name=name, item=item, habit=habit, short=short)
                     with self.subTest(text=text):
                         lines = hunt.wrap(text)
                         self.assertLessEqual(len(lines), 2, lines)
                         self.assertLessEqual(max(len(ln) for ln in lines), 15, lines)
                         for line in lines:
                             self.assertLessEqual(_px(line, _CAPTION), _CAPTION_PX, line)
+
+    def test_the_wrap_widths_match_the_caption_font(self):
+        self.assertEqual(len(hunt._CAPTION_WIDTHS), len(hunt._CAPTION_GLYPHS))
+        for ch, width in zip(hunt._CAPTION_GLYPHS, hunt._CAPTION_WIDTHS):
+            self.assertEqual(width, _CAPTION[ch], ch)
+        self.assertEqual(hunt.text_px("Acorn wants the"), _px("Acorn wants the", _CAPTION))
+
+    def test_wrap_breaks_a_line_that_is_short_but_too_wide(self):
+        self.assertEqual(hunt.wrap("Acorn wants the walnuts"), ["Acorn wants", "the walnuts"])
 
     def test_every_room_name_fits_across_the_top(self):
         for room in rooms.make_world().all_rooms():

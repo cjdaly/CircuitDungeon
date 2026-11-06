@@ -30,6 +30,7 @@ import vectorio
 
 import comic
 import comic_fonts
+import escape
 import hunt
 import rooms
 from beats import Beat, BeatPlayer
@@ -67,6 +68,24 @@ def _blend(color_a, color_b, t):
     return (r << 16) | (g << 8) | b
 
 
+class _Director:
+    """What the beat player shows a beat on: the comic stage for its words, and the
+    scene for its cutscene shot. Close-up shots hide the room's chrome."""
+
+    def __init__(self, stage, things, chrome):
+        self._stage, self._things, self._chrome = stage, things, chrome
+
+    def show(self, beat, now):
+        self._stage.show(beat, now)
+        self._things.shot(beat.shot, now)
+        self._chrome.hidden = beat.shot in escape.CLOSE_SHOTS
+
+    def clear(self):
+        self._stage.clear()
+        self._things.shot(None, 0.0)
+        self._chrome.hidden = False
+
+
 class NavView:
     """Owns the interactive-mode displayio Group (`.group`)."""
 
@@ -88,19 +107,21 @@ class NavView:
             rooms.LEFT: (_MARGIN_MID, height // 2),
             rooms.RIGHT: (width - _MARGIN_MID, height // 2),
         }
+        self._chrome = displayio.Group()  # edge markers + room name
+        self._scene.append(self._chrome)
         self._markers = {}
         for direction, (x, y) in positions.items():
             palette = displayio.Palette(1)
             palette[0] = _BLOCKED_IDLE
-            self._scene.append(
+            self._chrome.append(
                 vectorio.Circle(pixel_shader=palette, x=x, y=y, radius=_MARKER_RADIUS)
             )
             self._markers[direction] = palette
 
-        self._label = RoomLabel(self._scene, width, comic_fonts.caption(), y=_ROOM_NAME_Y)
+        self._label = RoomLabel(self._chrome, width, comic_fonts.caption(), y=_ROOM_NAME_Y)
         self._stage = comic.Stage(width, height, shake_target=self._scene)
         self.group.append(self._stage.group)
-        self._player = BeatPlayer(self._stage)
+        self._player = BeatPlayer(_Director(self._stage, self._things, self._chrome))
         self._live_exits = set()
 
     def show_room(self, name, live_exits):
@@ -120,19 +141,25 @@ class NavView:
         """A tap while an overlay is up: on to the next beat."""
         self._player.tap(now)
 
-    def say(self, messages, now, event=None, want=None):
+    def say(self, messages, now, event=None, want=None, escaped=None, escape_at=0):
         """Show `messages` as captions, one after another.
 
-        `event` is what a tap just did (hunt.Hunt.event): finding a critter
+        `event` is what just happened (hunt.Hunt.event): finding a critter
         shouts FOUND! first and puts `want`, the scene_art name of its lure, in a
-        thought bubble over the first caption; bringing one home adds hearts.
+        thought bubble over the first caption; bringing one home adds hearts. An
+        escape (`escaped`, a hunt.Escape) plays the cutscene before message
+        `escape_at`, with the box still shut under the messages before it.
         """
         beats = []
-        for text in messages:
+        for index, text in enumerate(messages):
+            if event == hunt.ESCAPED and index == escape_at:
+                self._things.set_escape(escaped)
+                beats.extend(escape.cutscene())
             lines = wrap(text)
             # A caption holds two lines; anything longer runs on into the next.
             for i in range(0, len(lines), 2):
-                beats.append(Beat(caption="\n".join(lines[i:i + 2])))
+                shot = escape.CALM if event == hunt.ESCAPED and index < escape_at else None
+                beats.append(Beat(caption="\n".join(lines[i:i + 2]), shot=shot))
         if event == hunt.FOUND:
             if beats and want is not None:
                 beats[0].thought = self._things.icon(want)

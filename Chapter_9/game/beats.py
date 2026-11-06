@@ -18,7 +18,7 @@ _PICTURE_S = 2.0
 
 class Beat:
     def __init__(self, caption=None, speech=None, tail=None, thought=None, burst=None,
-                 emanata=(), shake=False, duration=None):
+                 emanata=(), shake=False, duration=None, shot=None):
         """
         caption: text, a newline between its two lines at most
         speech, tail: balloon text, and the (x, y) its tail points at
@@ -27,6 +27,7 @@ class Beat:
         emanata: (glyph name, x, y) tuples, at most comic.MAX_EMANATA
         shake: jolt the scene under the overlay
         duration: seconds; None picks one from the content
+        shot: what the scene under the words shows, for a cutscene (home_view)
         """
         self.caption = caption
         self.speech = speech
@@ -35,6 +36,7 @@ class Beat:
         self.burst = burst
         self.emanata = emanata
         self.shake = shake
+        self.shot = shot
         self.duration = self._default_duration() if duration is None else duration
 
     def _default_duration(self):

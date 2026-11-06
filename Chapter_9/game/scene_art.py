@@ -29,10 +29,24 @@ COLORS = (
     0x6DC2CA,  # 14 c cyan
     0xDAD45E,  # 15 y yellow
     0xDEEED6,  # 16 w white
+    0xD04648,  # 17 X a present's paper  } stand-ins: each box swaps these
+    0x442434,  # 18 x ...its shade       } three for its own (BOX_COLORS)
+    0xDAD45E,  # 19 R ...its ribbon      }
 )
 KEY = {
     ".": 0, "#": 1, "p": 2, "n": 3, "d": 4, "o": 5, "G": 6, "r": 7, "g": 8,
     "b": 9, "O": 10, "s": 11, "l": 12, "k": 13, "c": 14, "y": 15, "w": 16,
+    "X": 17, "x": 18, "R": 19,
+}
+BOX_INDEXES = (17, 18, 19)  # paper, shade, ribbon
+
+# Each critter's present: (paper, shade, ribbon), all DB16.
+BOX_COLORS = {
+    "cat": (0xD04648, 0x442434, 0xDAD45E),
+    "dog": (0x597DCE, 0x30346D, 0xD04648),
+    "squirrel": (0x6DAA2C, 0x346524, 0xDEEED6),
+    "reindeer": (0xD27D2C, 0x854C30, 0x6DAA2C),
+    "robot": (0x6DC2CA, 0x8595A1, 0xD04648),
 }
 
 TILE = 16
@@ -257,7 +271,138 @@ ART = {
         "..#pppppppppppp#",
         "..#rprrrrprrrr#.",
     ),
+    # ---- presents under the tree (colours from BOX_COLORS) ---------------- #
+    "present": (
+        "................",
+        "....##....##....",
+        "...#RR#..#RR#...",
+        "...#RRR##RRR#...",
+        "################",
+        "#XXXXXXRRXXXXXx#",
+        "#xxxxxxRRxxxxxx#",
+        "################",
+        ".#XXXXXRRXXXXx#.",
+        ".#XXXXXRRXXXXx#.",
+        ".#XXXXXRRXXXXx#.",
+        ".#XXXXXRRXXXXx#.",
+        ".#XXXXXRRXXXXx#.",
+        ".#XXXXXRRXXXXx#.",
+        ".#xxxxxRRxxxxx#.",
+        ".##############.",
+    ),
+    # Lid off: the escape's close-up, with the critter between its back and front.
+    "present open": (
+        "................",
+        "................",
+        "................",
+        "................",
+        "................",
+        "................",
+        ".##############.",
+        ".#pppppppppppp#.",
+        ".#XXXXXRRXXXXx#.",
+        ".#XXXXXRRXXXXx#.",
+        ".#XXXXXRRXXXXx#.",
+        ".#XXXXXRRXXXXx#.",
+        ".#XXXXXRRXXXXx#.",
+        ".#XXXXXRRXXXXx#.",
+        ".#xxxxxRRxxxxx#.",
+        ".##############.",
+    ),
+    "lid": (
+        "................",
+        "....##....##....",
+        "...#RR#..#RR#...",
+        "...#RRR##RRR#...",
+        "################",
+        "#XXXXXXRRXXXXXx#",
+        "#xxxxxxRRxxxxxx#",
+        "################",
+        "................",
+        "................",
+        "................",
+        "................",
+        "................",
+        "................",
+        "................",
+        "................",
+    ),
+    # Knocked on its side, empty, open end to the right: who's missing.
+    "present tipped": (
+        "................",
+        "................",
+        "................",
+        "................",
+        "................",
+        "###########.....",
+        "#XXXXXXXXx#p#...",
+        "#XXXXXXXXx#pp#..",
+        "#RRRRRRRRR#ppp#.",
+        "#RRRRRRRRR#ppp#.",
+        "#XXXXXXXXx#ppp#.",
+        "#XXXXXXXXx#pp#..",
+        "#xxxxxxxxx#p#...",
+        "###########.....",
+        "................",
+        "................",
+    ),
 }
+
+# The Living Room tree, drawn at 2x for the wide shot: 40 x 52.
+TREE = (
+        "....................#...................",
+        "...................#y#..................",
+        "................####y####...............",
+        "................#yyyyyyy#...............",
+        ".................#yyyyy#................",
+        "..................#yyy#.................",
+        ".................#yy#yy#................",
+        ".................##lll##................",
+        ".................#llll#.................",
+        "................#llllGl#................",
+        "................#lllllG#................",
+        "...............#lllllGGG#...............",
+        "...............#llwrllGG#...............",
+        "..............#lllrrllGGG#..............",
+        ".............#llllGGGGlGGG#.............",
+        ".............#llllGGGGGGGG#.............",
+        "............#llllGGGGGGGGGG#............",
+        "............#llOyGGGGGwbGGG#............",
+        "...........#llllGyOGGGbbGGGG#...........",
+        "...........#lllGGGGyyGGGGGGG#...........",
+        "..........#lllGGGGGGGOyGGGGGG#..........",
+        "...........###GGGGGGGGGyOG###...........",
+        "............#GGGGGGGGGGGGGG#............",
+        "...........#llllllllllGGGGGG#...........",
+        "...........#llwrlllllGlGGGGG#...........",
+        "..........#lllrrllGGGGGGGGGGG#..........",
+        ".........#llllllllGGGGGGwcGGGG#.........",
+        "........#llllllllGGGGGGGccGGGGG#........",
+        "........#lllllllGGGGGGGGGGGGGGG#........",
+        ".......#llllOylGGGGGGGGGGGGGGGGG#.......",
+        "......#lllllllyOGGGGGGGGGGGGGGGGG#......",
+        "......#llllllGGGyyGwbGGGGGGGGGGGG#......",
+        ".....#llllllGGGGGGObbGGGGGGwyGGGGG#.....",
+        "......#####GGGGGGGGGGOyGGGGyy#####......",
+        "..........wrGGGGGGGGGGGyOGGGG#..........",
+        ".........#rrllllllllllGGGyyGGG#.........",
+        "........#llllllllllllGGGGGGOyGG#........",
+        ".......#lllllllllllllwrGGGGGGGGG#.......",
+        "......#llllllllllllllrrGGGGGyOyyO#......",
+        ".....#lllllllllllllllyyOyyOyGGGGGG#.....",
+        "....#lllllllyyOyyOyyOlGGGGGGGGGGGGG#....",
+        "...#llllOyyOlwcllllllGGGGGGGGGGGGGGG#...",
+        "...#lllllllllcclllllllGGGGGGwbGGGGGG#...",
+        "..#lllllllllllllllllllwyGGGGbbGGGGGGG#..",
+        ".#lllllllllllllllllllGyyGGGGGGGGGGGGGG#.",
+        "#lllllllllllllllllllllGGGGGGGGGGGGGGGGG#",
+        ".################oooopp################.",
+        "................#oooopp#................",
+        "................#oooopp#................",
+        "................#oooopp#................",
+        "................#oooopp#................",
+        ".................######.................",
+)
 
 NAMES = tuple(ART)  # sheet order
 

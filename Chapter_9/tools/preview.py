@@ -48,14 +48,14 @@ class Session:
         self.world, self.hunt = _game(first)
         self.nav = nav_view.NavView(240, 240)
         self.now = 0.0
-        self.hunt.start()
-        self._refresh()
+        self._refresh(self.hunt.start(), self.hunt.event)
 
     def _refresh(self, messages=(), event=None):
         self.nav.show_room(self.world.room.name, self.world.live_exits())
         self.nav.show_scene(self.hunt.scene(), self.now)
         want = self.hunt.critter.preferred_item if self.hunt.critter else None
-        self.nav.say(list(messages), self.now, event, want)
+        self.nav.say(list(messages), self.now, event, want, self.hunt.escape,
+                     self.hunt.escape_at)
 
     def jump(self, room):
         """Teleport, for a quick look at a room (the gate still applies to moves)."""
@@ -68,8 +68,8 @@ class Session:
         for direction in directions:
             if not self.world.move(direction):
                 raise ValueError("can't go {} from {}".format(direction, self.world.current))
-            self.hunt.entered()
-        self._refresh()
+            messages = self.hunt.entered()
+        self._refresh(messages if self.hunt.event else (), self.hunt.event)
         return self
 
     def tap(self, show_messages=False):
@@ -79,6 +79,11 @@ class Session:
         else:
             self._refresh()
         return messages
+
+    def next_beat(self):
+        """A tap while a caption or cutscene beat is up: on to the next."""
+        self.nav.tap_overlay(self.now)
+        return self
 
     def at(self, seconds, zone=None):
         """Let time pass (animations), then render."""
@@ -91,7 +96,21 @@ def scenes():
     """(name, image) for every moment worth looking at."""
     from rooms import DOWN, LEFT, RIGHT, UP
 
+    # The opening escape, a beat at a time.
     s = Session()
+    yield "e1_9pm", s.at(0.5)
+    yield "e2_rattle", s.next_beat().at(0.25)
+    yield "e3_closeup", s.next_beat().at(0.25)
+    yield "e4_pop", s.next_beat().at(0.3)
+    yield "e5_peek", s.next_beat().at(0.8)
+    yield "e6_name", s.next_beat().at(0.4)
+    yield "e7_bolt", s.next_beat().at(0.45)
+    yield "e8_escaped", s.next_beat().at(0.3)
+
+    s = Session()
+    s.next_beat()
+    for _ in range(8):
+        s.next_beat()
     yield "01_home_start", s.at(0.1)
     s.go(RIGHT, RIGHT, RIGHT)
     yield "02_cat_hiding", s.at(0.1)
@@ -107,6 +126,14 @@ def scenes():
     yield "07_cat_follows", s.at(0.1)
     s.go(LEFT)
     yield "08_following_in_kitchen", s.at(0.3)
+    s.go(LEFT, LEFT)
+    yield "08b_home_again", s.at(0.5)  # "Chirpy curls up..." with her on her box
+    for _ in range(3):
+        s.next_beat()
+    yield "08c_next_rattle", s.at(0.3)
+    for _ in range(7):
+        s.next_beat()
+    yield "08d_dog_out", s.at(0.3)
 
     s = Session()
     s.go(RIGHT, RIGHT, RIGHT)

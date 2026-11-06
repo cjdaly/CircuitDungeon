@@ -37,9 +37,6 @@ IN_BOX = "in_box"
 HIDING = "hiding"
 RETURNED = "returned"
 
-# Per critter, as Chris decides them; anyone not listed is "It" for now.
-SUBJECT_PRONOUNS = {"Chirpy": "She"}
-
 
 class Critter:
     """One critter's state: where it is, and what it takes to bring it back."""
@@ -53,10 +50,6 @@ class Critter:
         self.habit = habit  # default where-clue text, e.g. "loves the snow"
         self.state = IN_BOX
         self.location = home
-
-    @property
-    def subject_pronoun(self):
-        return SUBJECT_PRONOUNS.get(self.name, "It")
 
     def escape(self, hide_in):
         """Leave the box and hide in room `hide_in`.

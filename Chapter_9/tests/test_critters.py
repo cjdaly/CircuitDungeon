@@ -143,11 +143,6 @@ class TestCast(unittest.TestCase):
             cat = [c for c in roster.all() if c.species == "cat"][0]
             self.assertEqual(cat.name, "Chirpy")
 
-    def test_chirpy_is_she(self):
-        roster = critters_mod.make_roster()
-        cat = [c for c in roster.all() if c.species == "cat"][0]
-        self.assertEqual(cat.subject_pronoun, "She")
-
     def test_cast_sprites_match_their_species_group(self):
         groups = {cid: group for cid, group, _src in critter_candidates.CANDIDATES}
         for species, _lure, _habit, sprites in critters_mod.CAST:

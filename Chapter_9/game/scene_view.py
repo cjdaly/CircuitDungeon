@@ -23,6 +23,7 @@ import displayio
 import comic_shapes
 import critter_candidates
 import scene_art
+from home_view import HomeView
 from hunt import HIDING
 from walk import bob
 
@@ -158,6 +159,9 @@ class SceneView:
         self._follower = _critter_grid(critters, critter_palette)
         self._follow_layer.append(self._follower)
 
+        self._home = HomeView(self._sheet, self._palette, self._tile_of, critters,
+                              critter_palette)
+        self.group.append(self._home.group)
         for layer in (self._behind, self._spot_layer, self._wiggles, self._lure_layer,
                       self._front, self._held_layer, self._follow_layer):
             layer.hidden = True
@@ -172,6 +176,7 @@ class SceneView:
     def show(self, scene, now=0.0):
         """Show a hunt.Scene: call it whenever the room or what's in it changes."""
         self._shown_at = now
+        self._home.show(scene.boxes)
         self._spot_layer.hidden = scene.spot is None
         if scene.spot is not None:
             self._spot[0] = self._tile_of[scene.spot]
@@ -214,7 +219,16 @@ class SceneView:
             self._icons[name] = icon
         return icon
 
+    def set_escape(self, escape):
+        """The critter the next escape cutscene is about (a hunt.Escape)."""
+        self._home.set_escape(escape)
+
+    def shot(self, name, now):
+        """Draw one escape-cutscene shot (home_view's names), or None for none."""
+        self._home.shot(name, now)
+
     def update(self, now):
+        self._home.update(now)
         t = now - self._shown_at
         if self._pose is not None:
             self._critter[0] = self._critter_frame + int(t / _IDLE_FRAME_S) % 2

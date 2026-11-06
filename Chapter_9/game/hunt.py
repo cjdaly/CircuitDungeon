@@ -22,17 +22,24 @@ can draw it rather than the text telling you to tap. The escape cutscene
 cd-342.6.
 """
 import episodes
-from critters import HOME
+from critters import CAST, HIDING as CRITTER_HIDING, HOME, IN_BOX
 from scene_art import HIDING_SPOTS
 
 HUNTING = "hunting"
 GOING_HOME = "going_home"
 DONE = "done"
 
-# What the last tapped() did, for the view to show it (Hunt.event).
+# What the last tapped(), start() or entered() did, for the view to show it
+# (Hunt.event).
 FOUND = "found"
 TOOK = "took"
 RETRIEVED = "retrieved"
+ESCAPED = "escaped"  # an episode began: play the escape (Hunt.escape)
+
+# A present under the tree (Scene.boxes).
+BOX_CLOSED = "closed"  # its critter hasn't got out yet
+BOX_EMPTY = "empty"  # tipped over: its critter is out
+BOX_HOME = "home"  # its critter is back, sitting on it
 
 # How the critter looks in the room where it hides (Scene.pose).
 HIDING = "hiding"
@@ -47,15 +54,36 @@ _IMAGE_CLUE_TEXT = {
 # A caption opens each episode with the hour, tied to its slot and not the critter.
 _HOURS = ("9 PM", "10 PM", "11 PM", "Near midnight", "Midnight")
 
+# Short names for the "<critter> wants the <item>" line, so it fits two lines;
+# the thought bubble beside it shows the item itself.
+_SHORT_ITEM = {"ball of yarn": "yarn", "squeaky ball": "ball"}
+
 _BANNER_CHARS = 15  # Bangers on the round panel; tests check the real pixel widths
 
 
-def wrap(text, width=_BANNER_CHARS):
-    """Word-wrap into a list of lines at most `width` characters where possible."""
+# Caption font (Bangers) advance widths in px, one per comic_fonts.GLYPHS character.
+# tests/test_hunt.py checks them against the BDF.
+_CAPTION_GLYPHS = " !',.0123456789?ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+_CAPTION_WIDTHS = (6, 7, 6, 6, 6, 12, 9, 12, 12, 12, 12, 13, 9, 14, 13, 12, 11, 11, 11, 12, 9, 9, 13, 12, 6, 8, 12, 8, 16, 12, 13, 10, 14, 12, 11, 10, 11, 10, 16, 11, 10, 11)
+CAPTION_PX = 160  # widest caption line: keeps a two-line box's corners on the panel
+
+
+def text_px(text):
+    """Width of `text` in the caption font, upper-cased as it's drawn."""
+    total = 0
+    for ch in text.upper():
+        i = _CAPTION_GLYPHS.find(ch)
+        total += _CAPTION_WIDTHS[i] if i >= 0 else 0
+    return total
+
+
+def wrap(text, width=_BANNER_CHARS, px=CAPTION_PX):
+    """Word-wrap into lines at most `width` characters and `px` pixels where possible."""
     lines = []
     line = ""
     for word in text.split(" "):
-        if line and len(line) + 1 + len(word) > width:
+        longer = line + " " + word
+        if line and (len(longer) > width or text_px(longer) > px):
             lines.append(line)
             line = word
         else:
@@ -73,16 +101,32 @@ class Scene:
     lure: scene_art name of what's at the lure spot (the lure, or what hides it)
     follower: sprite id of a critter following you home
     held: the item in hand
+    boxes: under the tree (HOME only), ((species, BOX_*, sprite id), ...) in CAST order
     """
 
     def __init__(self, spot=None, critter=None, pose=None, lure=None, follower=None,
-                 held=None):
+                 held=None, boxes=None):
         self.spot = spot
         self.critter = critter
         self.pose = pose
         self.lure = lure
         self.follower = follower
         self.held = held
+        self.boxes = boxes
+
+
+class Escape:
+    """The critter that just got out, for the escape cutscene.
+
+    `direction` is the way it bolts: the first step from the tree toward where
+    it's hiding, so the cutscene is also a hint.
+    """
+
+    def __init__(self, species, sprite, name, direction):
+        self.species = species
+        self.sprite = sprite
+        self.name = name
+        self.direction = direction
 
 
 class Hunt:
@@ -101,13 +145,17 @@ class Hunt:
         self._found = False
         self._locked = False
         self._player = player  # who this board is for, if it says
-        self.event = None  # FOUND / TOOK / RETRIEVED, set by tapped()
+        self.event = None  # FOUND / TOOK / RETRIEVED / ESCAPED
+        self.escape = None  # Escape, when event is ESCAPED
+        self.escape_at = 0  # ...and the message the cutscene plays before
 
     def start(self):
         """Begin the game. Returns the first escape's messages."""
-        return self._start_next_episode()
+        self.event = None
+        return self._start_next_episode(lead=0)
 
-    def _start_next_episode(self):
+    def _start_next_episode(self, lead):
+        """`lead`: how many messages the caller puts ahead of these."""
         if self._next >= len(self._order):
             self.stage = DONE
             self.episode = None
@@ -125,7 +173,20 @@ class Hunt:
         self.held = None
         self._found = False
         self._locked = self.episode.unlock is not None
+        self.event = ESCAPED
+        self.escape = Escape(self.critter.species, self.critter.sprite, self.critter.name,
+                             self._first_step())
+        self.escape_at = lead + 1  # after the hour
         return [hour, "{} escaped!".format(self.critter.name)] + self._escape_clues()
+
+    def _first_step(self):
+        path = episodes.spine(self._world, self.episode)
+        if not path or len(path) < 2:
+            return None
+        for direction, dest in self._world.get(HOME).exits.items():
+            if dest == path[1]:
+                return direction
+        return None
 
     def _merry_christmas(self):
         if self._player:
@@ -145,10 +206,11 @@ class Hunt:
 
     def entered(self):
         """The player just moved into the current room."""
+        self.event = None
         room = self._world.current
         if self.stage == GOING_HOME and room == HOME:
             home = self.episode.home_text.format(name=self.critter.name)
-            return [home] + self._start_next_episode()
+            return [home] + self._start_next_episode(lead=1)
 
         messages = []
         if self.stage == DONE:
@@ -174,11 +236,12 @@ class Hunt:
 
     def scene(self):
         """What the current room shows (Scene)."""
-        if self.stage == DONE:
-            return Scene()
         room = self._world.current
+        boxes = self._boxes() if room == HOME else None
+        if self.stage == DONE:
+            return Scene(boxes=boxes)
         episode = self.episode
-        scene = Scene(held=self.held)
+        scene = Scene(held=self.held, boxes=boxes)
         if room == episodes.ODD_CORNER:
             scene.lure = "batteries"
         if room == episode.hide_room:
@@ -191,6 +254,26 @@ class Hunt:
         if self.stage == GOING_HOME:
             scene.follower = self.critter.sprite
         return scene
+
+    def _short_item(self):
+        item = self.critter.preferred_item
+        return _SHORT_ITEM.get(item, item)
+
+    def _boxes(self):
+        boxes = []
+        for species, _lure, _habit, _sprites in CAST:
+            critter = self._critters.get(species)
+            if critter is None:
+                continue
+            if critter.state == IN_BOX:
+                state = BOX_CLOSED
+            elif critter.state == CRITTER_HIDING or (
+                    critter is self.critter and self.stage == GOING_HOME):
+                state = BOX_EMPTY
+            else:
+                state = BOX_HOME
+            boxes.append((species, state, critter.sprite))
+        return tuple(boxes)
 
     def bumped(self, direction):
         """A blocked move: the in-world reason, or None if there's simply no exit."""
@@ -243,7 +326,7 @@ class Hunt:
             return ["{} follows you home!".format(name)]
         # Finding it: the view shouts FOUND! first (event), then these.
         messages = [
-            "{} wants the {}".format(self.critter.subject_pronoun, self.critter.preferred_item),
+            "{} wants the {}".format(self.critter.name, self._short_item()),
         ]
         if not self._found:
             self.event = FOUND

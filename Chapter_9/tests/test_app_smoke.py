@@ -58,8 +58,9 @@ class _OnDiskBitmap(_Bitmap):
 
 
 class _TileGrid:
-    def __init__(self, *a, **k):
+    def __init__(self, *a, pixel_shader=None, **k):
         self.x, self.y, self.hidden = 0, 0, False
+        self.pixel_shader = pixel_shader
 
     def __setitem__(self, position, tile):
         pass
@@ -236,9 +237,9 @@ class _Run:
         return words[0] if words else None
 
     def holding(self):
-        """Whether the held-item icon is showing (scene_view's 6th layer)."""
-        layers = [g for g in self.nav_group[1] if isinstance(g, _Group) and len(g) == 7][0]
-        return not layers[5].hidden
+        """Whether the held-item icon is showing (scene_view's 7th layer, after home)."""
+        layers = self.nav_group[1][0]  # the scene: SceneView's group
+        return not layers[6].hidden
 
     def scene_x(self):
         return self.nav_group[1].x
@@ -293,7 +294,8 @@ class TestBusRecoveryWiring(unittest.TestCase):
         self.assertEqual(imu.reads, 20)
 
 
-_OPENING_S = 9.0  # the opening captions have timed out by now
+_OPENING_S = 17.0  # the opening captions and escape cutscene have run by now
+_CUTSCENE_BEATS = 6
 _TAP_SPACING = 10.0  # likewise any overlay a tap brought up, unless a test wants it
 
 
@@ -320,6 +322,8 @@ class TestEpisodeOne(unittest.TestCase):
         r = _Run(seconds=1.0)
         self.assertEqual(r.message(), "9 PM")
         r = _Run(seconds=3.0)
+        self.assertEqual(r.burst(), "RATTLE!")  # the cutscene, after the hour
+        r = _Run(seconds=11.0)
         self.assertEqual(r.message(), "CHIRPY ESCAPED!")
 
     def test_closed_exit_shows_its_reason_and_does_not_move(self):
@@ -356,7 +360,7 @@ class TestEpisodeOne(unittest.TestCase):
             windows=_taps(_RIGHT_EDGE, _RIGHT_EDGE, _RIGHT_EDGE, _CENTER),
             seconds=_after_taps(4, wait=4.0),
         )
-        self.assertEqual(r.message(), "SHE WANTS THE BALL OF YARN")
+        self.assertEqual(r.message(), "CHIRPY WANTS THE YARN")
 
     def test_the_yarn_door_is_stuck_until_she_is_found(self):
         r = _Run(windows=_taps(_RIGHT_EDGE, _TOP_EDGE), seconds=_after_taps(2))
@@ -384,11 +388,11 @@ class TestOverlays(unittest.TestCase):
     def test_an_edge_tap_during_a_caption_advances_instead_of_moving(self):
         r = _Run(windows=[(0.5, 0.7, _RIGHT_EDGE)], seconds=1.5)
         self.assertEqual(r.room(), "LIVING ROOM")
-        self.assertEqual(r.message(), "CHIRPY ESCAPED!")
+        self.assertEqual(r.burst(), "RATTLE!")  # on into the escape cutscene
 
     def test_a_corner_tap_also_advances(self):
         r = _Run(windows=[(0.5, 0.7, _at(5, 5))], seconds=1.5)
-        self.assertEqual(r.message(), "CHIRPY ESCAPED!")
+        self.assertEqual(r.burst(), "RATTLE!")
 
     def test_a_center_tap_during_a_caption_only_advances(self):
         to_odd_corner = (_RIGHT_EDGE, _RIGHT_EDGE, _TOP_EDGE)
@@ -398,16 +402,18 @@ class TestOverlays(unittest.TestCase):
         self.assertEqual(r.message(), "")  # dismissed, and no "So close!" from a real tap
 
     def test_moving_works_as_soon_as_the_last_caption_is_tapped_away(self):
-        r = _Run(
-            windows=[
-                (0.5, 0.7, _CENTER),
-                (1.2, 1.4, _CENTER),
-                (1.9, 2.1, _CENTER),
-                (2.6, 2.8, _RIGHT_EDGE),
-            ],
-            seconds=3.5,
-        )
+        beats = 3 + _CUTSCENE_BEATS  # 9 PM, the cutscene, escaped, the clue
+        windows = [(0.5 + 0.5 * i, 0.6 + 0.5 * i, _CENTER) for i in range(beats)]
+        at = 0.5 + 0.5 * beats
+        r = _Run(windows=windows + [(at, at + 0.1, _RIGHT_EDGE)], seconds=at + 0.5)
         self.assertEqual(r.room(), "DINING ROOM")
+
+    def test_the_cutscene_cuts_in_without_the_room_name_or_markers(self):
+        r = _Run(seconds=4.5)  # 9 PM (2.25s), RATTLE! (1.6s), then the close-up
+        chrome = r.nav_group[1][1]
+        self.assertTrue(chrome.hidden)
+        r = _Run(seconds=_OPENING_S)
+        self.assertFalse(r.nav_group[1][1].hidden)
 
 
 class TestAppSmoke(unittest.TestCase):

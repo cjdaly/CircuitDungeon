@@ -107,10 +107,16 @@ def run(display, backlight, touch, imu_gestures, width, height,
     hunt = Hunt(world, make_roster(), player=player)
 
     nav = NavView(width, height)
+
+    def tell(messages, now):
+        """Show what the hunt just said, drawn the way its last event wants."""
+        want = hunt.critter.preferred_item if hunt.critter else None
+        nav.say(messages, now, hunt.event, want, hunt.escape, hunt.escape_at)
+
     opening = hunt.start()  # sets the episode's gate, so before show_room
     nav.show_room(world.room.name, world.live_exits())
     nav.show_scene(hunt.scene(), clock())
-    nav.say(opening, clock())
+    tell(opening, clock())
 
     ornament_group = displayio.Group()
     ornament.make_background(ornament_group, width, height)
@@ -205,7 +211,7 @@ def run(display, backlight, touch, imu_gestures, width, height,
                         messages = hunt.entered()
                         nav.show_room(world.room.name, world.live_exits())
                         nav.show_scene(hunt.scene(), now)
-                        nav.say(messages, now)
+                        tell(messages, now)
                     else:
                         reason = hunt.bumped(direction)
                         if reason:
@@ -216,8 +222,7 @@ def run(display, backlight, touch, imu_gestures, width, height,
                     messages = hunt.tapped()
                     print("tap in {}: {}".format(world.current, messages))
                     nav.show_scene(hunt.scene(), now)
-                    want = hunt.critter.preferred_item if hunt.critter else None
-                    nav.say(messages, now, hunt.event, want)
+                    tell(messages, now)
                 nav.update(now, zone)
             else:
                 # "handled" counts as activity: wakes a blanked ornament.

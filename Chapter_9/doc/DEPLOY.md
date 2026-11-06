@@ -30,9 +30,13 @@ desktop `main.py` is untouched, and a plain re-deploy puts the game back. To go 
 
 ## What you should see
 
-1. Boot → the **Living Room**, and Chirpy's escape message: green pulsing dots
-   on the edges open this episode (right → Dining Room, up → Hallway), dim dots
-   on the rest.
+1. Boot → the **Living Room**: the tree with five presents under it, one per
+   critter. After the `9 PM` caption, Chirpy's escape plays (tap to skip ahead):
+   her red box rattles, a close-up, `POP!`, eyes over the rim, `CHIRPY!`, and
+   she bolts out of the tipped box toward the Dining Room. Then `CHIRPY ESCAPED!`
+   and her clue. Green pulsing dots on the edges open this episode (right →
+   Dining Room, up → Hallway), dim dots on the rest. A box tipped over is a
+   critter that's out; a critter sitting on its box is home.
 2. **Tap toward an edge** (anywhere outside the middle 120px circle: the ring is
    split into four slices along the diagonals), or **swipe anywhere**, to move. A
    swipe drags the world, like on a watch: swipe left to go right. Touching a dot's zone snaps it gold (live exit) or red (blocked). A closed
