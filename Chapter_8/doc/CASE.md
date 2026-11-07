@@ -97,9 +97,13 @@ onboard MX1.25 BAT connector doesn't accept directly:
   `ws-1`. **Dimensions not yet checked against `deep_backplate_6mm.scad`**
   (that model was sized around the now-superseded 1317's 19.75 × 26.02 ×
   3.8mm, not the 1570's — needs calipers before assuming it fits).
-- [Adafruit 4237](https://www.adafruit.com/product/4237) — 3.7V 350mAh.
-  Currently a spare (not wired to a device). No case variant sized for it
-  yet.
+- [Adafruit 4237](https://www.adafruit.com/product/4237) — 3.7V 350mAh,
+  32.5 × 25 × 5mm, 25mm lead, JST-PH (per adafruit.com). **The battery for
+  all 10 Ch9 gift units** (Chris, 2026-11-07), so each needs a 3922 spliced
+  on as below. No case variant confirmed for it yet: vs the 4236 it's 2.5mm
+  shorter and 0.2mm thinner but 1mm wider, so test-fit it in
+  `deep_backplate_20mm` (and, at 5mm thick, maybe `deep_backplate_6mm` for
+  a slimmer ornament). Tracked in `cd-342.33`.
 
 Adapter: [Adafruit 3922](https://www.adafruit.com/product/3922) — a 200mm,
 28AWG **Molex PicoBlade (1.25mm pitch)** cable, connector on one end, bare
