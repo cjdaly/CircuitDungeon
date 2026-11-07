@@ -94,6 +94,33 @@ def read_bus_lines(samples=20):
     return sda_high, scl_high
 
 
+def clock_out_bus(max_clocks=18):
+    """Pulse SCL until SDA goes high. Returns the clocks it took, or None if it never did.
+
+    A chip cut off mid-read by a reset keeps driving SDA, waiting for the rest
+    of its byte; a few clocks let it finish and let go. Seen on ws-2 2026-11-07:
+    after a reset-pin reset the IMU held SDA low (the touch-chip reset didn't
+    help) and one clock freed it. Call with the bus deinited.
+    """
+    sda = digitalio.DigitalInOut(board.IMU_SDA)
+    sda.switch_to_input(pull=digitalio.Pull.UP)
+    scl = digitalio.DigitalInOut(board.IMU_SCL)
+    scl.switch_to_output(value=True, drive_mode=digitalio.DriveMode.OPEN_DRAIN)
+    took = 0 if sda.value else None
+    clocks = 0
+    while took is None and clocks < max_clocks:
+        clocks += 1
+        scl.value = False
+        time.sleep(0.0001)
+        scl.value = True
+        time.sleep(0.0001)
+        if sda.value:
+            took = clocks
+    sda.deinit()
+    scl.deinit()
+    return took
+
+
 def init_imu(i2c):
     """The IMU with its gyro off: Ch9 only uses the accelerometer (cd-342.28)."""
     imu = qmi8658c.QMI8658C(i2c, address=_IMU_ADDRESS)

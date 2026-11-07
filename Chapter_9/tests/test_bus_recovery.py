@@ -56,6 +56,10 @@ class TestBusRecovery(unittest.TestCase):
     def _reset_touch(self):
         self.events.append("reset")
 
+    def _clock_out(self):
+        self.events.append("clock out")
+        return 1
+
     def _make_i2c(self):
         self.events.append("make bus")
         if self.bus_error:
@@ -78,6 +82,23 @@ class TestBusRecovery(unittest.TestCase):
         # A restarted IMU's first reading jumps; it mustn't look like a pickup.
         self.recovery.rebuild()
         self.assertEqual(self.gestures.resets, 1)
+
+    def test_sda_still_held_after_the_touch_reset_gets_clocked_out(self):
+        recovery = BusRecovery(
+            self.old_bus, self.gestures, self.touch, self._make_i2c, self._make_imu,
+            lambda: (0, 20), self._reset_touch, self._clock_out,
+        )
+        status = recovery.rebuild()
+        self.assertIn("clock out", self.events)
+        self.assertIn("SDA freed after 1 clocks", status)
+
+    def test_no_clocking_when_the_touch_reset_freed_sda(self):
+        recovery = BusRecovery(
+            self.old_bus, self.gestures, self.touch, self._make_i2c, self._make_imu,
+            self._read_lines, self._reset_touch, self._clock_out,
+        )
+        recovery.rebuild()
+        self.assertNotIn("clock out", self.events)
 
     def test_touch_chip_is_reset_before_the_new_bus_is_made(self):
         self.recovery.rebuild()

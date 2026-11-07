@@ -5,7 +5,8 @@ The CST816 touch chip sometimes holds SDA low. Every touch and IMU read then
 takes the full 1s timeout, so a game tick takes 2s, and it can last for minutes.
 Tested on ws-1: 64 SCL clocks don't release the line, but a pulse on the chip's
 reset pin does (Chapter_8/doc/HARDWARE.md). So rebuild() resets the chip and
-then brings up a new busio.I2C.
+then brings up a new busio.I2C. If SDA is still held after that, it's the IMU,
+cut off mid-read by a reset, and clocking SCL frees it (`clock_out`, optional).
 
 Its status reports the line levels before and after the reset, so the serial log
 shows what happened. The hardware comes in as arguments so this runs under plain
@@ -17,7 +18,8 @@ _LINES = "SDA high {}/20, SCL high {}/20"
 
 
 class BusRecovery:
-    def __init__(self, i2c, gestures, touch, make_i2c, make_imu, read_lines, reset_touch):
+    def __init__(self, i2c, gestures, touch, make_i2c, make_imu, read_lines, reset_touch,
+                 clock_out=None):
         self._i2c = i2c
         self._gestures = gestures
         self._touch = touch
@@ -25,6 +27,7 @@ class BusRecovery:
         self._make_imu = make_imu
         self._read_lines = read_lines
         self._reset_touch = reset_touch
+        self._clock_out = clock_out
         self.rebuilds = 0
 
     def rebuild(self):
@@ -33,9 +36,10 @@ class BusRecovery:
         self._i2c.deinit()
         before = _LINES.format(*self._read_lines())
         self._reset_touch()
-        lines = "before reset {}; after {}".format(
-            before, _LINES.format(*self._read_lines())
-        )
+        after = self._read_lines()
+        lines = "before reset {}; after {}".format(before, _LINES.format(*after))
+        if self._clock_out is not None and after[0] == 0:
+            lines += "; SDA freed after {} clocks".format(self._clock_out())
         try:
             self._i2c = self._make_i2c()
             imu = self._make_imu(self._i2c)
