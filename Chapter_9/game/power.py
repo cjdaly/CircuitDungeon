@@ -11,9 +11,10 @@ hard enough to matter, moves it.
 
 CircuitPython 10 has no `alarm` module on this board (Chapter_8/doc/POWER.md,
 cd-ork.4), so there "asleep" is still Python running, just rarely and slowly:
-time.sleep() waits in WFI between reads. CircuitPython 11 has `alarm`, and then
-deep idle is a real light sleep that the IMU's wake-on-motion pin ends
-(hardware.DevicePower.doze, cd-342.30).
+time.sleep() waits in WFI between reads. CircuitPython 11 has `alarm`, and with
+LIGHT_SLEEP = "1" in settings.toml deep idle is a real light sleep that the
+IMU's wake-on-motion pin ends (hardware.DevicePower.doze, cd-342.30). Opt-in
+only: 11.0.0-alpha.2's light sleep can hang for good.
 
 Pure logic, no hardware imports -- runs under plain desktop Python (see
 tests/test_power.py).

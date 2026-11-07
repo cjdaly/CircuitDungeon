@@ -7,6 +7,7 @@ the touch reset and bus line checks used by bus_recovery.py (cd-342.16).
 No board.SPI()/board.I2C() default-bus helpers exist on this board -- every
 bus is built by hand from the named pins in doc/HARDWARE.md.
 """
+import os
 import time
 
 import analogio
@@ -121,8 +122,24 @@ def clock_out_bus(max_clocks=18):
     return took
 
 
+_QMI_RESET = 0x60
+_QMI_RESET_CMD = 0xB0
+
+
 def init_imu(i2c):
-    """The IMU with its gyro off: Ch9 only uses the accelerometer (cd-342.28)."""
+    """The IMU, soft-reset first, with its gyro off (Ch9 only uses the accelerometer).
+
+    A board reset doesn't reach the IMU, so whatever it was last told survives.
+    On ws-2 (2026-11-08) a wake-on-motion setup left over from a light sleep
+    (cd-342.30) froze its readings through every reboot: the driver's setup
+    doesn't touch those registers, so deep idle never saw the board move.
+    """
+    from adafruit_bus_device.i2c_device import I2CDevice
+
+    device = I2CDevice(i2c, _IMU_ADDRESS)
+    with device:
+        device.write(bytes((_QMI_RESET, _QMI_RESET_CMD)))
+    time.sleep(0.05)  # ~15ms per the datasheet, with margin
     imu = qmi8658c.QMI8658C(i2c, address=_IMU_ADDRESS)
     imu.gyro_enable = 0
     return imu
@@ -156,7 +173,16 @@ _WOM_CAL1_H = 0x40 | 0x08  # interrupt routing, start low, ignore the first 8 sa
 _BUS_ERRORS = (OSError, RuntimeError, ValueError)
 
 
-def _has_alarm():
+def _light_sleep_enabled():
+    """True if settings.toml opts in (LIGHT_SLEEP = "1") and the firmware has `alarm`.
+
+    Opt-in because 11.0.0-alpha.2's light sleep can hang for good: on ws-2
+    (2026-11-07/08) a PinAlarm + TimeAlarm sleep never returned, neither the
+    timer nor the motion pin ended it, only Ctrl-C over USB; a bare loop of
+    1 s sleeps reproduced it after ~20. Timer-only sleeps didn't hang (40/40).
+    """
+    if os.getenv("LIGHT_SLEEP") != "1":
+        return False
     try:
         import alarm  # noqa: F401 -- CircuitPython 11+ on RP2350
     except ImportError:
@@ -170,15 +196,16 @@ class DevicePower:
     `gestures` (imu.ImuGestures) is passed rather than the IMU itself because
     bus_recovery swaps in a new IMU object; this always reaches the current one.
 
-    With the `alarm` module (CircuitPython 11+), deep idle is a true light
-    sleep that the IMU's wake-on-motion pin ends (.can_doze, .doze()). Without
-    it, the CPU clock drops and app.py polls the accelerometer instead.
+    With the `alarm` module (CircuitPython 11+) and LIGHT_SLEEP = "1" in
+    settings.toml, deep idle is a true light sleep that the IMU's wake-on-motion
+    pin ends (.can_doze, .doze()). Otherwise the CPU clock drops and app.py
+    polls the accelerometer instead.
     """
 
     def __init__(self, display, gestures):
         self._display = display
         self._gestures = gestures
-        self.can_doze = _has_alarm()
+        self.can_doze = _light_sleep_enabled()
 
     def sleep(self):
         self._display.auto_refresh = False

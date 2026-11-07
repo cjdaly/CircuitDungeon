@@ -23,6 +23,7 @@ class ImuGestures:
         self.imu = imu
         self._prev_accel = None
         self._shake_until = 0.0
+        self.last_raw = None  # the latest read, for logging
 
     def reset(self):
         """Forget the last reading, so the next sample's jerk is 0.0.
@@ -34,7 +35,7 @@ class ImuGestures:
 
     def sample(self, now):
         """Read the IMU once. Returns accel/gyro plus derived tilt + shake."""
-        ax, ay, az = self.imu.acceleration
+        ax, ay, az = self.last_raw = self.imu.acceleration
         gx = gy = gz = 0.0  # the gyro is off in Ch9; reading it is a wasted I2C trip
 
         jerk = 0.0

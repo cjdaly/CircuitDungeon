@@ -217,8 +217,10 @@ def run(display, backlight, touch, imu_gestures, width, height,
                 was_still = detector.is_still
                 detector.update(jerk, now)
                 if detector.is_still != was_still:
-                    print("t={:.1f} {} (jerk {:.2f})".format(
-                        now, "still" if detector.is_still else "handled", jerk))
+                    raw = getattr(imu_gestures, "last_raw", None)
+                    print("t={:.1f} {} (jerk {:.2f}, raw {})".format(
+                        now, "still" if detector.is_still else "handled", jerk,
+                        tuple(round(v, 2) for v in raw) if raw else "?"))
             stats.imu_s = max(stats.imu_s, clock() - after_touch)
 
             new_mode = mode_ctl.update(touched, detector.is_still, now)
