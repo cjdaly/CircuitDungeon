@@ -42,5 +42,10 @@ class BusRecovery:
         except _BUS_ERRORS as exc:
             return "FAILED ({}) {!r}".format(lines, exc)
         self._gestures.imu = imu
+        # A freshly started IMU's first reading can jump, which would read as
+        # the device being picked up and restart the blank timer (cd-342.28).
+        reset = getattr(self._gestures, "reset", None)
+        if reset is not None:
+            reset()
         self._touch.use_bus(self._i2c)
         return "ok ({})".format(lines)

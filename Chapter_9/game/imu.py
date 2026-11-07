@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: MIT
 """Gesture helpers layered on the vendored qmi8658c.QMI8658C driver.
 
-Copied unchanged from Chapter_8/game/imu.py (cd-342.1). Ch9 only reads
-sample()["jerk"] (for stillness.py); tilt/shake are unused here for now.
+Copied from Chapter_8/game/imu.py (cd-342.1). Ch9 only reads sample()["jerk"]
+(for stillness.py and power.py); tilt/shake are unused here for now. Ch9 runs
+with the gyro switched off to save power (hardware.init_imu, cd-342.28), so
+sample() skips reading it and reports (0, 0, 0).
 
 Pure math on top of .acceleration/.gyro -- no I2C quirks here (unlike touch.py;
 the QMI8658 answers reliably every poll).
@@ -22,10 +24,18 @@ class ImuGestures:
         self._prev_accel = None
         self._shake_until = 0.0
 
+    def reset(self):
+        """Forget the last reading, so the next sample's jerk is 0.0.
+
+        Call after changing the IMU's rate or rebuilding it: the first reading
+        after a change can jump, which would otherwise look like motion.
+        """
+        self._prev_accel = None
+
     def sample(self, now):
         """Read the IMU once. Returns accel/gyro plus derived tilt + shake."""
         ax, ay, az = self.imu.acceleration
-        gx, gy, gz = self.imu.gyro
+        gx = gy = gz = 0.0  # the gyro is off in Ch9; reading it is a wasted I2C trip
 
         jerk = 0.0
         if self._prev_accel is not None:

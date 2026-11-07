@@ -245,6 +245,83 @@ class _Run:
         return self.nav_group[1].x
 
 
+class _Power:
+    """Records deep-idle transitions; the IMU goes quiet until `move_at` (fake seconds)."""
+
+    can_doze = False
+
+    def __init__(self, clock, move_at):
+        self.clock, self.move_at = clock, move_at
+        self.events = []
+
+    def sleep(self):
+        self.events.append(("sleep", self.clock.t))
+
+    def wake(self):
+        self.events.append(("wake", self.clock.t))
+
+    def sample(self, now):
+        return {"jerk": 5.0 if now - 100.0 >= self.move_at else 0.0}
+
+    def reset(self):
+        pass
+
+
+class _DozingPower(_Power):
+    """Light sleep: each doze passes fake time, ending early once it's moved."""
+
+    can_doze = True
+
+    def doze(self, seconds):
+        self.events.append(("doze", self.clock.t))
+        start = self.clock.t - 100.0
+        if start >= self.move_at:
+            return True
+        self.clock.t += min(seconds, self.move_at - start)
+        return self.clock.t - 100.0 >= self.move_at
+
+
+class TestDeepIdle(unittest.TestCase):
+    """Set down untouched: ornament at ~30s, dark at ~5min, deep idle 10s later."""
+
+    def _run(self, seconds, move_at=1e9, power_class=None):
+        import app
+
+        clock = _Clock()
+        display, backlight = _Display(), _Backlight()
+        power = (power_class or _Power)(clock, move_at)
+        ticks = []
+        clock.on_tick = lambda: ticks.append(clock.t)
+        app.run(
+            display, backlight, _Touch(clock, ()), power, 240, 240,
+            max_ticks=int(seconds / 0.05), clock=clock.now, sleep=clock.sleep, power=power,
+        )
+        return power, display, backlight
+
+    def test_still_and_dark_goes_to_deep_idle(self):
+        power, display, backlight = self._run(400.0)
+        self.assertEqual([e for e, _ in power.events], ["sleep"])
+        self.assertFalse(backlight.value)
+        self.assertFalse(display.auto_refresh)
+
+    def test_motion_wakes_it_with_the_light_on(self):
+        power, display, backlight = self._run(1200.0, move_at=500.0)
+        self.assertEqual([e for e, _ in power.events][:2], ["sleep", "wake"])
+        wake_at = power.events[1][1] - 100.0
+        self.assertLess(wake_at - 500.0, 0.5)  # within a couple of slow ticks
+        self.assertTrue(backlight.value)
+
+    def test_light_sleep_dozes_until_motion(self):
+        power, display, backlight = self._run(1200.0, move_at=700.0, power_class=_DozingPower)
+        kinds = [e for e, _ in power.events]
+        self.assertEqual(kinds[0], "sleep")
+        self.assertIn("doze", kinds)
+        self.assertIn("wake", kinds)
+        wake_at = [t for e, t in power.events if e == "wake"][0] - 100.0
+        self.assertAlmostEqual(wake_at, 700.0, delta=0.5)
+        self.assertTrue(backlight.value)
+
+
 class _StalledImu:
     """Times out on every read until `healthy` is set."""
 

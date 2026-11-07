@@ -22,6 +22,10 @@ class FakeBus:
 
 class FakeGestures:
     imu = "old imu"
+    resets = 0
+
+    def reset(self):
+        self.resets += 1
 
 
 class FakeTouch:
@@ -69,6 +73,11 @@ class TestBusRecovery(unittest.TestCase):
         self.assertEqual(self.gestures.imu, ("new imu", self.new_bus))
         self.assertIs(self.touch.bus, self.new_bus)
         self.assertTrue(status.startswith("ok"), status)
+
+    def test_success_forgets_the_last_reading(self):
+        # A restarted IMU's first reading jumps; it mustn't look like a pickup.
+        self.recovery.rebuild()
+        self.assertEqual(self.gestures.resets, 1)
 
     def test_touch_chip_is_reset_before_the_new_bus_is_made(self):
         self.recovery.rebuild()

@@ -4,6 +4,9 @@
 Hardware bootstrap only -- the game loop itself is app.run(), which takes its
 hardware as arguments so it can be smoke-tested off-device.
 """
+import os
+import time
+
 import app
 import hardware
 import imu as imu_gestures
@@ -25,8 +28,24 @@ def main():
     )
     app.run(
         display, backlight, touch, gestures, hardware.WIDTH, hardware.HEIGHT,
-        bus_recovery=recovery,
+        bus_recovery=recovery, power=hardware.DevicePower(display, gestures),
+        drain=make_drain_log(),
     )
+
+
+def make_drain_log():
+    """The battery drain logger if settings.toml has POWER_LOG = "<minutes>", else None."""
+    minutes = os.getenv("POWER_LOG")
+    if not minutes:
+        return None
+    import microcontroller
+    from drain_log import DrainLog
+
+    log = DrainLog(
+        microcontroller.nvm, hardware.BatteryAdc(), float(minutes) * 60, time.monotonic()
+    )
+    print("drain log on: every {} min".format(minutes))
+    return log
 
 
 main()
