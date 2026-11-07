@@ -1,0 +1,23 @@
+{
+  "_comment": "The setup every Ch9 unit gets (cd-342.32). provision.py reads this. 10.3.1 + the 20261106 10.x bundle is the current candidate (ws-2, ws-10); ws-1 runs 10.2.1 as the baseline. Change it here once testing picks a winner.",
+  "firmware": {
+    "version": "10.3.1",
+    "url": "https://downloads.circuitpython.org/bin/waveshare_rp2350_touch_lcd_1_28/en_US/adafruit-circuitpython-waveshare_rp2350_touch_lcd_1_28-en_US-10.3.1.uf2"
+  },
+  "bundle": {
+    "date": "20261106",
+    "url": "https://github.com/adafruit/Adafruit_CircuitPython_Bundle/releases/download/20261106/adafruit-circuitpython-bundle-10.x-mpy-20261106.zip",
+    "libs": [
+      "adafruit_bitmap_font",
+      "adafruit_display_text",
+      "adafruit_register",
+      "adafruit_cst8xx.mpy",
+      "adafruit_gc9a01a.mpy",
+      "adafruit_ticks.mpy"
+    ]
+  },
+  "vendored_libs": ["Chapter_8/vendor/qmi8658c.py"],
+  "settings": {
+    "POWER_LOG": "15"
+  }
+}
