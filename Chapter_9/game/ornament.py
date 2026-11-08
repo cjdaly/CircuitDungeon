@@ -86,12 +86,11 @@ _SNOW_MAX_DT = 0.25  # seconds
 
 
 def make_background(group, width=WIDTH, height=HEIGHT, color=_BG_COLOR):
-    import displayio
+    """A solid background: a shape, not a bitmap (one costs ~7.7 KB even in one colour)."""
+    import vectorio
 
-    bg_bitmap = displayio.Bitmap(width, height, 1)
-    bg_palette = displayio.Palette(1)
-    bg_palette[0] = color
-    group.append(displayio.TileGrid(bg_bitmap, pixel_shader=bg_palette))
+    group.append(vectorio.Rectangle(pixel_shader=_solid(color), width=width, height=height,
+                                    x=0, y=0))
 
 
 def _solid(color):

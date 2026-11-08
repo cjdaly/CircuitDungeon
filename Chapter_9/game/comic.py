@@ -226,13 +226,27 @@ def draw_rows(bitmap, rows, x=0):
 
 
 def _make_ring(width, height):
-    """The ink ring at the panel's rim. It reads as the comic panel's border."""
-    bitmap = displayio.Bitmap(width, height, 2)
+    """The ink ring at the panel's rim. It reads as the comic panel's border.
+
+    The ring is symmetric, so one quarter is drawn and shown four times,
+    mirrored: a quarter of the RAM of a full-screen bitmap (~2 KB, not ~8).
+    """
+    qw, qh = width // 2, height // 2
+    bitmap = displayio.Bitmap(qw, qh, 2)
     for y, x0, x1 in comic_shapes.ring_spans(width, _RING_THICKNESS):
-        bitmaptools.fill_region(bitmap, x0, y, x1, y + 1, 1)
+        if y < qh and x0 < qw:
+            bitmaptools.fill_region(bitmap, x0, y, min(x1, qw), y + 1, 1)
     palette = _palette(0x000000, _INK)
     palette.make_transparent(0)
-    return displayio.TileGrid(bitmap, pixel_shader=palette)
+    group = displayio.Group()
+    for flip_x in (False, True):
+        for flip_y in (False, True):
+            grid = displayio.TileGrid(bitmap, pixel_shader=palette,
+                                      x=qw if flip_x else 0, y=qh if flip_y else 0)
+            grid.flip_x = flip_x
+            grid.flip_y = flip_y
+            group.append(grid)
+    return group
 
 
 class Stage:

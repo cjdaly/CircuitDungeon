@@ -93,10 +93,11 @@ class NavView:
     def __init__(self, width, height, backdrop_root="/art/rooms"):
         self.group = displayio.Group()
 
-        bg_bitmap = displayio.Bitmap(width, height, 1)
         bg_palette = displayio.Palette(1)
         bg_palette[0] = _BG_COLOR
-        self.group.append(displayio.TileGrid(bg_bitmap, pixel_shader=bg_palette))
+        # A shape, not a bitmap: a 240x240 bitmap costs ~7.7 KB even in one colour.
+        self.group.append(vectorio.Rectangle(pixel_shader=bg_palette, width=width, height=height,
+                                             x=0, y=0))
         self._backdrop = Backdrop(backdrop_root)  # the room's art, if it has some
         self.art_set = self._backdrop.art_set  # which room-art set is deployed
         self.backdrop = self._backdrop  # shared with the ornament screen (ornament.Show)
