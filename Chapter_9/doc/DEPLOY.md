@@ -14,6 +14,7 @@ in `lib/` for its comic fonts (`game/fonts/`).
 Chapter_9/tools/deploy.sh                     # -> /Volumes/CIRCUITPY, ejects when done
 Chapter_9/tools/deploy.sh --no-eject          # skip the eject
 Chapter_9/tools/deploy.sh /Volumes/CIRCUITPY  # explicit target
+Chapter_9/tools/deploy.sh --art-set sdxl-repaint  # which room art (default: drawn)
 ```
 
 Same mechanism as Chapter 8's script (`boot.py` turns auto-reload off; the
@@ -27,6 +28,9 @@ desktop `main.py` is untouched, and a plain re-deploy puts the game back. To go 
 `Chapter_8/tools/deploy.sh`.
 
 `deploy.sh` warns (but doesn't fail) if anything's missing from `lib/`.
+
+Room art comes from `Chapter_9/art_sets/`, not `game/`: `--art-set` picks one
+set and only that set is copied, as `/art/rooms/` (see `art_sets/README.md`).
 
 ## What you should see
 

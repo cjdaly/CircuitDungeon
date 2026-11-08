@@ -177,8 +177,8 @@ def run(display, backlight, touch, imu_gestures, width, height,
             print("t={:.1f} imu read ok after bus rebuild".format(now))
         return sample
 
-    print("Ch9 ready -- start: {}  player={}  free={}".format(
-        world.current, player, gc.mem_free()))
+    print("Ch9 ready -- start: {}  player={}  art={}  free={}".format(
+        world.current, player, getattr(nav, "art_set", None), gc.mem_free()))
 
     while max_ticks is None or ticks < max_ticks:
         ticks += 1

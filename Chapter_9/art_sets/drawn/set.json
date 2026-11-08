@@ -1,0 +1,7 @@
+{
+  "base": null,
+  "description": "Hand-drawn in code (the original set); must cover every room",
+  "made_by": "tools/build_backdrops.py (python3 Chapter_9/tools/build_backdrops.py rebuilds rooms/)",
+  "name": "drawn",
+  "rooms": {}
+}

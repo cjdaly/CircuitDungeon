@@ -98,6 +98,7 @@ class NavView:
         bg_palette[0] = _BG_COLOR
         self.group.append(displayio.TileGrid(bg_bitmap, pixel_shader=bg_palette))
         self._backdrop = Backdrop(backdrop_root)  # the room's art, if it has some
+        self.art_set = self._backdrop.art_set  # which room-art set is deployed
         self.group.append(self._backdrop.group)
         self._scene = displayio.Group()  # what a shake moves
         self.group.append(self._scene)

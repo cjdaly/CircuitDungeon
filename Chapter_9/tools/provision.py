@@ -3,7 +3,7 @@
 """Program one Ch9 unit with the golden setup, then check it -- cd-342.32.
 
     python3 Chapter_9/tools/provision.py --id ws-10 --battery-product gift-350 \\
-        --battery-mah 350 --player Test10
+        --battery-mah 350 --player Test10 [--art-set drawn]
 
 Needs pyserial. Plug in ONE unit to program (other CircuitPython boards on USB
 are fine; they're told apart by which drive and serial port are new):
@@ -172,6 +172,8 @@ def main():
     ap.add_argument("--battery-mah", required=True)
     ap.add_argument("--player", required=True, help="PLAYER, the recipient's name")
     ap.add_argument("--port", help="serial port, if the board already runs CircuitPython")
+    ap.add_argument("--art-set", default="drawn",
+                    help="room-art set for this unit (Chapter_9/art_sets/, default drawn)")
     args = ap.parse_args()
     golden = json.load(open(os.path.join(HERE, "golden.json")))
 
@@ -235,16 +237,26 @@ def main():
         if os.path.exists(os.path.join(volume, stray)):
             os.remove(os.path.join(volume, stray))
             print("removed", stray)
-    subprocess.run([os.path.join(HERE, "deploy.sh"), "--no-eject", volume], check=True,
-                   stdout=subprocess.DEVNULL)
+    subprocess.run([os.path.join(HERE, "deploy.sh"), "--no-eject", "--art-set", args.art_set,
+                    volume], check=True, stdout=subprocess.DEVNULL)
     subprocess.run(["sync"], check=True)
     diff = subprocess.run(
         ["diff", "-rq", "--exclude", "lib", "--exclude", "sd", "--exclude", "boot_out.txt",
          "--exclude", "settings.toml", "--exclude", ".*", "--exclude", "__pycache__",
-         os.path.join(CH9, "game"), volume], capture_output=True, text=True)
+         "--exclude", "rooms", os.path.join(CH9, "game"), volume], capture_output=True, text=True)
     if diff.returncode:
         sys.exit("game files differ from the repo:\n" + diff.stdout)
-    print("game files identical to the repo")
+    import tempfile
+
+    import art_set
+
+    with tempfile.TemporaryDirectory() as tmp:
+        art_set.compose(args.art_set, os.path.join(tmp, "rooms"))
+        diff = subprocess.run(["diff", "-rq", "--exclude", ".*", os.path.join(tmp, "rooms"),
+                               os.path.join(volume, "art", "rooms")], capture_output=True, text=True)
+    if diff.returncode:
+        sys.exit("room art differs from art set {}:\n{}".format(args.art_set, diff.stdout))
+    print("game files identical to the repo; room art is set " + args.art_set)
     subprocess.run(["diskutil", "eject", volume], check=True, stdout=subprocess.DEVNULL)
 
     step("fingerprint + clear the drain log")
@@ -257,7 +269,7 @@ def main():
     if line is None:
         sys.exit("no fingerprint:\n" + out[-1500:])
     fp = json.loads(line[3:])
-    fp.update({"device_id": args.id, "battery": args.battery_product,
+    fp.update({"device_id": args.id, "battery": args.battery_product, "art_set": args.art_set,
                "battery_mah": args.battery_mah, "provisioned": time.strftime("%Y-%m-%d %H:%M"),
                "golden": {"firmware": fw["version"], "bundle": golden["bundle"]["date"]}})
     os.makedirs(UNITS, exist_ok=True)

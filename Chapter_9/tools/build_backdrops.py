@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Build the room backdrops into game/art/rooms/*.bmp -- cd-342.35.
+"""Build the hand-drawn room backdrops: art_sets/drawn/rooms/*.bmp -- cd-342.35.
 
     /usr/bin/python3 Chapter_9/tools/build_backdrops.py [--png DIR]
 
@@ -11,6 +11,9 @@ entering the room (game/backdrop.py), so they stay in flash and RAM holds
 only the room on screen. Keep the middle quiet: that's where the hiding
 spots, lures and critters sit and where taps land, and the room name sits
 at the top (art y ~20-30).
+
+This is the `drawn` art set (art_sets/README.md: other sets may replace some
+rooms; deploy.sh --art-set picks the one a board gets).
 
 --png also writes a 4x preview of each, cut to the round panel, for review.
 Needs Pillow.
@@ -1807,7 +1810,7 @@ def main():
     ap.add_argument("--png", help="also write 4x round previews here")
     ap.add_argument("--only", help="build just this room")
     args = ap.parse_args()
-    out_dir = os.path.join(GAME, "art", "rooms")
+    out_dir = os.path.join(HERE, "..", "art_sets", "drawn", "rooms")
     os.makedirs(out_dir, exist_ok=True)
     for room, draw in ROOMS.items():
         if args.only and room != args.only:

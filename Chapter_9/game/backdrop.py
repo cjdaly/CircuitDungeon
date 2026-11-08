@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: MIT
 """Room backdrops: background art behind each room's scene -- cd-342.35.
 
-Each room with art has a 120x120 BMP in /art/rooms/ (built by
-tools/build_backdrops.py), shown at 2x under everything else. There is ONE
+Each room with art has a 120x120 BMP in /art/rooms/, shown at 2x under
+everything else. Which version of the art that is -- the hand-drawn set or
+another one -- is picked at deploy time (art_sets/README.md, deploy.sh
+--art-set); /art/rooms/SET.txt names it, and `Backdrop.art_set` reads it. There is ONE
 backdrop bitmap, made at start-up and refilled from flash on each room change,
 so the RAM cost is the same however many rooms get art: 120x120 at 16 colours
 is 4 bits a pixel, 7.2 KB.
@@ -69,6 +71,15 @@ def load(bitmap, path, size=SIZE):
     return True
 
 
+def read_set_name(root):
+    """The art set deployed at `root` (its SET.txt), or None."""
+    try:
+        with open(root + "/SET.txt") as f:
+            return f.read().strip() or None
+    except OSError:
+        return None
+
+
 class Backdrop:
     """Owns `.group` (hidden when the room has no art); call show(room) on entering one."""
 
@@ -84,6 +95,7 @@ class Backdrop:
         self.group.append(displayio.TileGrid(self._bitmap, pixel_shader=palette))
         self.group.hidden = True
         self.room = None
+        self.art_set = read_set_name(root)
 
     def show(self, room):
         if room == self.room:

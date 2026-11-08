@@ -1,0 +1,14 @@
+{
+  "base": "drawn",
+  "description": "SDXL base 1.0 repainting the drawn set (img2img), snapped to DB16; other rooms from drawn",
+  "made_by": "tools/gen_backdrops_ai.py, local SDXL (downloads/imagegen/README.md): img2img of the drawn backdrop at 960px, 30 steps, guidance 7, then box-shrunk to 120 and nearest-colour DB16",
+  "name": "sdxl-repaint",
+  "rooms": {
+    "basement.bmp": {
+      "note": "gen_backdrops_ai.py i2i strength 0.75 seed 2, 2026-11-07 trial"
+    },
+    "sewing_nook.bmp": {
+      "note": "gen_backdrops_ai.py i2i strength 0.75 seed 2, 2026-11-07 trial"
+    }
+  }
+}

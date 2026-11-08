@@ -39,14 +39,30 @@ def _game(first):
     return world, hunt
 
 
+_ART_ROOTS = {}
+
+
+def _art_root(name):
+    """A room-art set composed into a temp folder, as deploy.sh would put it on a board."""
+    if name not in _ART_ROOTS:
+        import tempfile
+
+        import art_set
+
+        root = os.path.join(tempfile.mkdtemp(prefix="ch9-art-"), "rooms")
+        art_set.compose(name, root)
+        _ART_ROOTS[name] = root
+    return _ART_ROOTS[name]
+
+
 class Session:
     """Drives a NavView like app.py does, without touch or timing."""
 
-    def __init__(self, first="cat"):
+    def __init__(self, first="cat", art="drawn"):
         import nav_view
 
         self.world, self.hunt = _game(first)
-        self.nav = nav_view.NavView(240, 240, os.path.join(fake_display.GAME_DIR, "art", "rooms"))
+        self.nav = nav_view.NavView(240, 240, _art_root(art))
         self.now = 0.0
         self._refresh(self.hunt.start(), self.hunt.event)
 

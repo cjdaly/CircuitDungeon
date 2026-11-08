@@ -3,7 +3,7 @@
 
 The wide shot is drawn at 2x (doc/STYLE.md sec 1, "Wide"): a present for every
 critter under the tree, each in its own colours. The tree itself is part of the
-room's backdrop (art/rooms/living_room.bmp, tools/build_backdrops.py), like
+room's backdrop (living_room.bmp, tools/build_backdrops.py), like
 every room's static art; this view draws only what changes with the game. A present tells
 you who's where with no HUD -- closed with a bow, its critter hasn't got out
 yet; tipped over and empty, it's out now; its critter sitting on top, it's home.

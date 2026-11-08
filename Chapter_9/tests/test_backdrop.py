@@ -17,7 +17,11 @@ import backdrop  # noqa: E402
 import rooms  # noqa: E402
 from scene_art import KEY  # noqa: E402
 
-_ROOMS = os.path.join(_GAME, "art", "rooms")
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
+import art_set  # noqa: E402
+
+_ROOMS = art_set.rooms_dir("drawn")  # the hand-drawn set; every set is checked below
+_ALL_ROOMS = {backdrop.file_name(room.name) for room in rooms.make_world()._rooms.values()}
 
 
 class _Bitmap(dict):
@@ -54,8 +58,9 @@ class TestLoad(unittest.TestCase):
         self.assertLess(max(bitmap.values()), 16)
 
     def test_every_built_backdrop_loads(self):
-        for built in os.listdir(_ROOMS):
-            self.assertTrue(backdrop.load(_Bitmap(), os.path.join(_ROOMS, built)), built)
+        for name in art_set.names():
+            for built, path in art_set.own_files(name).items():
+                self.assertTrue(backdrop.load(_Bitmap(), path), (name, built))
 
     def test_missing_file(self):
         self.assertFalse(backdrop.load(_Bitmap(), "/no/such/room.bmp"))
@@ -107,6 +112,12 @@ class TestBackdrop(unittest.TestCase):
         self.assertEqual(view.group.scale, 2)
         self.assertTrue(view.group.hidden)
 
+    def test_reads_the_deployed_set_name(self):
+        with tempfile.TemporaryDirectory() as d:
+            art_set.compose("drawn", d)
+            self.assertEqual(backdrop.Backdrop(d).art_set, "drawn")
+        self.assertIsNone(backdrop.Backdrop(_ROOMS).art_set)  # no SET.txt in the repo copy
+
     def test_shows_for_a_room_with_art_and_hides_for_one_without(self):
         view = backdrop.Backdrop(_ROOMS)
         view.show("Kitchen")
@@ -115,6 +126,36 @@ class TestBackdrop(unittest.TestCase):
         self.assertTrue(view.group.hidden)
         view.show("Kitchen")
         self.assertFalse(view.group.hidden)
+
+
+class TestArtSets(unittest.TestCase):
+    def test_drawn_covers_every_room(self):
+        self.assertEqual(set(art_set.own_files("drawn")), _ALL_ROOMS)
+
+    def test_every_set_is_valid(self):
+        for name in art_set.names():
+            m = art_set.manifest(name)
+            self.assertEqual(m["name"], name)
+            own = set(art_set.own_files(name))
+            self.assertLessEqual(own, _ALL_ROOMS, name)  # only real rooms
+            self.assertEqual(set(m.get("rooms", {})) - own, set(), name)  # notes match files
+            self.assertEqual(set(art_set.files(name)), _ALL_ROOMS, name)  # complete via its base
+
+    def test_compose_takes_a_sets_own_rooms_over_its_base(self):
+        for name in art_set.names():
+            own = art_set.own_files(name)
+            with tempfile.TemporaryDirectory() as d:
+                dest = os.path.join(d, "rooms")
+                art_set.compose(name, dest)
+                self.assertEqual(set(os.listdir(dest)), _ALL_ROOMS | {"SET.txt"})
+                for f in _ALL_ROOMS:
+                    want = own.get(f) or art_set.files(name)[f]
+                    with open(want, "rb") as a, open(os.path.join(dest, f), "rb") as b:
+                        self.assertEqual(a.read(), b.read(), (name, f))
+
+    def test_unknown_set(self):
+        with self.assertRaises(KeyError):
+            art_set.files("no-such-set")
 
 
 if __name__ == "__main__":

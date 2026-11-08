@@ -162,7 +162,8 @@ over the room's colour key — not a map you walk around in.
   outlines are lost on the dark background until they land.
 - **Backdrops built 2026-11-07 (`cd-342.35`):** every room, the Living Room
   included, has a 120x120 DB16 backdrop shown at 2x
-  (`tools/build_backdrops.py` -> `game/art/rooms/*.bmp`, drawn by
+  (`tools/build_backdrops.py` -> `art_sets/drawn/rooms/*.bmp`; other
+  versions of the art are other sets, see `art_sets/README.md`; drawn by
   `game/backdrop.py` into one shared 7.2 KB RAM bitmap). Static art goes in
   the backdrop (the Living Room's tree too); what changes with the game
   (hiding spots, lures, presents, the escape) is drawn on top. Keep the middle
