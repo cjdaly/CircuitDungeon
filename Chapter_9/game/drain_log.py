@@ -11,9 +11,10 @@ main.py): every record rewrites the nvm flash sector, which wears it (~100k
 erase cycles: about three years of 10-minute records) and stalls the CPU
 briefly.
 
-Each record is 10 bytes, packed little-endian:
+Each record is 12 bytes, packed little-endian:
 
-    magic   u8   0xD1, so blank flash (0xFF) and other data read as empty
+    magic   u8   0xD2, so blank flash (0xFF) and other data read as empty
+                 (0xD1 was the first, 10-byte layout: clear those logs)
     kind    u8   KIND_BOOT (first record after a reset) or KIND_SAMPLE
     lit     u8   % of the interval the backlight was on
     deep    u8   % of the interval spent in deep idle (power.py)
@@ -22,6 +23,9 @@ Each record is 10 bytes, packed little-endian:
     raw     u16  BAT_ADC reading (0-65535, averaged). Kept raw because the
                  board's divider ratio is still unconfirmed (cd-bp3.6.1);
                  the report converts it.
+    wakes   u8   motion wakes from deep idle during the interval
+    peak    u8   the biggest of those wakes' moves from rest, x10 (m/s^2),
+                 so false wakes (just over power.WAKE_SHIFT) stand out
 
 The log is a ring of RECORDS slots: when full, the oldest record goes.
 
@@ -30,15 +34,15 @@ runs under plain desktop Python (see tests/test_drain_log.py).
 """
 import struct
 
-MAGIC = 0xD1
+MAGIC = 0xD2
 KIND_BOOT = 0
 KIND_SAMPLE = 1
-_FORMAT = "<BBBBHHH"
-SIZE = 10
+_FORMAT = "<BBBBHHHBB"
+SIZE = 12
 
 
 def records(nvm):
-    """Every valid record, oldest first, as tuples (kind, lit, deep, seq, minutes, raw)."""
+    """Every valid record, oldest first: (kind, lit, deep, seq, minutes, raw, wakes, peak)."""
     found = []
     for slot in range(len(nvm) // SIZE):
         start = slot * SIZE
@@ -50,7 +54,8 @@ def records(nvm):
 
 
 class DrainLog:
-    """Call .tick(now, lit, asleep) every loop; it writes a record when one is due."""
+    """Call .tick(now, lit, asleep) every loop (it writes a record when one is due),
+    and .woke(shift) on each motion wake from deep idle."""
 
     def __init__(self, nvm, read_raw, interval, now):
         self._nvm = nvm
@@ -60,6 +65,7 @@ class DrainLog:
         self._started = now
         self._last = now
         self._lit = self._deep = self._total = 0.0
+        self._wakes, self._peak = 0, 0.0
         self.writes = 0
         self.failed = None  # the error that stopped logging, if one did
 
@@ -90,13 +96,19 @@ class DrainLog:
             total = self._total or 1.0
             self._write(KIND_SAMPLE, now, self._lit * 100 / total, self._deep * 100 / total)
             self._lit = self._deep = self._total = 0.0
+            self._wakes, self._peak = 0, 0.0
             self._next = now + self._interval
+
+    def woke(self, shift):
+        self._wakes += 1
+        self._peak = max(self._peak, shift)
 
     def _write(self, kind, now, lit_pct, deep_pct):
         minutes = min(int((now - self._started) / 60), 0xFFFF)
         record = struct.pack(
             _FORMAT, MAGIC, kind, int(lit_pct + 0.5), int(deep_pct + 0.5),
             self._seq & 0xFFFF, minutes, self._read_raw(),
+            min(self._wakes, 255), min(int(self._peak * 10 + 0.5), 255),
         )
         start = self._slot * SIZE
         try:

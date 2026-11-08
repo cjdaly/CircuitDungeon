@@ -246,12 +246,13 @@ class _Run:
 
 
 class _Power:
-    """Records deep-idle transitions; the IMU goes quiet until `move_at` (fake seconds)."""
+    """Records deep-idle transitions; the IMU is quiet except from `move_at` for
+    `move_for` fake seconds (forever by default), when it's tipped and jiggling."""
 
     can_doze = False
 
-    def __init__(self, clock, move_at):
-        self.clock, self.move_at = clock, move_at
+    def __init__(self, clock, move_at, move_for=1e9):
+        self.clock, self.move_at, self.move_for = clock, move_at, move_for
         self.events = []
 
     def sleep(self):
@@ -260,8 +261,13 @@ class _Power:
     def wake(self):
         self.events.append(("wake", self.clock.t))
 
+    def moving(self, now):
+        return 0 <= now - 100.0 - self.move_at < self.move_for
+
     def sample(self, now):
-        return {"jerk": 5.0 if now - 100.0 >= self.move_at else 0.0}
+        if self.moving(now):
+            return {"jerk": 5.0, "accel": (5.0, 0.0, -9.8)}
+        return {"jerk": 0.0, "accel": (0.0, 0.0, -9.8)}
 
     def reset(self):
         pass
@@ -284,19 +290,22 @@ class _DozingPower(_Power):
 class TestDeepIdle(unittest.TestCase):
     """Set down untouched: ornament at ~30s, dark at ~5min, deep idle 10s later."""
 
-    def _run(self, seconds, move_at=1e9, power_class=None):
+    def _run(self, seconds, move_at=1e9, power_class=None, move_for=1e9):
         import app
 
         clock = _Clock()
         display, backlight = _Display(), _Backlight()
-        power = (power_class or _Power)(clock, move_at)
-        ticks = []
-        clock.on_tick = lambda: ticks.append(clock.t)
+        power = (power_class or _Power)(clock, move_at, move_for)
+        self.lit = []  # (fake seconds, backlight on) each tick
+        clock.on_tick = lambda: self.lit.append((clock.t - 100.0, backlight.value))
         app.run(
             display, backlight, _Touch(clock, ()), power, 240, 240,
             max_ticks=int(seconds / 0.05), clock=clock.now, sleep=clock.sleep, power=power,
         )
         return power, display, backlight
+
+    def _dark_again_after(self, wake_at):
+        return next(t for t, on in self.lit if t > wake_at and not on) - wake_at
 
     def test_still_and_dark_goes_to_deep_idle(self):
         power, display, backlight = self._run(400.0)
@@ -310,6 +319,23 @@ class TestDeepIdle(unittest.TestCase):
         wake_at = power.events[1][1] - 100.0
         self.assertLess(wake_at - 500.0, 0.5)  # within a couple of slow ticks
         self.assertTrue(backlight.value)
+
+    def test_a_bump_does_not_wake_it(self):
+        power, display, backlight = self._run(1000.0, move_at=500.0, move_for=0.3)
+        self.assertEqual([e for e, _ in power.events], ["sleep"])
+        self.assertFalse(backlight.value)
+
+    def test_a_wake_nobody_follows_up_goes_dark_after_a_glance(self):
+        power, display, backlight = self._run(1000.0, move_at=500.0, move_for=1.0)
+        wake_at = power.events[1][1] - 100.0
+        dark_after = self._dark_again_after(wake_at)
+        self.assertGreater(dark_after, 60.0)
+        self.assertLess(dark_after, 70.0)  # 60 s from going still, not the usual 300
+
+    def test_a_real_pickup_gets_the_usual_timeout(self):
+        power, display, backlight = self._run(1400.0, move_at=500.0, move_for=10.0)
+        wake_at = power.events[1][1] - 100.0
+        self.assertGreater(self._dark_again_after(wake_at), 300.0)
 
     def test_light_sleep_dozes_until_motion(self):
         power, display, backlight = self._run(1200.0, move_at=700.0, power_class=_DozingPower)

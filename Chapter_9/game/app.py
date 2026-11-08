@@ -99,10 +99,10 @@ def run(display, backlight, touch, imu_gestures, width, height,
     """Run the game forever (or `max_ticks` frames, for the smoke test).
 
     `touch` needs .poll(now) -> (x, y) | None; `imu_gestures` needs
-    .sample(now) -> dict with "jerk" (imu.ImuGestures); `bus_recovery`, if
+    .sample(now) -> dict with "jerk", "accel" (imu.ImuGestures); `bus_recovery`, if
     given, needs .rebuild() -> status string (bus_recovery.BusRecovery);
     `power`, if given, needs .sleep() and .wake() (hardware.DevicePower) and
-    turns on deep idle; `drain`, if given, needs .tick(now, lit, asleep)
+    turns on deep idle; `drain`, if given, needs .tick(now, lit, asleep) and .woke(shift)
     (drain_log.DrainLog).
     """
     import displayio
@@ -135,11 +135,12 @@ def run(display, backlight, touch, imu_gestures, width, height,
     snow = ornament.Snow(ornament_group, width, height)
 
     def blanker_for(mode):
-        timeout = (
-            _ORNAMENT_BLANK_TIMEOUT
-            if mode == modes.ORNAMENT
-            else _INTERACTIVE_BLANK_TIMEOUT
-        )
+        if deep.glance:  # woken by motion nobody has followed up on yet
+            timeout = deep_idle.GLANCE_TIMEOUT
+        elif mode == modes.ORNAMENT:
+            timeout = _ORNAMENT_BLANK_TIMEOUT
+        else:
+            timeout = _INTERACTIVE_BLANK_TIMEOUT
         backlight.value = True
         return ScreenBlanker(backlight, timeout=timeout)
 
@@ -153,12 +154,13 @@ def run(display, backlight, touch, imu_gestures, width, height,
     next_rebuild = 0.0
     awaiting_good_read = False
     ticks = 0
+    last_tick = clock()
 
-    def read_jerk(now):
-        """The IMU's jerk, or None after a failed read (rebuilding the bus if due)."""
+    def read_imu(now):
+        """One IMU sample, or None after a failed read (rebuilding the bus if due)."""
         nonlocal next_rebuild, awaiting_good_read
         try:
-            jerk = imu_gestures.sample(now)["jerk"]
+            sample = imu_gestures.sample(now)
         except (OSError, ValueError, RuntimeError) as exc:
             stats.imu_errors += 1
             stats.last_imu_error = repr(exc)
@@ -173,7 +175,7 @@ def run(display, backlight, touch, imu_gestures, width, height,
         if awaiting_good_read:
             awaiting_good_read = False
             print("t={:.1f} imu read ok after bus rebuild".format(now))
-        return jerk
+        return sample
 
     print("Ch9 ready -- start: {}  player={}  free={}".format(
         world.current, player, gc.mem_free()))
@@ -188,14 +190,18 @@ def run(display, backlight, touch, imu_gestures, width, height,
                     now = clock()
                     why = "motion pin"
                 else:
-                    jerk = read_jerk(now)
-                    moved = jerk is not None and deep.should_wake(jerk)
-                    why = "jerk {:.2f}".format(jerk) if moved else ""
+                    sample = read_imu(now)
+                    moved = sample is not None and deep.should_wake(sample["accel"])
+                    why = "moved {:.2f} from rest".format(deep.shift) if moved else ""
                 if moved:
                     power.wake()
-                    deep.wake()
+                    deep.wake()  # a glance until someone handles or touches it
                     detector = stillness.StillnessDetector()  # it's being handled
+                    blanker = blanker_for(mode)
                     blanker.update(True, now)
+                    last_tick = now
+                    if drain is not None:
+                        drain.woke(deep.shift)
                     print("t={:.1f} deep idle -> awake ({})".format(now, why))
                 elif power.can_doze:
                     if drain is not None:
@@ -212,7 +218,8 @@ def run(display, backlight, touch, imu_gestures, width, height,
             after_touch = clock()
             stats.touch_s = max(stats.touch_s, after_touch - now)
 
-            jerk = read_jerk(now)
+            sample = read_imu(now)
+            jerk = None if sample is None else sample["jerk"]
             if jerk is not None:  # on a failed read, hold last-known stillness
                 was_still = detector.is_still
                 detector.update(jerk, now)
@@ -281,6 +288,11 @@ def run(display, backlight, touch, imu_gestures, width, height,
                 if blanker.lit:  # no point animating a dark screen
                     tree.update(now, lit=detector.is_still)
                     snow.update(now)
+
+            if deep.glance and not deep.glancing(detector.is_still, touched, now - last_tick):
+                blanker = blanker_for(mode)  # picked up for real: the usual timeout
+                print("t={:.1f} handled after wake: usual blank timeout".format(now))
+            last_tick = now
 
             if blanker.lit != backlight_lit:
                 backlight_lit = blanker.lit

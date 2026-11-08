@@ -14,7 +14,10 @@ Each boot starts a new run. For each run: how long it lasted, the voltage
 curve, and a rough average current from the percent drop and BATTERY_MAH.
 Voltage = raw / 65535 * 3.3 * ratio; the BAT_ADC divider is unconfirmed
 (cd-bp3.6.1), x3 is the working guess. Readings above ~4.35 V mean USB power
-was present (charging or full), so those runs say nothing about drain.
+was present (charging or full), so only the stretches between them count as
+drain. Each record also says how often motion woke the board from deep idle
+and by how much (the peak move from rest, m/s^2): a lot of wakes barely over
+power.WAKE_SHIFT means it's waking on bumps, not pickups.
 """
 import argparse
 import os
@@ -70,6 +73,20 @@ def fetch(port):
     sys.exit("no NVM line in the board's reply:\n" + out[-500:])
 
 
+def battery_stretches(volts):
+    """(first, last) index pairs of readings in a row off USB power, 2+ readings long."""
+    out, first = [], None
+    for i, v in enumerate(volts + [_USB_VOLTS + 1]):
+        if v <= _USB_VOLTS:
+            if first is None:
+                first = i
+        else:
+            if first is not None and i - 1 > first:
+                out.append((first, i - 1))
+            first = None
+    return out
+
+
 def runs(recs):
     """Split records into runs, one per boot."""
     out = []
@@ -90,28 +107,29 @@ def report(data, ratio, mah, device, csv_path=None):
         hours = run[-1][4] / 60
         print("\nrun {}: {:.1f} h logged, {:.2f} V -> {:.2f} V".format(
             n, hours, volts[0], volts[-1]))
-        # Drain only counts from the first reading after USB power went away.
-        on_usb = [i for i, v in enumerate(volts) if v > _USB_VOLTS]
-        start = on_usb[-1] + 1 if on_usb else 0
-        if start >= len(run) - 1:
+        stretches = battery_stretches(volts)
+        if not stretches:
             print("   (on USB power, or not long enough off it, to measure drain)")
-        else:
-            batt_hours = (run[-1][4] - run[start][4]) / 60
-            drop = percent(volts[start]) - percent(volts[-1])
-            print("   on battery from minute {}: {:.1f} h, {:.2f} V -> {:.2f} V, ~{:.0f}% used".format(
-                run[start][4], batt_hours, volts[start], volts[-1], drop))
+        for first, last in stretches:
+            batt_hours = (run[last][4] - run[first][4]) / 60
+            drop = percent(volts[first]) - percent(volts[last])
+            wakes = sum(r[6] for r in run[first + 1:last + 1])
+            print("   on battery, minute {} to {}: {:.1f} h, {:.2f} V -> {:.2f} V, ~{:.0f}% used,"
+                  " {} wakes".format(run[first][4], run[last][4], batt_hours, volts[first],
+                                     volts[last], drop, wakes))
             if mah and batt_hours > 0:
                 print("   -> roughly {:.1f} mA average (rough: voltage-curve percent)".format(
                     mah * drop / 100 / batt_hours))
-        print("    min    volts   ~%   lit%  deep%")
+        print("    min    volts   ~%   lit%  deep%  wakes  peak")
         for rec, v in zip(run, volts):
-            kind, lit, deep, seq, minutes, raw = rec
-            print("   {:5d}   {:.3f}  {:3.0f}   {:3d}   {:3d}{}".format(
-                minutes, v, percent(v), lit, deep, "  boot" if kind == KIND_BOOT else ""))
-            rows.append((n, minutes, raw, round(v, 3), lit, deep))
+            kind, lit, deep, seq, minutes, raw, wakes, peak = rec
+            print("   {:5d}   {:.3f}  {:3.0f}   {:3d}   {:3d}   {:3d}  {:4.1f}{}".format(
+                minutes, v, percent(v), lit, deep, wakes, peak / 10,
+                "  boot" if kind == KIND_BOOT else ""))
+            rows.append((n, minutes, raw, round(v, 3), lit, deep, wakes, peak / 10))
     if csv_path:
         with open(csv_path, "w") as f:
-            f.write("run,minutes,raw,volts,lit_pct,deep_pct\n")
+            f.write("run,minutes,raw,volts,lit_pct,deep_pct,wakes,peak\n")
             for row in rows:
                 f.write(",".join(str(x) for x in row) + "\n")
         print("\nwrote", csv_path)

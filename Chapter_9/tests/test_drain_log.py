@@ -45,8 +45,26 @@ class TestDrainLog(unittest.TestCase):
             log.tick(t, lit=t <= 150, asleep=t > 300)
         recs = records(nvm)
         self.assertEqual([r[0] for r in recs], [KIND_BOOT, KIND_SAMPLE])
-        kind, lit, deep, seq, minutes, raw = recs[1]
+        kind, lit, deep, seq, minutes, raw, wakes, peak = recs[1]
         self.assertEqual((lit, deep, seq, minutes), (25, 50, 1, 10))
+        self.assertEqual((wakes, peak), (0, 0))
+
+    def test_counts_wakes_and_the_biggest_move_per_interval(self):
+        nvm = _blank()
+        log = DrainLog(nvm, _Adc(), 60, 0.0)
+        log.woke(2.13)
+        log.woke(7.46)
+        log.tick(60.0, False, True)
+        log.tick(120.0, False, True)
+        recs = records(nvm)
+        self.assertEqual([(r[6], r[7]) for r in recs], [(0, 0), (2, 75), (0, 0)])
+
+    def test_a_huge_move_is_capped(self):
+        nvm = _blank()
+        log = DrainLog(nvm, _Adc(), 60, 0.0)
+        log.woke(80.0)
+        log.tick(60.0, False, True)
+        self.assertEqual(records(nvm)[1][7], 255)
 
     def test_a_new_boot_continues_after_the_old_log(self):
         nvm = _blank()
