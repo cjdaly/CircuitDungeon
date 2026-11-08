@@ -66,7 +66,7 @@ class Unlock:
     `locked_text`. `reveal` shows when the critter is found. `ready_text`, if any,
     shows on entering the lure room afterwards.
 
-    `locked_art` is what the lure room shows while it's locked (scene_art.ART):
+    `locked_art` is what the lure room shows while it's locked (scene_art.NAMES):
     None draws nothing, as in a dark room.
     """
 

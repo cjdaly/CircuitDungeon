@@ -68,7 +68,7 @@ class OnDiskBitmap(Bitmap):
     """Loads an indexed BMP. A path starting with "/" is the device's root, the game dir."""
 
     def __init__(self, path):
-        if path.startswith("/"):
+        if path.startswith("/") and not os.path.exists(path):  # the device's root
             path = os.path.join(GAME_DIR, path[1:])
         from PIL import Image  # only to read/draw images; the fakes work without it
 

@@ -150,6 +150,8 @@ Candidate critter art is derived from **DawnLike** by DragonDePlatino
 (CC-BY 4.0, <https://opengameart.org/content/dawnlike-16x16-universal-rogue-like-tileset-v181>),
 which is built on the **DawnBringer** 16-colour palette -- credit to both.
 The unmodified source lives in `../sourceArt/DawnLike/`. Anything shipped
-from these candidates keeps this attribution.
+from these candidates keeps this attribution. That includes the 32x32
+critters in the `sdxl-repaint` art set (`art_sets/`), which a local image
+model redrew using these sprites as its reference for shape and colour.
 
 ---

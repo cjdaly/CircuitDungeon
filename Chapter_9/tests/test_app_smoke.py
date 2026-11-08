@@ -578,7 +578,7 @@ class TestAppSmoke(unittest.TestCase):
         import overlay_demo
 
         stage = comic.Stage(240, 240, shake_target=_Group())
-        for beat in overlay_demo.beats((_Bitmap(), _Palette())):
+        for beat in overlay_demo.beats((_Bitmap(), _Palette(), 0, 16)):
             self.assertLessEqual(len(beat.emanata), comic.MAX_EMANATA)
             stage.show(beat, 0.0)
             stage.update(0.1)

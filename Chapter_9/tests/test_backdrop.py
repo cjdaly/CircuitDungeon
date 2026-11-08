@@ -25,8 +25,15 @@ import ornament  # noqa: E402
 
 # What a complete art set holds: a backdrop per room, plus the ornament screen's
 # scene backdrops and sprite sheet (cd-342.37).
+import scene_art  # noqa: E402
+
 _ALL_ROOMS = ({backdrop.file_name(room.name) for room in rooms.make_world()._rooms.values()}
-              | set(ornament.FILES))
+              | set(ornament.FILES) | {scene_art.OBJECTS, scene_art.CRITTERS})
+_SHEETS = {  # file -> (width, height) of the sprite sheets (cd-342.38)
+    ornament.SPRITES: (ornament.SHEET_W, ornament.SHEET_H),
+    scene_art.OBJECTS: (scene_art.TILE * len(scene_art.NAMES), scene_art.TILE),
+    scene_art.CRITTERS: (384, 96),
+}
 
 
 class _Bitmap(dict):
@@ -64,8 +71,8 @@ class TestLoad(unittest.TestCase):
     def test_every_built_backdrop_loads(self):
         for name in art_set.names():
             for built, path in art_set.own_files(name).items():
-                if built == ornament.SPRITES:
-                    ok = backdrop.load(_Bitmap(), path, ornament.SHEET_W, ornament.SHEET_H)
+                if built in _SHEETS:
+                    ok = backdrop.load(_Bitmap(), path, *_SHEETS[built])
                 else:
                     ok = backdrop.load(_Bitmap(), path)
                 self.assertTrue(ok, (name, built))
@@ -134,6 +141,25 @@ class TestBackdrop(unittest.TestCase):
         self.assertTrue(view.group.hidden)
         view.show("Kitchen")
         self.assertFalse(view.group.hidden)
+
+
+class TestTileTops(unittest.TestCase):
+    """Where each hiding spot's top edge is, read from the art (cd-342.38)."""
+
+    def test_drawn_spots_match_their_drawn_rows(self):
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
+        import scene_art_src
+
+        names = list(scene_art.NAMES)
+        spots = [names.index(s) for s in scene_art.HIDING_SPOTS.values()]
+        tops = backdrop.tile_tops(os.path.join(_ROOMS, scene_art.OBJECTS), scene_art.TILE, spots)
+        for spot in scene_art.HIDING_SPOTS.values():
+            rows = scene_art_src.ART[spot]
+            first = next(y for y, row in enumerate(rows) if row.strip("."))
+            self.assertEqual(tops[names.index(spot)], 2 * first, spot)  # drawn = doubled
+
+    def test_missing_file_means_no_tops(self):
+        self.assertEqual(backdrop.tile_tops("/no/such.bmp", 32, [0, 1]), {})
 
 
 class TestArtSets(unittest.TestCase):

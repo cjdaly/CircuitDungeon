@@ -41,18 +41,19 @@ _TITLE_Y = 196  # the critter's name, under its close-up
 _ZOOM_Y = 92  # ZOOM! during the bolt, over the tree
 
 # Wide shot, screen px. (The tree, in the backdrop, is at (80, 62), 80x104.)
-_WIDE = 2
+_WIDE = 1  # objects.bmp's 32px presents at 1x: 32px, as the 16px ones were at 2x
 # Each present's top-left, in CAST order, in an arc in front of the tree.
 SLOTS = ((40, 168), (72, 160), (104, 172), (136, 160), (168, 168))
 _ON_BOX = 24  # a critter at home sits this far up from its box's top
 _ROCK_STEP_S = 0.09
 _ROCK_PX = 2
 
-# Close-ups, screen px: the box at 4x, the critter at 4x (2 x the 32px sheet).
-_CLOSE = 4
+# Close-ups, screen px: the box at 2x (64px), the critter at 2x.
+_CLOSE = 2
+_PULSE_HOP_PX = 4  # the shut box jumps a little, on the beat
 _BOX_X, _BOX_Y = 88, 100
 _PULSE_STEP_S = 0.2
-_RIM_Y = _BOX_Y + 6 * _CLOSE  # the open box's rim ("present open" row 6)
+_RIM_Y = _BOX_Y + 12 * _CLOSE  # the open box's rim ("present open" row 12 of 32)
 _PEEK_PX = 40
 _PEEK_RISE_S = 0.5
 _LID_FLY_S = 0.5
@@ -282,11 +283,11 @@ class HomeView:
         for grid in (box, lid, critter, big):
             grid.hide()
         if shot == CLOSEUP:
-            scale = _CLOSE + int(t / _PULSE_STEP_S) % 2
-            if box.group.scale != scale:
-                box.group.scale = scale
-            half = 8 * scale
-            box.place(120 - half, _BOX_Y + 32 - half, self._tile_of["present"])
+            if box.group.scale != _CLOSE:
+                box.group.scale = _CLOSE
+            hop = _PULSE_HOP_PX if int(t / _PULSE_STEP_S) % 2 else 0
+            half = scene_art.TILE * _CLOSE // 2
+            box.place(120 - half, _BOX_Y + 32 - half - hop, self._tile_of["present"])
         elif shot in (POP, PEEK):
             if box.group.scale != _CLOSE:
                 box.group.scale = _CLOSE

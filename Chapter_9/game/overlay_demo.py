@@ -99,7 +99,7 @@ def main():
         if not player.active:
             background[0] = _ART_STAND_IN if bright else _DARK
             bright = not bright
-            player.play(beats((yarn, palette)), now)
+            player.play(beats((yarn, palette, 0, 16)), now)  # one 16px tile
         if tracker.update(touch.poll(now), now):
             player.tap(now)
         player.update(now)

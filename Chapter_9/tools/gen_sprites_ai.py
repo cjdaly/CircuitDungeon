@@ -34,6 +34,9 @@ sys.path.insert(0, GAME)
 import critter_candidates  # noqa: E402
 import scene_art  # noqa: E402
 
+sys.path.insert(0, HERE)
+import scene_art_src  # noqa: E402  (the 16x16 originals)
+
 GEN = 960  # 30 x 32
 KEY_RGB = (255, 0, 255)  # magenta: no art here uses it, unlike green (carrot tops, holly)
 DB16 = np.array([((c >> 16) & 255, (c >> 8) & 255, c & 255) for c in scene_art.COLORS[1:17]],
@@ -61,7 +64,7 @@ SUBJECTS = {
     "rivet": ("critter", "elemental_1_1", "a chunky grey-blue tin robot with rivets and a strand of red tinsel"),
     "echo": ("critter", "elemental_3_1", "a dark grey four-legged robot dog with a red light on top"),
     "jingle": ("critter", "elemental_4_0", "a shiny gold four-legged robot with a little round bell"),
-    # lures and props (scene_art.ART)
+    # lures and props (scene_art_src.ART)
     "yarn": ("object", "ball of yarn", "a ball of red knitting yarn with a loose strand curling off it"),
     "squeaky ball": ("object", "squeaky ball", "a round blue and red rubber dog toy ball"),
     "walnuts": ("object", "walnuts", "three brown walnuts in their shells in a little blue bowl"),
@@ -91,7 +94,7 @@ def art_image(rows):
 def critter_frame(cid, frame=0):
     """Today's 16x16 frame for a critter candidate, on flat green."""
     i = [c[0] for c in critter_candidates.CANDIDATES].index(cid)
-    sheet = Image.open(os.path.join(GAME, "art", "critters_nn.bmp"))
+    sheet = Image.open(os.path.join(GAME, "art", "critters_nn.bmp"))  # today's DawnLike sprites
     f = 2 * i + frame
     t = critter_candidates.TILE
     x, y = (f % critter_candidates.TILES_WIDE) * t, (f // critter_candidates.TILES_WIDE) * t
@@ -102,7 +105,7 @@ def critter_frame(cid, frame=0):
 
 
 def source(kind, ref):
-    return critter_frame(ref) if kind == "critter" else art_image(scene_art.ART[ref])
+    return critter_frame(ref) if kind == "critter" else art_image(scene_art_src.ART[ref])
 
 
 def to_sprite(img):

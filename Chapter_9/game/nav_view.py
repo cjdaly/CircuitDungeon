@@ -104,7 +104,7 @@ class NavView:
         self.group.append(self._backdrop.group)
         self._scene = displayio.Group()  # what a shake moves
         self.group.append(self._scene)
-        self._things = SceneView()
+        self._things = SceneView(backdrop_root)
         self._scene.append(self._things.group)
 
         positions = {

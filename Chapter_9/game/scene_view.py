@@ -12,14 +12,18 @@ disk):
 - the item in hand shows bottom left; a critter following you home, bottom right
 
 Everything is built once and shown/hidden or moved, never re-created, so a room
-change allocates nothing (the cd-yl4 Label-churn lesson). The critter sheet is
-an OnDiskBitmap, so it stays in flash. tools/preview.py renders this on the
-desktop for art review.
+change allocates nothing (the cd-yl4 Label-churn lesson). The pictures come
+from the deployed art set (art_sets/README.md): objects.bmp (props, 32x32
+tiles in scene_art.NAMES order) and critters.bmp, both OnDiskBitmaps, so they
+stay in flash; both are shown at 2x, the room art's pixel size (cd-342.38).
+tools/preview.py renders this on the desktop for art review.
 """
+
 import math
 
 import displayio
 
+import backdrop
 import comic_shapes
 import critter_candidates
 import scene_art
@@ -27,7 +31,10 @@ from home_view import HomeView
 from hunt import HIDING
 from walk import bob
 
-_ART_SCALE = 4  # scene_art's 16px art -> 64px, the critters' pixel size
+OBJECTS = scene_art.OBJECTS
+CRITTERS = scene_art.CRITTERS
+_LEGACY_CRITTERS = "/art/critters_nn.bmp"  # before art sets carried critters
+_ART_SCALE = 2  # objects.bmp's 32px tiles -> 64px, the critters' pixel size
 _CRITTER_SCALE = 2  # the 32px nn sheet -> 64px
 _ART_PX = scene_art.TILE * _ART_SCALE  # 64
 
@@ -52,7 +59,7 @@ _IDLE_FRAME_S = 0.5  # critter frame flip at rest
 _HOP_FRAME_S = 0.2  # ...and while hopping along behind you
 
 # Bottom corners: the item in hand (left), a critter following you home (right).
-_HELD_SCALE = 2
+_HELD_SCALE = 1
 _HELD_X, _HELD_Y = 46, 158
 _HELD_BACK = 0x241C2C
 _HELD_BACK_RADIUS = 22
@@ -60,25 +67,24 @@ _FOLLOW_X, _FOLLOW_Y = 162, 156
 _FOLLOW_HOP_PX = 3
 
 
-def _sheet():
-    """Every scene_art picture in one bitmap, side by side, index 0 see-through."""
-    names = scene_art.NAMES
-    bitmap = displayio.Bitmap(scene_art.TILE * len(names), scene_art.TILE, len(scene_art.COLORS))
-    for i, name in enumerate(names):
-        _paint(bitmap, scene_art.ART[name], i * scene_art.TILE)
+def _palette():
     palette = displayio.Palette(len(scene_art.COLORS))
     for i, color in enumerate(scene_art.COLORS):
         palette[i] = color
     palette.make_transparent(0)
-    return bitmap, palette
+    return palette
 
 
-def _paint(bitmap, rows, x0=0):
-    for y, row in enumerate(rows):
-        for x, ch in enumerate(row):
-            index = scene_art.KEY[ch]
-            if index:
-                bitmap[x0 + x, y] = index
+def _open(path, fallback=None):
+    """An OnDiskBitmap, or `fallback`'s, or None if neither is there."""
+    for p in (path, fallback):
+        if p is None:
+            continue
+        try:
+            return displayio.OnDiskBitmap(p)
+        except OSError:
+            pass
+    return None
 
 
 def _art_grid(sheet, palette):
@@ -106,17 +112,28 @@ def _first_frame(sprite):
 class SceneView:
     """Owns `.group`; call show(scene) on any change, and update(now) every frame."""
 
-    def __init__(self, critter_sheet_path="/art/critters_nn.bmp"):
+    def __init__(self, art_root="/art/rooms"):
         import vectorio
 
         self.group = displayio.Group()
-        self._sheet, self._palette = _sheet()
+        self._palette = _palette()
         self._tile_of = {name: i for i, name in enumerate(scene_art.NAMES)}
-        self._icons = {}
+        self._sheet = _open(art_root + "/" + OBJECTS)
+        if self._sheet is None:  # no art deployed: the props just don't show
+            self._sheet = displayio.Bitmap(scene_art.TILE * len(scene_art.NAMES), scene_art.TILE, 2)
+        spots = [self._tile_of[spot] for spot in scene_art.HIDING_SPOTS.values()]
+        tops = backdrop.tile_tops(art_root + "/" + OBJECTS, scene_art.TILE, spots)
+        self._spot_tops = {name: tops.get(self._tile_of[name], 0)
+                           for name in scene_art.HIDING_SPOTS.values()}
 
-        critters = displayio.OnDiskBitmap(critter_sheet_path)
-        critter_palette = critters.pixel_shader
-        critter_palette.make_transparent(0)
+        critters = _open(art_root + "/" + CRITTERS, _LEGACY_CRITTERS)
+        if critters is None:
+            tile = critter_candidates.TILE
+            critters = displayio.Bitmap(tile * critter_candidates.TILES_WIDE, tile * 3, 2)
+            critter_palette = _palette()
+        else:
+            critter_palette = critters.pixel_shader
+            critter_palette.make_transparent(0)
 
         # Back to front: a peeking critter, its spot, wiggles, the lure, a found critter.
         self._behind = displayio.Group(scale=_CRITTER_SCALE)
@@ -180,7 +197,7 @@ class SceneView:
         self._spot_layer.hidden = scene.spot is None
         if scene.spot is not None:
             self._spot[0] = self._tile_of[scene.spot]
-            self._spot_top = _SPOT_Y + scene_art.SPOT_TOP.get(scene.spot, 0) * _ART_SCALE
+            self._spot_top = _SPOT_Y + self._spot_tops.get(scene.spot, 0) * _ART_SCALE
 
         self._pose = scene.pose if scene.critter is not None else None
         for layer in (self._behind, self._front):
@@ -210,14 +227,8 @@ class SceneView:
         self.update(now)
 
     def icon(self, name):
-        """(bitmap, palette) of one picture by itself, for comic thought bubbles."""
-        icon = self._icons.get(name)
-        if icon is None:
-            bitmap = displayio.Bitmap(scene_art.TILE, scene_art.TILE, len(scene_art.COLORS))
-            _paint(bitmap, scene_art.ART[name])
-            icon = (bitmap, self._palette)
-            self._icons[name] = icon
-        return icon
+        """(sheet, palette, tile, tile px) of one picture, for comic thought bubbles."""
+        return self._sheet, self._palette, self._tile_of[name], scene_art.TILE
 
     def set_escape(self, escape):
         """The critter the next escape cutscene is about (a hunt.Escape)."""

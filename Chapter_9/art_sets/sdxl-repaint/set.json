@@ -1,6 +1,6 @@
 {
   "base": "drawn",
-  "description": "SDXL base 1.0 repainting the drawn set (img2img), snapped to DB16; other rooms from drawn",
+  "description": "SDXL base 1.0: rooms repainted from the drawn set (img2img), critters and props redrawn at 32x32 from today's sprites; all snapped to DB16; anything missing from drawn",
   "made_by": "tools/gen_backdrops_ai.py, local SDXL (downloads/imagegen/README.md): img2img of the drawn backdrop at 960px, 30 steps, guidance 7, then box-shrunk to 120 and nearest-colour DB16",
   "name": "sdxl-repaint",
   "rooms": {
@@ -76,5 +76,30 @@
     "yard.bmp": {
       "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: the snowy yard. A snowman with a carrot for a nose, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
     }
-  }
+  },
+  "sprites": {
+    "batteries": "gen_sprites_ai.py seed 1 (strength 0.85)",
+    "cardboard box": "gen_sprites_ai.py seed 3 (strength 0.85)",
+    "carrot": "gen_sprites_ai.py seed 4 (strength 0.85)",
+    "cat_0_1": "chirpy: gen_sprites_ai.py seed 5 (strength 0.85); frame 1 = 1px breathing bob; red bow added by hand (build_sprites.chirpy_bow)",
+    "chimney": "gen_sprites_ai.py seed 3 (strength 0.85)",
+    "dog_0_0": "patch: gen_sprites_ai.py seed 3 (strength 0.85); frame 1 = 1px breathing bob",
+    "dog_3_0": "sparky: gen_sprites_ai.py seed 5 (strength 0.85); frame 1 = 1px breathing bob",
+    "dog_4_0": "woofer: gen_sprites_ai.py seed 4 (strength 0.85); frame 1 = 1px breathing bob",
+    "elemental_1_1": "rivet: gen_sprites_ai.py seed 2 (strength 0.85); frame 1 = 1px breathing bob",
+    "elemental_3_1": "echo: gen_sprites_ai.py seed 3 (strength 0.85); frame 1 = 1px breathing bob",
+    "elemental_4_0": "jingle: gen_sprites_ai.py seed 4 (strength 0.85); frame 1 = 1px breathing bob",
+    "leaf pile": "gen_sprites_ai.py seed 3 (strength 0.85)",
+    "oil can": "gen_sprites_ai.py seed 4 (strength 0.85)",
+    "potted plant": "gen_sprites_ai.py seed 3 (strength 0.85)",
+    "quadraped_0_8": "vixen: gen_sprites_ai.py seed 1 (strength 0.85); frame 1 = 1px breathing bob",
+    "quadraped_1_8": "blitzen: gen_sprites_ai.py seed 2 (strength 0.85); frame 1 = 1px breathing bob",
+    "rodent_0_0": "nutmeg: gen_sprites_ai.py seed 5 (strength 0.85); frame 1 = 1px breathing bob",
+    "rodent_1_0": "acorn: gen_sprites_ai.py seed 4 (strength 0.85); frame 1 = 1px breathing bob",
+    "snowman": "gen_sprites_ai.py seed 4 (strength 0.85)",
+    "snowy bush": "gen_sprites_ai.py seed 3 (strength 0.85)",
+    "squeaky ball": "gen_sprites_ai.py seed 3 (strength 0.85)",
+    "walnuts": "gen_sprites_ai.py seed 5 (strength 0.85)"
+  },
+  "sprites_made_by": "tools/gen_sprites_ai.py (local SDXL, img2img 0.85 from the 16px sprite, descriptive prompts, magenta key), picked by Chris 2026-11-08; built into rooms/objects.bmp + rooms/critters.bmp by tools/build_sprites.py"
 }

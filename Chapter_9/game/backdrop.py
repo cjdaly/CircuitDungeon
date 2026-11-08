@@ -74,6 +74,36 @@ def load(bitmap, path, size=SIZE, height=None):
     return True
 
 
+def tile_tops(path, tile, indexes):
+    """{index: the first row of tile `index` with anything in it}, read from a
+    BMP sheet's rows without keeping them -- where a hiding spot's top edge is,
+    whatever the art set drew. Missing file or tile: no entry."""
+    tops = {}
+    try:
+        f = open(path, "rb")
+    except OSError:
+        return tops
+    with f:
+        head = f.read(54)
+        if len(head) < 54 or head[:2] != b"BM":
+            return tops
+        offset = struct.unpack_from("<I", head, 10)[0]
+        width, height = struct.unpack_from("<ii", head, 18)
+        stride = (width + 3) & ~3
+        rows = abs(height)
+        row = bytearray(stride)
+        for i in range(rows):
+            y = rows - 1 - i if height > 0 else i
+            f.seek(offset + i * stride)
+            f.readinto(row)
+            for index in indexes:
+                x0 = index * tile
+                if x0 + tile <= width and any(row[x0:x0 + tile]):
+                    if y < tops.get(index, tile):
+                        tops[index] = y
+    return tops
+
+
 def read_set_name(root):
     """The art set deployed at `root` (its SET.txt), or None."""
     try:

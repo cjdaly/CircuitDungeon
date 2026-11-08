@@ -169,6 +169,12 @@ over the room's colour key — not a map you walk around in.
   (hiding spots, lures, presents, the escape) is drawn on top. Keep the middle
   (art x ~44-76, y ~46-88) quiet for those, and mind the round panel's
   corners. The room name is a yellow caption box.
+- **Sprites at 32x32, 2x (`cd-342.38`, 2026-11-08):** props and critters
+  now come from each art set's `objects.bmp` / `critters.bmp`, 32x32 tiles
+  shown at 2x -- the room art's pixel size, where the old 16x16 props at 4x
+  were twice as chunky. `drawn` keeps today's look (doubled), with a new
+  32x32 ball of yarn; `sdxl-repaint` has model-redrawn critters and props
+  (`art_sets/README.md`).
 - **First visit:** iris in, then 1–2 captions of story/flavour. **Revisits:**
   iris in, location caption only.
 - **A hiding critter** is never fully visible: a tail sticking out from

@@ -9,7 +9,7 @@ compared, on different boards at once if need be. A board only ever holds one:
 | set | what it is |
 |---|---|
 | `drawn` | Hand-drawn in code by `tools/build_backdrops.py`; the original, kept current. **Covers every room** and is the base for the others. |
-| `sdxl-repaint` | SDXL base 1.0 repainting the drawn art (img2img), snapped to the 16 DB16 colours, via `tools/gen_backdrops_ai.py`. Partial: just the rooms tried so far. |
+| `sdxl-repaint` | SDXL base 1.0: every room repainted from the drawn art (`tools/gen_backdrops_ai.py`), and the critters and props redrawn at 32x32 from today's sprites (`tools/gen_sprites_ai.py`, Chris's picks in `sprites/`, notes in `set.json`). Snapped to DB16. Ornament scenes, presents and the yarn come from `drawn`. |
 
 ## IP rule
 
@@ -27,7 +27,19 @@ is thrown away, not edited.
 ```
 art_sets/<name>/set.json        name, description, base, made_by, rooms{file: {note}}
 art_sets/<name>/rooms/*.bmp     120x120, 8-bit indexed, index i = DB16 colour i
+art_sets/<name>/rooms/objects.bmp   props, 32x32 tiles in scene_art.NAMES order (cd-342.38)
+art_sets/<name>/rooms/critters.bmp  critters, 32x32, critter_candidates' layout (2 frames each)
+art_sets/<name>/sprites/*.png   a set's own 32x32 critters/props, built in by build_sprites.py
 ```
+
+The two sprite sheets are 8-bit, index 0 see-through and the rest
+`scene_art.COLORS` (17-19 a present's swappable colours). The board reads them
+from flash and shows them at 2x, the backdrops' pixel size.
+`/usr/bin/python3 Chapter_9/tools/build_sprites.py` builds them: `drawn` gets
+the hand-drawn props (`tools/scene_art_src.py`, doubled; the yarn drawn new at
+32x32) and the DawnLike critters (CC-BY, credited in the chapter README);
+other sets get `drawn`'s with their `sprites/` put in, plus any hand touches
+listed in its `EDITS` (Chirpy's bow).
 
 A set may be **partial**: rooms it doesn't have come from its `base` set
 (normally `drawn`). The tests check every set is complete once its base is

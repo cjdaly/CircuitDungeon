@@ -154,10 +154,15 @@ class _Thought:
         self.group.append(self._icon)
 
     def show(self, icon):
-        bitmap, palette = icon
+        """`icon` is (sheet, palette, tile index, tile px), from SceneView.icon()."""
+        sheet, palette, tile, size = icon
         if len(self._icon):
             self._icon.pop()
-        self._icon.append(displayio.TileGrid(bitmap, pixel_shader=palette))
+        self._icon.scale = max(1, _TILE * _ICON_SCALE // size)  # always 32px across
+        offset = -size * self._icon.scale // 2
+        self._icon.x = self._icon.y = offset
+        self._icon.append(displayio.TileGrid(sheet, pixel_shader=palette, width=1, height=1,
+                                             tile_width=size, tile_height=size, default_tile=tile))
         self.group.hidden = False
 
 
