@@ -14,7 +14,6 @@ import os
 import sys
 import types
 
-from PIL import Image
 
 GAME_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "game"))
 
@@ -71,6 +70,8 @@ class OnDiskBitmap(Bitmap):
     def __init__(self, path):
         if path.startswith("/"):
             path = os.path.join(GAME_DIR, path[1:])
+        from PIL import Image  # only to read/draw images; the fakes work without it
+
         image = Image.open(path)
         if image.mode != "P":
             raise ValueError("preview only handles indexed BMPs: " + path)
@@ -282,6 +283,8 @@ def _rgb(color):
 
 def render(root, size=240, round_panel=True):
     """Draw `root` (a Group) into a new RGB image, the way the panel would show it."""
+    from PIL import Image
+
     image = Image.new("RGB", (size, size), (0, 0, 0))
     canvas = image.load()
 

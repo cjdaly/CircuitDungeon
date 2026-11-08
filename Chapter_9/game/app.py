@@ -108,6 +108,9 @@ def run(display, backlight, touch, imu_gestures, width, height,
     import displayio
 
     world = rooms.make_world()
+    # Review switch: settings.toml OPEN_ALL_ROOMS = "1" opens every room in every
+    # episode, to walk round and look at the art. Leave it out for real play.
+    world.open_all = os.getenv("OPEN_ALL_ROOMS") in ("1", "true", "yes")
     tracker = edge_gesture.EdgeGestureTracker(width, height)
     detector = stillness.StillnessDetector()
     deep = deep_idle.DeepIdle()
@@ -130,9 +133,8 @@ def run(display, backlight, touch, imu_gestures, width, height,
     tell(opening, clock())
 
     ornament_group = displayio.Group()
-    ornament.make_background(ornament_group, width, height)
-    tree = ornament.Tree(ornament_group)
-    snow = ornament.Snow(ornament_group, width, height)
+    # The ornament screen's scenes take turns, and borrow the room art's bitmap.
+    show = ornament.Show(ornament_group, nav.backdrop, width, height)
 
     def blanker_for(mode):
         if deep.glance:  # woken by motion nobody has followed up on yet
@@ -177,8 +179,9 @@ def run(display, backlight, touch, imu_gestures, width, height,
             print("t={:.1f} imu read ok after bus rebuild".format(now))
         return sample
 
-    print("Ch9 ready -- start: {}  player={}  art={}  free={}".format(
-        world.current, player, getattr(nav, "art_set", None), gc.mem_free()))
+    print("Ch9 ready -- start: {}  player={}  art={}{}  free={}".format(
+        world.current, player, getattr(nav, "art_set", None),
+        "  OPEN_ALL_ROOMS" if world.open_all else "", gc.mem_free()))
 
     while max_ticks is None or ticks < max_ticks:
         ticks += 1
@@ -239,7 +242,9 @@ def run(display, backlight, touch, imu_gestures, width, height,
                 blanker = blanker_for(mode)
                 print("t={:.1f} mode -> {}".format(now, mode))
                 if mode == modes.ORNAMENT:
-                    tree.scatter()
+                    show.enter(now)
+                else:
+                    nav.refresh_backdrop()  # the ornament screen had the shared bitmap
                 if touched:
                     wait_for_release = True  # the touch that woke us
 
@@ -286,8 +291,7 @@ def run(display, backlight, touch, imu_gestures, width, height,
                 # "handled" counts as activity: wakes a blanked ornament.
                 blanker.update(not detector.is_still, now)
                 if blanker.lit:  # no point animating a dark screen
-                    tree.update(now, lit=detector.is_still)
-                    snow.update(now)
+                    show.update(now, lit=detector.is_still)
 
             if deep.glance and not deep.glancing(detector.is_still, touched, now - last_tick):
                 blanker = blanker_for(mode)  # picked up for real: the usual timeout

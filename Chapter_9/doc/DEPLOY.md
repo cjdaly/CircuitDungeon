@@ -91,6 +91,20 @@ PLAYER = "Sam"
 Use letters, digits and `! ' , . ?` only, since the comic fonts have nothing else.
 Anything else draws as a gap. Without it, the game says `MERRY CHRISTMAS!`.
 
+## Review mode: every room open
+
+Each episode opens only part of the house (`doc/EPISODES.md`), so some rooms
+can't be reached for most of the game. To walk round every room, for example to
+look at an art set, add this to the board's `settings.toml` and reset:
+
+```
+OPEN_ALL_ROOMS = "1"
+```
+
+The story still runs, but no door is shut. The start-up line shows
+`OPEN_ALL_ROOMS` while it's on. Take it out for real play, and never put it on a
+gift unit.
+
 ## Two boards
 
 With two boards plugged in, the second mounts as `CIRCUITPY 1`, and which is

@@ -21,7 +21,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 import art_set  # noqa: E402
 
 _ROOMS = art_set.rooms_dir("drawn")  # the hand-drawn set; every set is checked below
-_ALL_ROOMS = {backdrop.file_name(room.name) for room in rooms.make_world()._rooms.values()}
+import ornament  # noqa: E402
+
+# What a complete art set holds: a backdrop per room, plus the ornament screen's
+# scene backdrops and sprite sheet (cd-342.37).
+_ALL_ROOMS = ({backdrop.file_name(room.name) for room in rooms.make_world()._rooms.values()}
+              | set(ornament.FILES))
 
 
 class _Bitmap(dict):
@@ -41,9 +46,8 @@ class TestFileName(unittest.TestCase):
         self.assertEqual(backdrop.file_name("Odd Corner"), "odd_corner.bmp")
 
     def test_every_built_backdrop_is_a_real_room(self):
-        names = {backdrop.file_name(room.name) for room in rooms.make_world()._rooms.values()}
         for built in os.listdir(_ROOMS):
-            self.assertIn(built, names)
+            self.assertIn(built, _ALL_ROOMS)  # a room, or the ornament screen's
 
 
 class TestLoad(unittest.TestCase):
@@ -60,7 +64,11 @@ class TestLoad(unittest.TestCase):
     def test_every_built_backdrop_loads(self):
         for name in art_set.names():
             for built, path in art_set.own_files(name).items():
-                self.assertTrue(backdrop.load(_Bitmap(), path), (name, built))
+                if built == ornament.SPRITES:
+                    ok = backdrop.load(_Bitmap(), path, ornament.SHEET_W, ornament.SHEET_H)
+                else:
+                    ok = backdrop.load(_Bitmap(), path)
+                self.assertTrue(ok, (name, built))
 
     def test_missing_file(self):
         self.assertFalse(backdrop.load(_Bitmap(), "/no/such/room.bmp"))

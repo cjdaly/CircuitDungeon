@@ -4,11 +4,77 @@
   "made_by": "tools/gen_backdrops_ai.py, local SDXL (downloads/imagegen/README.md): img2img of the drawn backdrop at 960px, 30 steps, guidance 7, then box-shrunk to 120 and nearest-colour DB16",
   "name": "sdxl-repaint",
   "rooms": {
+    "attic.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: a dusty attic full of old decorations, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "back_door.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: the back door, with boots and a snow shovel, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
     "basement.bmp": {
-      "note": "gen_backdrops_ai.py i2i strength 0.75 seed 2, 2026-11-07 trial"
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: a dim stone basement: an old round furnace glowing orange with ducts going up, wooden stairs going up on the right, a bare light bulb, concrete floor, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "bedroom.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: a quiet bedroom, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "cave.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: a shallow cave mouth, just past the yard, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "cellar_door.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: a slanted door down to the cellar, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "dining_room.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: the dining room, table set for tomorrow, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "entryway.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: the front entryway, coats and boots by the door, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "front_porch.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: the front porch, deep in fresh snow, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "front_walk.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: the shoveled walk through the front yard, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "garage.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: the garage, shelves crammed with tools, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "hallway.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: a long hallway lined with family photos, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "kids_bedroom.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: a kid's bedroom, stockings hung by the window, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "kitchen.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: the kitchen, still warm from holiday baking, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "laundry_room.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: the laundry room. The dryer is still warm, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "living_room.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: a cozy living room, decorated for Christmas, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "odd_corner.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: a cluttered corner. Up on a high shelf: batteries!, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "pond.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: a small frozen pond at the edge of the yard, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "roof.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: on a snowy rooftop at night: red shingles under thick snow, the neighbours' roofs with lit windows, a full moon with Santa's sleigh and reindeer silhouetted across it, a TV antenna, stars, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
     },
     "sewing_nook.bmp": {
-      "note": "gen_backdrops_ai.py i2i strength 0.75 seed 2, 2026-11-07 trial"
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: a sewing nook: an old black sewing machine with gold decoration on a wooden table, a red stocking half sewn under its needle, a dress form wearing a Santa dress, flowery wallpaper, a braided rug, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "snow_fort.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: a snow fort the kids built, stocked with toys, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "sun_porch.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: a sun porch, one window left open a crack, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "tree_house.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: a tree house, cold this time of year, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+    },
+    "yard.bmp": {
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: the snowy yard. A snowman with a carrot for a nose, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
     }
   }
 }

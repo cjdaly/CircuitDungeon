@@ -58,6 +58,9 @@ class World:
             raise ValueError("unknown start room: {}".format(start))
         self.current = start
         self.gate = None  # None = every room open; else a set of open room names
+        # Review mode (settings.toml OPEN_ALL_ROOMS): ignore every gate, so any
+        # room can be walked into -- for looking at the art, not for play.
+        self.open_all = False
 
     @property
     def room(self):
@@ -81,7 +84,7 @@ class World:
         self.gate = set(open_rooms)
 
     def is_open(self, name):
-        return self.gate is None or name in self.gate
+        return self.open_all or self.gate is None or name in self.gate
 
     def live_exits(self):
         """Directions with a real, open exit from the current room, in DIRECTIONS order."""

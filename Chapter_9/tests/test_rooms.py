@@ -125,6 +125,23 @@ class TestGate(unittest.TestCase):
         world.move(rooms_mod.RIGHT)
         self.assertTrue(world.move(rooms_mod.UP))
 
+    def test_open_all_ignores_the_gate(self):
+        world = self._world()
+        world.set_gate({"A", "B"})
+        world.open_all = True  # settings.toml OPEN_ALL_ROOMS, for art review
+        world.move(rooms_mod.RIGHT)
+        self.assertEqual(world.closed_exits(), [])
+        self.assertTrue(world.move(rooms_mod.UP))
+
+    def test_open_all_reaches_a_room_the_episode_shuts(self):
+        # Past the cat, the Sewing Nook is shut; review mode walks straight in.
+        world = rooms_mod.make_world()
+        world.set_gate({"Living Room", "Dining Room", "Kitchen"})
+        world.open_all = True
+        self.assertTrue(world.move(rooms_mod.RIGHT))  # Dining Room
+        self.assertTrue(world.move(rooms_mod.UP))
+        self.assertEqual(world.current, "Sewing Nook")
+
     def test_unknown_room_in_gate_raises(self):
         with self.assertRaises(ValueError):
             self._world().set_gate({"A", "nope"})

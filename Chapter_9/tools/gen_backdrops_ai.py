@@ -38,11 +38,23 @@ GEN = 960  # 8 x 120: shrinks back to 120 exactly
 PALETTE = np.array([((c >> 16) & 255, (c >> 8) & 255, c & 255) for c in backdrop.COLORS],
                    dtype=np.int32)
 
-STYLE = ("pixel art, 16-colour palette, bold black ink outlines, flat colours, comic book style, "
-         "front view of one room, cozy, Christmas Eve at night, warm lamp light, "
-         "open empty floor in the middle of the picture")
+# Short on purpose: SDXL's text encoders read only 77 tokens, and the room's own
+# words go first. ("open floor in the middle" keeps critters' spot clear.)
+STYLE = ("pixel art, bold black outlines, flat colours, comic style, front view, "
+         "Christmas Eve night, warm light, open floor in the middle")
 NEGATIVE = ("text, letters, words, watermark, signature, photo, photorealistic, 3d render, blurry, "
             "people, person, hands, animals, cat, dog, cluttered centre")
+
+# Themes: the look a set is painted in. Describe a style in plain words only --
+# never name an artist, book, character or place (the repo is public and the
+# boards are gifts; see art_sets/README.md, "IP rule").
+THEMES = {
+    "christmas": (STYLE, ""),
+    # Topsy-turvy storybook: wobbly shapes, stripes, spirals -- original, no characters.
+    "whimsy": ("whimsical storybook pixel art, wobbly curvy shapes, spirals, candy stripes, "
+               "pom-pom trees, black outlines, open floor in middle",
+               ", creature, monster, character, face, fur"),
+}
 PROMPTS = {
     "Sewing Nook": "a sewing nook: an old black sewing machine with gold decoration on a wooden "
                    "table, a red stocking half sewn under its needle, a dress form wearing a Santa "
@@ -55,6 +67,15 @@ PROMPTS = {
 }
 STRENGTHS = (0.45, 0.6, 0.75)
 SEEDS = (1, 2)
+
+
+def describe(room):
+    """A prompt from the room's own description in the game (rooms.py)."""
+    sys.path.insert(0, os.path.join(HERE, "..", "game"))
+    import rooms
+
+    text = rooms.make_world().get(room).description.rstrip(".")
+    return text[0].lower() + text[1:]
 
 
 def drawn(room):
@@ -96,10 +117,22 @@ def sheet(items, path):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--rooms", default=",".join(PROMPTS))
+    ap.add_argument("--rooms", default=",".join(PROMPTS),
+                    help='comma-separated, or "all" (rooms without a prompt here use their '
+                         'rooms.py description)')
+    ap.add_argument("--theme", default="christmas", choices=sorted(THEMES),
+                    help="the look to paint in (THEMES)")
+    ap.add_argument("--strengths", default=",".join(str(x) for x in STRENGTHS),
+                    help="img2img strengths for the sheet of variants")
+    ap.add_argument("--only", metavar="STRENGTH:SEED",
+                    help="just this one repaint per room, e.g. 0.75:2 (no sheet of variants)")
+    ap.add_argument("--add-to", metavar="SET",
+                    help="with --only: add each result to this art set (art_set.py add)")
     ap.add_argument("--out", default=os.path.join(HERE, "..", "..", "downloads", "imagegen", "out"))
     ap.add_argument("--steps", type=int, default=30)
     args = ap.parse_args()
+    if args.add_to and not args.only:
+        sys.exit("--add-to needs --only STRENGTH:SEED (one result per room)")
     if not os.environ.get("HF_HOME"):
         sys.exit("source downloads/imagegen/env.sh first (keeps the model cache in that folder)")
 
@@ -119,29 +152,48 @@ def main():
         snaps[0], torch_dtype=torch.float16, variant="fp16", use_safetensors=True).to("mps")
     i2i = StableDiffusionXLImg2ImgPipeline(**t2i.components)
 
-    for room in args.rooms.split(","):
+    room_names = [r.strip() for r in args.rooms.split(",")]
+    if room_names == ["all"]:
+        room_names = sorted(build_backdrops.ROOMS)
+    for room in room_names:
         room = room.strip()
-        prompt = PROMPTS[room] + ", " + STYLE
+        style, avoid = THEMES[args.theme]
+        prompt = (PROMPTS.get(room) or describe(room)) + ", " + style
+        negative = NEGATIVE + avoid
         out_dir = os.path.join(args.out, backdrop.file_name(room)[:-4])
         os.makedirs(out_dir, exist_ok=True)
         base = drawn(room)
         items = [("drawn (current)", base)]
         init = base.resize((GEN, GEN), Image.NEAREST)
-        jobs = [("i2i_s{:.2f}_seed{}".format(s, seed), s, seed) for s in STRENGTHS for seed in SEEDS]
-        jobs += [("t2i_seed{}".format(seed), None, seed) for seed in SEEDS]
+        if args.only:
+            strength, seed = args.only.split(":")
+            jobs = [("i2i_s{:.2f}_seed{}".format(float(strength), int(seed)),
+                     float(strength), int(seed))]
+        else:
+            strengths = [float(x) for x in args.strengths.split(",")]
+            jobs = [("i2i_s{:.2f}_seed{}".format(s, seed), s, seed)
+                    for s in strengths for seed in SEEDS]
+            jobs += [("t2i_seed{}".format(seed), None, seed) for seed in SEEDS]
         for name, strength, seed in jobs:
             t = time.time()
             g = torch.Generator("cpu").manual_seed(seed)
             if strength is None:
-                img = t2i(prompt, negative_prompt=NEGATIVE, num_inference_steps=args.steps,
+                img = t2i(prompt, negative_prompt=negative, num_inference_steps=args.steps,
                           guidance_scale=7.0, width=GEN, height=GEN, generator=g).images[0]
             else:
-                img = i2i(prompt, negative_prompt=NEGATIVE, image=init, strength=strength,
+                img = i2i(prompt, negative_prompt=negative, image=init, strength=strength,
                           num_inference_steps=args.steps, guidance_scale=7.0, generator=g).images[0]
             img.save(os.path.join(out_dir, name + "_raw.png"))
             bd = to_backdrop(img)
             bd.save(os.path.join(out_dir, name + ".bmp"))
             items.append((name, bd))
+            if args.add_to and args.only:
+                import art_set
+
+                art_set.add(args.add_to, backdrop.file_name(room),
+                            os.path.join(out_dir, name + ".bmp"),
+                            "gen_backdrops_ai.py --theme {} img2img strength {} seed {}, {} steps; prompt: {}"
+                            .format(args.theme, strength, seed, args.steps, prompt))
             print("{}: {} {:.1f}s".format(room, name, time.time() - t), flush=True)
         sheet(items, os.path.join(out_dir, "sheet.png"))
         print("{}: sheet {}".format(room, os.path.join(out_dir, "sheet.png")), flush=True)

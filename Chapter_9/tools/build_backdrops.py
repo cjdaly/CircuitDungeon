@@ -1789,6 +1789,384 @@ ROOMS = {
 }
 
 
+# ---- the ornament screen (cd-342.37) ---------------------------------------- #
+# Backdrops for game/ornament.py's scenes, same format as the rooms; the things
+# that move (lights, star, canes, sleigh, snow) are drawn by the game on top.
+
+
+def ornament_tree():
+    """A big decorated tree out in the snowy yard at night; the game adds the
+    lights, the star and the falling snow."""
+    c = Canvas("n")
+    night_sky(c, 86, seed=77, stars=28)
+    moon(c, 26, 32, 7)
+    glow(c, 60, 56, 48, "b", "n")  # the tree's lights on the night air
+    # Houses along the far side of the yard, windows lit.
+    for x0, x1, top in ((-6, 22, 70), (18, 40, 76), (82, 102, 74), (98, 126, 68)):
+        mid = (x0 + x1) // 2
+        c.rect(x0, top, x1, 86, "p")
+        for j in range(7):
+            half = (x1 - x0) // 2 * j // 6
+            c.hline(mid - half, mid + half, top - 7 + j, "p")
+            c.put(mid - half, top - 7 + j, "w")
+            c.put(mid + half, top - 7 + j, "w")
+        c.hline(x0, x1, top, "w")
+        for wx in range(x0 + 4, x1 - 4, 8):
+            c.box(wx, top + 4, wx + 3, top + 8, "y")
+    # A low fence across the yard behind the tree, snow on it.
+    for x in range(0, SIZE, 5):
+        c.box(x, 80, x + 2, 88, "O", ink="o")
+        c.put(x + 1, 79, "w")
+    c.hline(0, SIZE - 1, 83, "o")
+    snow_ground(c, 88, seed=61)
+    c.ellipse(60, 100, 40, 7, "w", ink="s")  # snow banked round the tree
+    shade(c, 20, 100, 100, 108, "c", "w")
+    # The tree: four tiers, darker on its right, snow along each tier, a wire
+    # of lights looping round it (the game lights them).
+    top, base, half_base = 18, 92, 34
+
+    def half_at(y):
+        rel = y - top
+        tier = rel % 18
+        return max(1, rel * half_base // (base - top) - max(0, 4 - tier))
+
+    for y in range(top, base + 1):
+        h = half_at(y)
+        c.hline(60 - h, 60 + h, y, "G")
+        c.put(60 - h - 1, y, "#")
+        c.put(60 + h + 1, y, "#")
+        for x in range(60 - h, 60 - h + max(1, h // 3)):
+            c.put(x, y, "l")  # the side the moon lights
+    shade(c, 62, top, 96, base, "#", "G")
+    for y in range(top + 2, base + 1):  # snow on each tier's lower edge
+        if half_at(y + 1) < half_at(y) or y == base:
+            h = half_at(y)
+            for x in range(60 - h, 60 + h + 1):
+                if (x + y) % 5:
+                    c.put(x, y, "w")
+            c.put(60 - h - 1, y, "s")
+            c.put(60 + h + 1, y, "s")
+    for k in range(4):
+        y0 = 28 + k * 17
+        for x in range(-half_at(y0 + 8), half_at(y0 + 8) + 1):
+            y = y0 + 8 + (x * 4) // max(1, half_at(y0 + 8)) - abs(x) // 6
+            if c.px[y][60 + x] in (K["G"], K["l"], K["#"]) and abs(x) < half_at(y):
+                c.put(60 + x, y, "d")
+    c.hline(60, 60, top - 1, "#")
+    c.box(55, 92, 65, 99, "o")  # trunk, into the snow
+    c.ellipse(60, 100, 9, 2, "w", ink="s")
+    return c
+
+
+def _candy_sky():
+    c = Canvas("n")
+    for i, (x, y) in enumerate(scatter(40, 0, 0, SIZE - 1, SIZE - 1, 47)):
+        c.put(x, y, "w" if i % 3 else "y")
+    glow(c, 60, 60, 34, "p", "n")
+    dusk(c, 60, 60, 50, "#", "n")
+    return c
+
+
+def _peppermint(c):
+    """A big wrapped peppermint: a red and white swirl, cellophane twists."""
+    import math
+
+    for side in (-1, 1):
+        for j in range(22):
+            x = 60 + side * (20 + j)
+            spread = 3 + j * 9 // 21
+            c.vline(x, 60 - spread, 60 + spread, "c")
+            c.put(x, 60 - spread - 1, "#")
+            c.put(x, 60 + spread + 1, "#")
+        c.vline(60 + side * 42, 48, 72, "#")
+        for j in range(4, 20, 5):  # shine
+            x = 60 + side * (20 + j)
+            c.vline(x, 60 - 2 - j // 4, 60 - j // 6, "w")
+        c.rect(60 + side * 20 - 1, 56, 60 + side * 20 + 1, 64, "s")  # the gathered knot
+    r = 21
+    for y in range(60 - r - 2, 60 + r + 3):
+        for x in range(60 - r - 2, 60 + r + 3):
+            d = math.hypot(x - 60, y - 60)
+            if d <= r:
+                a = math.atan2(y - 60, x - 60) + d / r * 1.2
+                c.put(x, y, "r" if int((a + math.pi) / (math.pi / 4)) % 2 else "w")
+            elif d <= r + 1.6:
+                c.put(x, y, "#")
+    c.ellipse(60, 60, 4, 4, "r", ink="w")
+    for i in range(6):
+        c.put(48 + i, 46 - i // 2, "w")
+    shade(c, 62, 62, 82, 82, "#", "rw")  # comic shadow, lower right
+
+
+def _gingerbread_house(c):
+    """A gingerbread house: icing on the roof, gumdrops, a candy-cane door frame."""
+    c.box(40, 58, 80, 84, "o")  # walls
+    shade(c, 62, 59, 79, 83, "p", "o")
+    for x in range(41, 80, 4):  # icing scallops along the base
+        c.put(x, 83, "w")
+        c.put(x + 1, 82, "w")
+    for j in range(22):  # the roof
+        half = 4 + j
+        c.hline(60 - half, 60 + half, 36 + j, "O")
+        c.put(60 - half - 1, 36 + j, "#")
+        c.put(60 + half + 1, 36 + j, "#")
+    for j in range(0, 22, 2):  # thick icing on the eaves
+        c.put(60 - 4 - j, 36 + j, "w")
+        c.put(60 + 4 + j, 36 + j, "w")
+        c.put(60 - 4 - j, 37 + j, "w")
+        c.put(60 + 4 + j, 37 + j, "w")
+    c.rect(34, 57, 86, 58, "w")
+    for x in range(36, 85, 6):  # icicles of icing
+        c.vline(x, 59, 60 + (x % 4), "w")
+    for x, y, col in ((54, 44, "r"), (64, 46, "l"), (58, 52, "y"), (70, 53, "r"), (48, 53, "b")):
+        c.ellipse(x, y, 1, 1, col)  # sweets stuck to the roof
+    c.box(54, 68, 66, 84, "p")  # door, striped frame
+    for y in range(67, 85):
+        c.put(53, y, "r" if y % 3 else "w")
+        c.put(67, y, "r" if y % 3 else "w")
+    c.put(64, 76, "y")
+    for x0 in (43, 70):  # windows, warm light inside
+        c.box(x0, 64, x0 + 7, 71, "y")
+        c.vline(x0 + 3, 65, 70, "w")
+        c.hline(x0 + 1, x0 + 6, 67, "w")
+    for x, col in ((38, "r"), (82, "l"), (34, "y"), (86, "r")):  # gumdrops by the door
+        c.ellipse(x, 84, 2, 2, col)
+    c.rect(28, 86, 92, 88, "w")  # snowy icing ground
+    c.hline(28, 92, 89, "s")
+
+
+def _candy_cane_heart(c):
+    """Two big candy canes hooked together into a heart."""
+    import math
+
+    for side in (-1, 1):
+        pts = []
+        for i in range(40):  # the hook, round the top
+            a = math.pi * i / 39
+            pts.append((60 + side * (11 - 11 * math.cos(a)), 46 - 11 * math.sin(a)))
+        for i in range(1, 30):  # then down to the point
+            pts.append((60 + side * (22 - 22 * i / 29), 46 + 38 * i / 29))
+        for i, (x, y) in enumerate(pts):
+            col = "r" if (i // 5) % 2 == 0 else "w"
+            for yy in range(int(y) - 3, int(y) + 4):
+                for xx in range(int(x) - 3, int(x) + 4):
+                    d2 = (xx + 0.5 - x) ** 2 + (yy + 0.5 - y) ** 2
+                    if d2 <= 9:
+                        if c.px[yy][xx] not in (K["r"], K["w"]) or d2 <= 7:
+                            c.put(xx, yy, col)
+    # ink round the canes
+    ink = []
+    for y in range(20, 92):
+        for x in range(30, 92):
+            if c.px[y][x] not in (K["r"], K["w"]) and any(
+                    c.px[y + dy][x + dx] in (K["r"], K["w"])
+                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                ink.append((x, y))
+    for x, y in ink:
+        c.put(x, y, "#")
+    c.rect(56, 80, 64, 86, "G")  # a bow of holly where they meet
+    c.put(57, 81, "r")
+    c.put(62, 82, "r")
+
+
+def _candy_jar(c):
+    """A glass jar of sweets: peppermints, a cane or two, a red lid."""
+    c.box(38, 36, 82, 88, "n", ink="s")  # the glass (the night shows through)
+    for y in range(37, 88):
+        c.put(38, y, "c")
+        c.put(82, y, "c")
+    for i, (x, y) in enumerate(((44, 80), (54, 82), (64, 80), (74, 82), (48, 72), (60, 72),
+                                (72, 72), (44, 64), (56, 62), (68, 64), (76, 60))):
+        c.ellipse(x, y, 4, 4, "w")
+        for k in range(4):
+            c.put(x - 2 + k, y - 2 + k, "r")
+            c.put(x + 2 - k, y - 2 + k, "r")
+    for x in (52, 66):  # canes standing up out of the sweets
+        c.vline(x, 40, 58, "r")
+        for y in range(40, 58, 3):
+            c.put(x, y, "w")
+        c.hline(x, x + 3, 39, "r")
+        c.put(x + 4, 40, "r")
+    c.box(36, 30, 84, 36, "r")  # lid
+    c.hline(37, 83, 31, "w")
+    c.box(54, 26, 66, 30, "r")
+    for y in range(40, 84, 2):  # the glass shine
+        c.put(42, y, "w")
+    shade(c, 70, 40, 81, 87, "s", "n")
+
+
+CANDY_CENTRES = {"peppermint": _peppermint, "gingerbread": _gingerbread_house,
+                 "heart": _candy_cane_heart, "jar": _candy_jar}
+CANDY_CENTRE = "gingerbread"  # Chris, 2026-11-08 (the others stay for later variants)
+
+
+def ornament_candy(centre=None):
+    """The candy scene: canes spin round something sweet in the middle."""
+    c = _candy_sky()
+    CANDY_CENTRES[centre or CANDY_CENTRE](c)
+    return c
+
+
+def ornament_sleigh():
+    """Moon over snowy rooftops; the game flies the sleigh across it."""
+    c = Canvas("n")
+    night_sky(c, SIZE - 1, seed=91, stars=34)
+    glow(c, 76, 36, 26, "b", "n")
+    moon(c, 76, 36, 15)
+    c.ellipse(70, 32, 3, 2, "s", ink="s")
+    c.ellipse(82, 42, 2, 2, "s", ink="s")
+    snow_ground(c, 104, seed=29)
+    houses = ((-4, 28, 84), (24, 56, 90), (52, 84, 80), (80, 104, 88), (100, 124, 82))
+    for x0, x1, top in houses:
+        mid = (x0 + x1) // 2
+        c.rect(x0, top, x1, 104, "p")
+        for j in range(9):  # gable roof, snow on it
+            half = (x1 - x0) // 2 * j // 8
+            c.hline(mid - half, mid + half, top - 9 + j, "p")
+            c.put(mid - half, top - 9 + j, "w")
+            c.put(mid + half, top - 9 + j, "w")
+        c.hline(x0, x1, top, "w")
+        for wx in range(x0 + 5, x1 - 5, 10):
+            c.box(wx, top + 6, wx + 4, top + 11, "y")
+            c.put(wx + 2, top + 8, "O")
+    c.box(64, 64, 69, 74, "p")  # a chimney, smoke curling up
+    c.hline(64, 69, 64, "w")
+    for i, (x, y) in enumerate(((67, 60), (69, 56), (66, 52), (68, 48))):
+        c.ellipse(x, y, 1 + i // 2, 1, "s", ink="s")
+    return c
+
+
+ORNAMENTS = {
+    "ornament_tree.bmp": ornament_tree,
+    "ornament_candy.bmp": ornament_candy,
+    "ornament_sleigh.bmp": ornament_sleigh,
+}
+
+SHEET_W, SHEET_H = 128, 32
+
+
+class Sheet:
+    """A sprite sheet: '.' (index 0) is see-through, the rest scene_art.KEY."""
+
+    def __init__(self):
+        self.px = [[0] * SHEET_W for _ in range(SHEET_H)]
+
+    def put(self, x, y, c):
+        if 0 <= x < SHEET_W and 0 <= y < SHEET_H:
+            self.px[y][x] = K[c]
+
+    def rect(self, x0, y0, x1, y1, c):
+        for y in range(y0, y1 + 1):
+            for x in range(x0, x1 + 1):
+                self.put(x, y, c)
+
+    def outline(self, x0, y0, w, h):
+        """Ink round everything drawn in this tile area."""
+        ink = []
+        for y in range(y0, y0 + h):
+            for x in range(x0, x0 + w):
+                if self.px[y][x]:
+                    continue
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    nx, ny = x + dx, y + dy
+                    if x0 <= nx < x0 + w and y0 <= ny < y0 + h and self.px[ny][nx] not in (0, K["#"]):
+                        ink.append((x, y))
+                        break
+        for x, y in ink:
+            self.put(x, y, "#")
+
+
+def _cane(sheet, x0, y0, degrees):
+    """A candy cane in a 16x16 tile, turned `degrees` clockwise."""
+    import math
+
+    path = []
+    s = 0.0
+    for i in range(27):  # the stick, bottom to top
+        path.append((0.0, 4.5 - i * 0.25))
+    for i in range(1, 25):  # the hook, over the top
+        a = math.pi - math.pi * i / 24
+        path.append((2.0 + 2.0 * math.cos(a), -2.0 - 2.0 * math.sin(a)))
+    path += [(4.0, -2.0 + i * 0.25) for i in range(1, 6)]
+    t = math.radians(degrees)
+    cos_t, sin_t = math.cos(t), math.sin(t)
+    for i, (px, py) in enumerate(path):
+        px, py = px - 2.0, py - 0.25  # centre the cane on the tile
+        x = px * cos_t - py * sin_t + 7.5
+        y = px * sin_t + py * cos_t + 7.5
+        col = "r" if (i // 7) % 2 == 0 else "w"
+        for yy in range(int(y) - 1, int(y) + 2):
+            for xx in range(int(x) - 1, int(x) + 2):
+                if (xx + 0.5 - x) ** 2 + (yy + 0.5 - y) ** 2 <= 1.1:
+                    sheet.put(x0 + xx, y0 + yy, col)
+    sheet.outline(x0, y0, 16, 16)
+
+
+def _sleigh(sheet, x0, y0, frame):
+    """Sleigh, driver and two reindeer flying right, 48x16; frame 0/1 = legs."""
+    p = sheet.put
+    r = sheet.rect
+    r(x0 + 3, y0 + 7, x0 + 16, y0 + 11, "r")  # the sleigh
+    r(x0 + 1, y0 + 4, x0 + 3, y0 + 11, "r")
+    p(x0 + 2, y0 + 3, "r")
+    r(x0 + 16, y0 + 8, x0 + 18, y0 + 10, "r")
+    r(x0 + 3, y0 + 7, x0 + 17, y0 + 7, "y")
+    r(x0 + 1, y0 + 13, x0 + 18, y0 + 13, "y")
+    for sx in (4, 14):
+        p(x0 + sx, y0 + 12, "y")
+    p(x0 + 19, y0 + 12, "y")
+    p(x0 + 20, y0 + 11, "y")
+    r(x0 + 4, y0 + 4, x0 + 7, y0 + 6, "o")  # sack of presents
+    p(x0 + 5, y0 + 3, "o")
+    r(x0 + 9, y0 + 4, x0 + 12, y0 + 6, "r")  # the driver: red coat, white beard
+    r(x0 + 11, y0 + 2, x0 + 12, y0 + 2, "k")
+    r(x0 + 10, y0 + 3, x0 + 12, y0 + 3, "w")
+    r(x0 + 9, y0 + 1, x0 + 11, y0 + 1, "r")
+    p(x0 + 8, y0 + 2, "w")
+    r(x0 + 13, y0 + 5, x0 + 27, y0 + 5, "o")  # reins
+    for rx in (26, 37):
+        b = x0 + rx
+        r(b, y0 + 6, b + 6, y0 + 8, "o")
+        r(b + 1, y0 + 9, b + 5, y0 + 9, "O")
+        r(b + 6, y0 + 4, b + 7, y0 + 6, "o")
+        r(b + 7, y0 + 3, b + 9, y0 + 4, "o")
+        p(b + 6, y0 + 7, "y")  # a bell on the harness
+        p(b - 1, y0 + 6, "w")
+        for ax, ay in ((7, 2), (6, 1), (8, 1), (9, 0), (5, 0)):
+            p(b + ax, y0 + ay, "O")
+        if frame == 0:  # legs out
+            for lx, ly in ((6, 9), (7, 10), (8, 11), (0, 9), (-1, 10), (-2, 11)):
+                p(b + lx, y0 + ly, "o")
+        else:  # legs tucked
+            for lx, ly in ((5, 9), (5, 10), (6, 10), (1, 9), (1, 10), (2, 10)):
+                p(b + lx, y0 + ly, "o")
+    sheet.outline(x0, y0, 48, 16)
+    for rx in (26, 37):
+        p(x0 + rx + 8, y0 + 3, "#")  # eye
+
+
+def ornament_sprites():
+    """Row 0: the candy cane at 8 angles. Row 1: the sleigh, two frames."""
+    sheet = Sheet()
+    for i in range(8):
+        _cane(sheet, i * 16, 0, i * 45)
+    _sleigh(sheet, 0, 16, 0)
+    _sleigh(sheet, 48, 16, 1)
+    return sheet
+
+
+def sheet_image(sheet):
+    from PIL import Image
+
+    pal = []
+    for rgb in scene_art.COLORS[:17]:
+        pal += [(rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF]
+    img = Image.new("P", (SHEET_W, SHEET_H))
+    img.putpalette(pal + [0] * (768 - len(pal)))
+    img.putdata([v for row in sheet.px for v in row])
+    return img
+
+
 def _palette_bytes():
     pal = []
     for rgb in backdrop.COLORS:
@@ -1812,11 +2190,24 @@ def main():
     args = ap.parse_args()
     out_dir = os.path.join(HERE, "..", "art_sets", "drawn", "rooms")
     os.makedirs(out_dir, exist_ok=True)
-    for room, draw in ROOMS.items():
-        if args.only and room != args.only:
+    if not args.only or args.only == "sprites":
+        path = os.path.join(out_dir, "ornament_sprites.bmp")
+        sheet_image(ornament_sprites()).save(path)
+        print(path, os.path.getsize(path), "bytes")
+        if args.png:
+            from PIL import Image
+
+            os.makedirs(args.png, exist_ok=True)
+            sheet_image(ornament_sprites()).convert("RGB").resize(
+                (SHEET_W * 6, SHEET_H * 6), Image.NEAREST).save(
+                os.path.join(args.png, "ornament_sprites.png"))
+    jobs = [(backdrop.file_name(room), room, draw) for room, draw in ROOMS.items()]
+    jobs += [(f, f[:-4], draw) for f, draw in ORNAMENTS.items()]
+    for fname, label, draw in jobs:
+        if args.only and args.only not in (label, fname):
             continue
         img = to_image(draw())
-        path = os.path.join(out_dir, backdrop.file_name(room))
+        path = os.path.join(out_dir, fname)
         img.save(path)
         print(path, os.path.getsize(path), "bytes")
         if args.png:
@@ -1828,7 +2219,7 @@ def main():
             ImageDraw.Draw(mask).ellipse((0, 0, big.size[0] - 1, big.size[1] - 1), fill=255)
             round_img = Image.new("RGB", big.size, (40, 40, 40))
             round_img.paste(big, mask=mask)
-            png = os.path.join(args.png, backdrop.file_name(room)[:-4] + ".png")
+            png = os.path.join(args.png, fname[:-4] + ".png")
             round_img.save(png)
             print(png)
 

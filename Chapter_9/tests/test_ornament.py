@@ -130,3 +130,103 @@ class TestStar(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestShow(unittest.TestCase):
+    """The cycling scenes (cd-342.37), drawn with tools/fake_display's stand-ins."""
+
+    def setUp(self):
+        import tempfile
+
+        tools = os.path.join(os.path.dirname(__file__), "..", "tools")
+        sys.path.insert(0, tools)
+        self.addCleanup(sys.path.remove, tools)
+        patcher = mock.patch.dict(sys.modules)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        cwd = os.getcwd()
+        self.addCleanup(os.chdir, cwd)
+        import art_set
+        import fake_display
+
+        fake_display.install()
+        sys.modules.pop("backdrop", None)
+        import backdrop
+
+        self.backdrop_mod = backdrop
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = os.path.join(tmp.name, "rooms")
+        art_set.compose("drawn", root)
+        self.bd = backdrop.Backdrop(root)
+        import displayio
+
+        self.group = displayio.Group()
+        self.show = ornament.Show(self.group, self.bd)
+
+    def test_a_new_scene_on_each_entry(self):
+        seen = []
+        for _ in range(4):
+            self.show.enter(0.0)
+            seen.append(self.show.scene)
+        self.assertEqual(seen, ["tree", "candy", "sleigh", "tree"])
+
+    def test_moves_on_after_its_lit_time(self):
+        self.show.enter(0.0)
+        self.show.update(ornament.CYCLE_S - 1, True)
+        self.assertEqual(self.show.scene, "tree")
+        self.show.update(ornament.CYCLE_S + 0.1, True)
+        self.assertEqual(self.show.scene, "candy")
+
+    def test_holds_while_handled(self):
+        self.show.enter(0.0)
+        self.show.update(ornament.CYCLE_S * 3, False)
+        self.assertEqual(self.show.scene, "tree")
+
+    def test_borrows_the_room_bitmap_and_the_room_gets_it_back(self):
+        self.bd.show("Kitchen")
+        self.show.enter(0.0)
+        self.assertEqual(self.bd.loaded, "ornament_tree.bmp")
+        self.bd.show("Kitchen")  # what nav.refresh_backdrop() does
+        self.assertEqual(self.bd.loaded, "kitchen.bmp")
+        self.assertFalse(self.bd.group.hidden)
+
+    def test_dims_while_handled_and_brightens_again(self):
+        self.show.enter(0.0)
+        first = self.backdrop_mod.COLORS[1]
+        self.show.update(1.0, False)
+        self.assertEqual(self.show._view_palette[1],
+                         self.backdrop_mod.scale_color(first, ornament._DIM))
+        self.show.update(2.0, True)
+        self.assertEqual(self.show._view_palette[1], first)
+
+    def test_runs_without_any_art(self):
+        bd = self.backdrop_mod.Backdrop("/no/such/art")
+        import displayio
+
+        show = ornament.Show(displayio.Group(), bd)
+        for t in range(0, 200, 7):
+            show.enter(float(t))
+            show.update(t + 0.5, True)
+        self.assertTrue(show._view.hidden)
+
+
+class TestMotion(unittest.TestCase):
+    def test_canes_stay_on_the_round_screen(self):
+        for i in range(ornament._CANES):
+            for k in range(50):
+                x, y, frame = ornament.cane_place(i, k * 0.37)
+                cx, cy = x + ornament.TILE, y + ornament.TILE  # the 32px sprite's centre
+                self.assertLess(((cx - 120) ** 2 + (cy - 120) ** 2) ** 0.5 + ornament.TILE, 120)
+                self.assertIn(frame, range(8))
+
+    def test_canes_spin(self):
+        frames = {ornament.cane_place(0, k * 0.1)[2] for k in range(40)}
+        self.assertEqual(frames, set(range(8)))
+
+    def test_sleigh_crosses_left_to_right_then_rests(self):
+        xs = [ornament.sleigh_place(t * 0.5, 0.0) for t in range(int(ornament._FLY_S * 2))]
+        self.assertTrue(all(p is not None for p in xs))
+        self.assertEqual([p[0] for p in xs], sorted(p[0] for p in xs))
+        self.assertLess(xs[0][0], 0)
+        self.assertIsNone(ornament.sleigh_place(ornament._FLY_S + 0.5, 0.0))

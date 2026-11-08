@@ -45,8 +45,10 @@ def _blitter():
     return arrayblit
 
 
-def load(bitmap, path, size=SIZE):
-    """Fill `bitmap` from the BMP at `path`; False if it's missing or not a backdrop."""
+def load(bitmap, path, size=SIZE, height=None):
+    """Fill `bitmap` from the 8-bit BMP at `path`, `size` wide and `height` (default:
+    `size`) tall; False if it's missing or not that."""
+    height_want = height or size
     try:
         f = open(path, "rb")
     except OSError:
@@ -58,15 +60,16 @@ def load(bitmap, path, size=SIZE):
         offset = struct.unpack_from("<I", head, 10)[0]
         width, height = struct.unpack_from("<ii", head, 18)
         bits = struct.unpack_from("<H", head, 28)[0]
-        if width != size or abs(height) != size or bits != 8:
+        if width != size or abs(height) != height_want or bits != 8:
             return False
         blit = _blitter()
         f.seek(offset)
-        row = bytearray(size)
-        for i in range(size):
-            if f.readinto(row) != size:
+        row = bytearray((size + 3) & ~3)  # BMP rows pad to 4 bytes
+        rows = abs(height)
+        for i in range(rows):
+            if f.readinto(row) != len(row):
                 return False
-            y = size - 1 - i if height > 0 else i  # positive height = bottom-up rows
+            y = rows - 1 - i if height > 0 else i  # positive height = bottom-up rows
             blit(bitmap, row, 0, y, size, y + 1)
     return True
 
@@ -81,24 +84,56 @@ def read_set_name(root):
 
 
 class Backdrop:
-    """Owns `.group` (hidden when the room has no art); call show(room) on entering one."""
+    """Owns `.group` (hidden when the room has no art); call show(room) on entering one.
+
+    The one 120x120 bitmap is shared: the ornament screen shows its own art in
+    it too (view() + show_file()), since only one screen is up at a time. So
+    after another screen has used it, show(room) reloads the room's art.
+    """
 
     def __init__(self, root="/art/rooms"):
         import displayio  # here, so the build tool can import this module
 
-        self._root = root
-        self._bitmap = displayio.Bitmap(SIZE, SIZE, len(COLORS))
-        palette = displayio.Palette(len(COLORS))
-        for i, rgb in enumerate(COLORS):
-            palette[i] = rgb
+        self._displayio = displayio
+        self.root = root
+        self.bitmap = displayio.Bitmap(SIZE, SIZE, len(COLORS))
+        self.palette = make_palette(displayio)
         self.group = displayio.Group(scale=SCALE)
-        self.group.append(displayio.TileGrid(self._bitmap, pixel_shader=palette))
+        self.group.append(displayio.TileGrid(self.bitmap, pixel_shader=self.palette))
         self.group.hidden = True
         self.room = None
+        self.loaded = None  # the file now in the bitmap, whoever asked for it
+        self.ok = False  # ...and whether it loaded
         self.art_set = read_set_name(root)
 
     def show(self, room):
-        if room == self.room:
-            return
         self.room = room
-        self.group.hidden = not load(self._bitmap, self._root + "/" + file_name(room))
+        self.group.hidden = not self.show_file(file_name(room))
+
+    def show_file(self, name):
+        """Load /art/rooms/<name> into the shared bitmap (if it isn't there already)."""
+        if name != self.loaded:
+            self.loaded = name
+            self.ok = load(self.bitmap, self.root + "/" + name)
+        return self.ok
+
+    def view(self, palette=None):
+        """Another 2x view of the shared bitmap, for another screen's group."""
+        group = self._displayio.Group(scale=SCALE)
+        group.append(self._displayio.TileGrid(self.bitmap, pixel_shader=palette or self.palette))
+        return group
+
+
+def make_palette(displayio, dim=1.0):
+    """The 16 DB16 colours, scaled by `dim` (1.0 = as drawn)."""
+    palette = displayio.Palette(len(COLORS))
+    for i, rgb in enumerate(COLORS):
+        palette[i] = scale_color(rgb, dim)
+    return palette
+
+
+def scale_color(rgb, k):
+    if k == 1.0:
+        return rgb
+    return ((int(((rgb >> 16) & 255) * k) << 16) | (int(((rgb >> 8) & 255) * k) << 8)
+            | int((rgb & 255) * k))

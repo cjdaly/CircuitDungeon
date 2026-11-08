@@ -99,6 +99,7 @@ class NavView:
         self.group.append(displayio.TileGrid(bg_bitmap, pixel_shader=bg_palette))
         self._backdrop = Backdrop(backdrop_root)  # the room's art, if it has some
         self.art_set = self._backdrop.art_set  # which room-art set is deployed
+        self.backdrop = self._backdrop  # shared with the ornament screen (ornament.Show)
         self.group.append(self._backdrop.group)
         self._scene = displayio.Group()  # what a shake moves
         self.group.append(self._scene)
@@ -128,9 +129,15 @@ class NavView:
         self._player = BeatPlayer(_Director(self._stage, self._things, self._chrome))
         self._live_exits = set()
 
+    def refresh_backdrop(self):
+        """Put the room's art back after another screen used the shared bitmap."""
+        if getattr(self, "_room_name", None) is not None:
+            self._backdrop.show(self._room_name)
+
     def show_room(self, name, live_exits):
         """Call on entering a room (and once at startup)."""
         self._backdrop.show(name)
+        self._room_name = name
         self._label.show(name)
         self._live_exits = set(live_exits)
 

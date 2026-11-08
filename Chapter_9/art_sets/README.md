@@ -11,6 +11,17 @@ compared, on different boards at once if need be. A board only ever holds one:
 | `drawn` | Hand-drawn in code by `tools/build_backdrops.py`; the original, kept current. **Covers every room** and is the base for the others. |
 | `sdxl-repaint` | SDXL base 1.0 repainting the drawn art (img2img), snapped to the 16 DB16 colours, via `tools/gen_backdrops_ai.py`. Partial: just the rooms tried so far. |
 
+## IP rule
+
+The repo is public and the boards are gifts, so every set stays clear of other
+people's intellectual property. A look or a mood is fine ("whimsical storybook,
+wobbly shapes, candy stripes"); named characters, places, books, films, brands
+or artists are not, in prompts or in the art. Prompts (`THEMES` in
+`tools/gen_backdrops_ai.py`) describe a style in plain words, and the negative
+prompt keeps creatures, characters and faces out. Every generated image is
+looked at before it goes into a set; anything that resembles a known character
+is thrown away, not edited.
+
 ## Layout
 
 ```

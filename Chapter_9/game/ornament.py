@@ -1,60 +1,81 @@
 # SPDX-License-Identifier: MIT
-"""Ambient ornament-mode scene: a small animated Christmas tree -- cd-zw2.7.
+"""The ornament screen: a few ambient Christmas scenes that take turns -- cd-zw2.7, cd-342.37.
 
-A separate top-level mode (no gameplay, no input expected) so the device
-can be hung as a physical ornament on a real tree and show an ambient/idle
-demo. Ported from Chapter_8/game/ornament_demo.py (cd-45v.5's prototype) --
-confirmed working on real hardware 2026-09-13 (scene renders correctly,
-dims while "handled" per stillness.py, brightens once "still").
+A separate top-level mode (no gameplay, no input expected) for when the device
+hangs as an ornament on a real tree. Since cd-342.37 it gets the same art as
+the rooms (doc/STYLE.md sec 6: DB16, comic halftone, Christmas Eve at night),
+and has several scenes that cycle:
 
-Twinkling ornaments, a pulsing star, drifting snow -- all vectorio
-primitives, no bitmap art needed (none exists for Ch9 yet). These are
-placeholder shapes, not final art; `Tree`/`Snow` take a `group` to draw
-into and a `lit`/`now` signal to animate, same as the Ch8 prototype, so
-swapping in real art later means replacing what's inside these classes,
-not how callers use them.
+  tree    a big decorated tree out in the snowy yard: twinkling lights, a pulsing star
+  candy   a gingerbread house with candy canes spinning round it
+  sleigh  a sleigh flying across the moon over snowy rooftops, snow
 
-This module is the scene only -- no `main()`, no `hardware`/`imu` calls.
-Wiring it into an actual on-device entry point (display init, IMU sampling,
-stillness.StillnessDetector, screen_blanker.ScreenBlanker with a long
-timeout, the mode-switching between this and interactive gameplay) is
-future Ch9 integration work, not yet a numbered bead.
+Each scene is a backdrop (ornament_<scene>.bmp in the deployed art set, so a
+restyled set can redo them, see art_sets/README.md) plus a few things that
+move: vectorio lights and star, sprites from ornament_sprites.bmp, snow. The
+backdrop goes in the room screen's one shared bitmap (backdrop.Backdrop) --
+only one screen is up at a time -- so a scene costs a small sprite sheet, not
+another 7.2 KB. app.py calls nav.refresh_backdrop() on the way back to the game.
 
-STATUS: confirmed on ws-1 2026-11-02 in Chapter_9, including repeat visits to
-ornament mode (the star, randomized ornaments and snow timing are Ch9 changes).
+A new scene on each entry to ornament mode, and every CYCLE_S of lit time.
+While the ornament is handled (not still) everything dims and holds still.
+Without art files the scenes still run, over the plain dark background.
 """
 import math
 import random
 
 WIDTH = HEIGHT = 240
 
-_BG_COLOR = 0x05050C
-_TREE_COLOR = 0x1E7A34
-_TREE_DIM = 0x0E3A18
-_TRUNK_COLOR = 0x5A3A1E
-_STAR_BRIGHT = 0xF5E050
-_STAR_DIM = 0x806000
-_SNOW_COLOR = 0xE8F0FF
+SCENES = ("tree", "candy", "sleigh")
+CYCLE_S = 40.0  # lit seconds per scene
+SPRITES = "ornament_sprites.bmp"  # 128x32: row 0 candy cane at 8 angles; row 1 sleigh x2
+SHEET_W, SHEET_H, TILE = 128, 32, 16
+_DIM = 0.45  # how far colours drop while handled
 
-_ORNAMENT_COLORS = (0xE04040, 0x4070E0, 0xF0C020, 0xFFFFFF)
-_COLOR_HOLD_MIN = 0.5  # seconds an ornament keeps a color, picked at random
+
+def file_name(scene):
+    return "ornament_" + scene + ".bmp"
+
+
+FILES = tuple(file_name(s) for s in SCENES) + (SPRITES,)  # what an art set must have
+
+_BG_COLOR = 0x05050C
+_INK = 0x140C1C
+_STAR_BRIGHT = 0xDAD45E
+_STAR_DIM = 0x8A6A20
+_SNOW_COLOR = 0xDEEED6
+
+_ORNAMENT_COLORS = (0xD04648, 0x597DCE, 0xDAD45E, 0xDEEED6)  # DB16 red, blue, yellow, white
+_COLOR_HOLD_MIN = 0.5  # seconds a light keeps a color, picked at random
 _COLOR_HOLD_MAX = 3.0
 
-# Tree geometry -- kept well inside the round bezel's ~20-30px inset
-# (Chapter_8/doc/HARDWARE.md "Display"). Fixed absolute positions, matching
-# this board's known 240x240 resolution.
-_APEX = (120, 66)
-_BASE_L = (78, 168)
-_BASE_R = (162, 168)
-_TRUNK = {"x": 110, "y": 168, "width": 20, "height": 24}
-_ORNAMENT_COUNT = 5
-_ORNAMENT_RADIUS = 5
-_ORNAMENT_MIN_GAP = 20  # px between centers, so they don't overlap or clump
-_ORNAMENT_TOP_Y = 86  # placement band, clear of the star and the tree's base
-_ORNAMENT_BOTTOM_Y = 158
-_STAR_CENTER = (120, 58)
+# The tree scene's lights go inside this triangle (screen px), a little inside
+# the drawn tree (tools/build_backdrops.py ornament_tree: apex art (60, 18),
+# base art y 92, 34 each side, at 2x).
+_APEX = (120, 52)
+_BASE_L = (66, 172)
+_BASE_R = (174, 172)
+_ORNAMENT_COUNT = 8
+_ORNAMENT_RADIUS = 4
+_ORNAMENT_MIN_GAP = 18  # px between centers, so they don't overlap or clump
+_ORNAMENT_TOP_Y = 66  # placement band, clear of the star and the tree's base
+_ORNAMENT_BOTTOM_Y = 164
+_STAR_CENTER = (120, 34)
 _STAR_OUTER = 13
 _STAR_INNER = 5
+
+# The candy scene: canes orbit the middle, each spinning as it goes.
+_CANES = 10
+_ORBIT_R = 84  # px from the centre to a cane's centre
+_ORBIT_S = 16.0  # seconds per lap
+_SPIN_S = 2.0  # seconds per turn of a cane
+
+# The sleigh scene: a pass across the moon every _PASS_S.
+_PASS_S = 12.0
+_FLY_S = 9.0  # of which flying, the rest a pause
+_SLEIGH_W = 3 * TILE * 2  # px, at 2x
+_SLEIGH_Y = 62
+_HOOF_S = 0.15
 
 _SNOW_COUNT = 6
 _SNOW_SPEED = 22  # px/second
@@ -137,68 +158,217 @@ def _next_color_index(current, count=len(_ORNAMENT_COLORS), randint=random.randi
     return index + 1 if index >= current else index
 
 
-class _Ornament:
-    def __init__(self, palette, shape, color_index):
+class _Light:
+    def __init__(self, palette, ink, shape, color_index):
         self.palette = palette
+        self.ink = ink
         self.shape = shape
         self.color_index = color_index
         self.next_change = 0.0
 
 
-class Tree:
-    """The tree + star + ornaments. .update(now, lit) drives the animation."""
+class _TreeScene:
+    """Twinkling lights and a pulsing star over the drawn tree."""
 
-    def __init__(self, group):
-        import vectorio
+    snow = True
 
-        self._tree_palette = _solid(_TREE_COLOR)
-        points = [_APEX, _BASE_L, _BASE_R]
-        group.append(vectorio.Polygon(pixel_shader=self._tree_palette, points=points))
-        group.append(
-            vectorio.Rectangle(pixel_shader=_solid(_TRUNK_COLOR), **_TRUNK)
-        )
-
+    def __init__(self, displayio, vectorio):
+        self.group = displayio.Group()
+        ink = _solid(_INK)
         self._star_palette = _solid(_STAR_BRIGHT)
-        group.append(
-            vectorio.Polygon(
-                pixel_shader=self._star_palette,
-                points=_star_points(_STAR_CENTER, _STAR_OUTER, _STAR_INNER),
-            )
-        )
-
-        self._ornaments = []
+        self.group.append(vectorio.Polygon(pixel_shader=ink, points=_star_points(
+            _STAR_CENTER, _STAR_OUTER + 3, _STAR_INNER + 2)))
+        self.group.append(vectorio.Polygon(pixel_shader=self._star_palette, points=_star_points(
+            _STAR_CENTER, _STAR_OUTER, _STAR_INNER)))
+        self._lights = []
         for i, (x, y) in enumerate(_scatter_positions()):
             color_index = i % len(_ORNAMENT_COLORS)
             palette = _solid(_ORNAMENT_COLORS[color_index])
-            shape = vectorio.Circle(
-                pixel_shader=palette, x=x, y=y, radius=_ORNAMENT_RADIUS
-            )
-            group.append(shape)
-            self._ornaments.append(_Ornament(palette, shape, color_index))
+            ring = vectorio.Circle(pixel_shader=ink, x=x, y=y, radius=_ORNAMENT_RADIUS + 1)
+            shape = vectorio.Circle(pixel_shader=palette, x=x, y=y, radius=_ORNAMENT_RADIUS)
+            self.group.append(ring)
+            self.group.append(shape)
+            self._lights.append(_Light(palette, ring, shape, color_index))
 
-    def scatter(self):
-        """Move the ornaments to a new random layout."""
-        for ornament, (x, y) in zip(self._ornaments, _scatter_positions()):
-            ornament.shape.x = x
-            ornament.shape.y = y
+    def enter(self, now):
+        """A new layout of lights each time the scene comes round."""
+        for light, (x, y) in zip(self._lights, _scatter_positions()):
+            light.shape.x = light.ink.x = x
+            light.shape.y = light.ink.y = y
 
     def update(self, now, lit):
-        """`lit` should track stillness.StillnessDetector.is_still."""
-        self._tree_palette[0] = _TREE_COLOR if lit else _TREE_DIM
         if not lit:
             self._star_palette[0] = _STAR_DIM
             return
-        # Slow star pulse between dim and bright gold.
-        phase = (now % 2.0) / 2.0
-        brightness = 0.6 + 0.4 * abs(1 - 2 * phase)
-        self._star_palette[0] = _blend(_STAR_DIM, _STAR_BRIGHT, brightness)
-
+        phase = (now % 2.0) / 2.0  # slow star pulse between dim and bright gold
+        self._star_palette[0] = _blend(_STAR_DIM, _STAR_BRIGHT, 0.6 + 0.4 * abs(1 - 2 * phase))
         hold_range = _COLOR_HOLD_MAX - _COLOR_HOLD_MIN
-        for ornament in self._ornaments:
-            if now >= ornament.next_change:
-                ornament.color_index = _next_color_index(ornament.color_index)
-                ornament.palette[0] = _ORNAMENT_COLORS[ornament.color_index]
-                ornament.next_change = now + _COLOR_HOLD_MIN + random.random() * hold_range
+        for light in self._lights:
+            if now >= light.next_change:
+                light.color_index = _next_color_index(light.color_index)
+                light.palette[0] = _ORNAMENT_COLORS[light.color_index]
+                light.next_change = now + _COLOR_HOLD_MIN + random.random() * hold_range
+
+
+def cane_place(i, now, width=WIDTH, height=HEIGHT):
+    """(x, y, frame) for cane i: its sprite's top-left at 2x, and which of 8 angles."""
+    angle = 2 * math.pi * (i / _CANES + now / _ORBIT_S)
+    cx = width // 2 + int(_ORBIT_R * math.cos(angle))
+    cy = height // 2 + int(_ORBIT_R * math.sin(angle))
+    turn = (i / _CANES + now / _SPIN_S) % 1.0
+    return cx - TILE, cy - TILE, int(turn * 8) % 8
+
+
+def sleigh_place(now, start, width=WIDTH):
+    """(x, y, frame) of the sleigh, or None between passes."""
+    t = (now - start) % _PASS_S
+    if t >= _FLY_S:
+        return None
+    x = -_SLEIGH_W + int((width + _SLEIGH_W) * t / _FLY_S)
+    y = _SLEIGH_Y + int(6 * math.sin(t * 2.2))
+    return x, y, int(now / _HOOF_S) % 2
+
+
+class _CandyScene:
+    """Candy canes spinning round the big peppermint."""
+
+    snow = False
+
+    def __init__(self, displayio, sheet, palette):
+        self.group = displayio.Group()
+        self._canes = []
+        for _ in range(_CANES):
+            g = displayio.Group(scale=2)
+            grid = displayio.TileGrid(sheet, pixel_shader=palette, width=1, height=1,
+                                      tile_width=TILE, tile_height=TILE)
+            g.append(grid)
+            self.group.append(g)
+            self._canes.append((g, grid))
+
+    def enter(self, now):
+        self.update(now, True)
+
+    def update(self, now, lit):
+        if not lit:
+            return  # hold still while handled
+        for i, (g, grid) in enumerate(self._canes):
+            g.x, g.y, frame = cane_place(i, now)
+            grid[0] = frame
+
+
+class _SleighScene:
+    """The sleigh crosses the moon now and then."""
+
+    snow = True
+
+    def __init__(self, displayio, sheet, palette):
+        self.group = displayio.Group()
+        self._g = displayio.Group(scale=2)
+        self._grid = displayio.TileGrid(sheet, pixel_shader=palette, width=3, height=1,
+                                        tile_width=TILE, tile_height=TILE)
+        self._g.append(self._grid)
+        self._g.hidden = True
+        self.group.append(self._g)
+        self._start = 0.0
+
+    def enter(self, now):
+        self._start = now - 1.0  # already on its way in
+        self.update(now, True)
+
+    def update(self, now, lit):
+        if not lit:
+            return
+        place = sleigh_place(now, self._start)
+        self._g.hidden = place is None
+        if place is None:
+            return
+        self._g.x, self._g.y, frame = place
+        base = 8 + 3 * frame  # row 1 of the sheet: frame A tiles 8-10, frame B 11-13
+        for k in range(3):
+            self._grid[k] = base + k
+
+
+class Show:
+    """The ornament screen. enter(now) on switching to ornament mode, then
+    update(now, lit) each lit tick; `lit` tracks stillness (bright when still)."""
+
+    def __init__(self, group, backdrop, width=WIDTH, height=HEIGHT, scenes=SCENES,
+                 cycle_s=CYCLE_S):
+        import displayio
+        import vectorio
+
+        import scene_art
+        from backdrop import COLORS, load, make_palette, scale_color
+
+        make_background(group, width, height)
+        self._backdrop = backdrop
+        self._colors = COLORS
+        self._scale_color = scale_color
+        self._view_palette = make_palette(displayio)
+        self._view = backdrop.view(self._view_palette)
+        self._view.hidden = True
+        group.append(self._view)
+
+        sheet = displayio.Bitmap(SHEET_W, SHEET_H, 17)
+        self._sheet_colors = scene_art.COLORS[:17]
+        self._sheet_palette = displayio.Palette(17)
+        for i, rgb in enumerate(self._sheet_colors):
+            self._sheet_palette[i] = rgb
+        self._sheet_palette.make_transparent(0)
+        have_sprites = load(sheet, backdrop.root + "/" + SPRITES, SHEET_W, SHEET_H)
+
+        makers = {
+            "tree": lambda: _TreeScene(displayio, vectorio),
+            "candy": lambda: _CandyScene(displayio, sheet, self._sheet_palette),
+            "sleigh": lambda: _SleighScene(displayio, sheet, self._sheet_palette),
+        }
+        self._order = list(scenes)
+        self._scenes = {}
+        for name in self._order:
+            scene = makers[name]()
+            scene.group.hidden = True
+            if name != "tree" and not have_sprites:
+                scene.group.append(displayio.Group())  # nothing to draw; still cycles
+            group.append(scene.group)
+            self._scenes[name] = scene
+        self._snow_group = displayio.Group()
+        group.append(self._snow_group)
+        self._snow = Snow(self._snow_group, width, height)
+        self._cycle_s = cycle_s
+        self._index = -1
+        self._since = 0.0
+        self._lit = True
+        self.scene = None  # the name of the scene up now
+
+    def enter(self, now):
+        """Switching to ornament mode: the next scene."""
+        self._show((self._index + 1) % len(self._order), now)
+
+    def _show(self, index, now):
+        self._index = index
+        self.scene = self._order[index]
+        for name, scene in self._scenes.items():
+            scene.group.hidden = name != self.scene
+        current = self._scenes[self.scene]
+        self._view.hidden = not self._backdrop.show_file(file_name(self.scene))
+        self._snow_group.hidden = not current.snow
+        self._since = now
+        current.enter(now)
+
+    def update(self, now, lit):
+        if lit and now - self._since >= self._cycle_s:
+            self._show((self._index + 1) % len(self._order), now)
+        if lit != self._lit:
+            self._lit = lit
+            k = 1.0 if lit else _DIM
+            for i, rgb in enumerate(self._colors):
+                self._view_palette[i] = self._scale_color(rgb, k)
+            for i in range(1, len(self._sheet_colors)):
+                self._sheet_palette[i] = self._scale_color(self._sheet_colors[i], k)
+        current = self._scenes[self.scene]
+        current.update(now, lit)
+        if current.snow:
+            self._snow.update(now)
 
 
 class Snow:
