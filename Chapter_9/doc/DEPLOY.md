@@ -15,6 +15,7 @@ Chapter_9/tools/deploy.sh                     # -> /Volumes/CIRCUITPY, ejects wh
 Chapter_9/tools/deploy.sh --no-eject          # skip the eject
 Chapter_9/tools/deploy.sh /Volumes/CIRCUITPY  # explicit target
 Chapter_9/tools/deploy.sh --art-set sdxl-repaint  # which room art (default: drawn)
+Chapter_9/tools/deploy.sh --mpy                # modules precompiled (needs mpy-cross, see below)
 ```
 
 Same mechanism as Chapter 8's script (`boot.py` turns auto-reload off; the
@@ -31,6 +32,13 @@ desktop `main.py` is untouched, and a plain re-deploy puts the game back. To go 
 
 Room art comes from `Chapter_9/art_sets/`, not `game/`: `--art-set` picks one
 set and only that set is copied, as `/art/rooms/` (see `art_sets/README.md`).
+
+`--mpy` puts the game modules on the board as `.mpy`, compiled by `mpy-cross`
+for the board's CircuitPython (`downloads/mpy-cross/`, gitignored; Adafruit's
+build from their download server). It refuses a version mismatch. Measured on
+ws-10 (2026-11-08, `cd-342.38`) it saves **no RAM** once the game is running,
+since the board keeps the bytecode in RAM either way, so plain `.py` stays the
+default.
 
 ## What you should see
 

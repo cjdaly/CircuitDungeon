@@ -2,7 +2,7 @@
 # Copy Chapter_9/game/ onto a CircuitPython device (the Waveshare RP2350-Touch-LCD-1.28).
 # The CONTENTS of game/ go to the drive root. See Chapter_9/doc/DEPLOY.md.
 #
-#   Chapter_9/tools/deploy.sh [--no-eject] [--demo NAME] [--art-set NAME] [CIRCUITPY_PATH]
+#   Chapter_9/tools/deploy.sh [--no-eject] [--demo NAME] [--art-set NAME] [--mpy] [CIRCUITPY_PATH]
 #
 # Default target: /Volumes/CIRCUITPY
 #
@@ -22,17 +22,27 @@
 # --art-set NAME (default: drawn) picks which room-art set goes on the board
 # as /art/rooms (Chapter_9/art_sets/README.md). Only that one set is copied,
 # with SET.txt naming it; the game prints it at start-up ("art=...").
+#
+# --mpy deploys the game modules precompiled to .mpy (cd-342.38), which the
+# board loads without compiling them itself. main.py and boot.py stay source,
+# as CircuitPython requires. It needs mpy-cross for the board's CircuitPython
+# version (downloads/mpy-cross/, gitignored; or set MPY_CROSS) and refuses a
+# mismatch. The whole game is staged in a temp folder and synced as usual:
+# the board's old .py modules go because they aren't in the staged copy, not
+# by deleting them one by one.
 
 set -euo pipefail
 
 EJECT=1
 DEMO=""
 ART_SET="drawn"
+MPY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --no-eject) EJECT=0; shift ;;
     --demo) DEMO="$2"; shift 2 ;;
     --art-set) ART_SET="$2"; shift 2 ;;
+    --mpy) MPY=1; shift ;;
     *) break ;;
   esac
 done
@@ -61,7 +71,39 @@ if ! python3 "$HERE/tools/art_set.py" show "$ART_SET" >/dev/null; then
   exit 1  # art_set.py said why (no such set)
 fi
 
-echo "deploy: $SRC/  ->  $TARGET/   (art set: $ART_SET)"
+WORK="$(mktemp -d)"   # staging for --mpy and the art set; removed on exit
+trap 'rm -rf "$WORK"' EXIT
+
+DEPLOY_SRC="$SRC"
+if [ "$MPY" = 1 ]; then
+  MPY_CROSS="${MPY_CROSS:-$HERE/../downloads/mpy-cross/mpy-cross-macos-10.3.1-arm64}"
+  if [ ! -x "$MPY_CROSS" ]; then
+    echo "deploy: --mpy needs mpy-cross at $MPY_CROSS (or set MPY_CROSS)" >&2
+    exit 1
+  fi
+  board_ver="$(head -1 "$TARGET/boot_out.txt" | sed -E 's/.*CircuitPython ([0-9]+\.[0-9]+).*/\1/')"
+  cross_ver="$("$MPY_CROSS" --version | sed -E 's/.*CircuitPython ([0-9]+\.[0-9]+).*/\1/')"
+  if [ "$board_ver" != "$cross_ver" ]; then
+    echo "deploy: board runs CircuitPython $board_ver but mpy-cross is for $cross_ver -- refusing" >&2
+    exit 1
+  fi
+  DEPLOY_SRC="$WORK/game"
+  mkdir -p "$DEPLOY_SRC"
+  # Everything but the modules, as is; then each module compiled into place.
+  rsync -rt --exclude '__pycache__/' --exclude '*.pyc' --exclude '.*' --exclude '*.py' \
+    "$SRC"/ "$DEPLOY_SRC"/
+  cp "$SRC/main.py" "$SRC/boot.py" "$DEPLOY_SRC"/
+  count=0
+  for py in "$SRC"/*.py; do
+    name="$(basename "$py" .py)"
+    case "$name" in main|boot) continue ;; esac
+    "$MPY_CROSS" -o "$DEPLOY_SRC/$name.mpy" "$py"
+    count=$((count + 1))
+  done
+  echo "deploy: compiled $count modules to .mpy (CircuitPython $cross_ver)"
+fi
+
+echo "deploy: $DEPLOY_SRC/  ->  $TARGET/   (art set: $ART_SET)"
 # --delete removes stale game modules from a prior deploy (including a
 # previously-deployed Chapter 8 demo), but the anchored excludes protect
 # everything CircuitPython owns (lib/, boot_out.txt, settings.toml, sd/) and
@@ -70,11 +112,10 @@ rsync -rtv --delete \
   --exclude '__pycache__/' --exclude '*.pyc' --exclude '.*' \
   --exclude '/lib/' --exclude '/boot_out.txt' --exclude '/settings.toml' \
   --exclude '/sd/' --exclude '/art/rooms/' \
-  "$SRC"/ "$TARGET"/
+  "$DEPLOY_SRC"/ "$TARGET"/
 
 # --- room art: exactly one set, composed (its base's rooms + its own) ---
-ART_TMP="$(mktemp -d)"
-trap 'rm -rf "$ART_TMP"' EXIT
+ART_TMP="$WORK/art"
 python3 "$HERE/tools/art_set.py" compose "$ART_SET" "$ART_TMP/rooms"
 mkdir -p "$TARGET/art"
 rsync -rtv --delete --exclude '.*' "$ART_TMP/rooms"/ "$TARGET/art/rooms"/
