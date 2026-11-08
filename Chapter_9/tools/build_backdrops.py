@@ -142,6 +142,16 @@ def kitchen():
     # Shelf above the fridge: a pot and a pan, low on detail.
     c.ellipse(22, 17, 6, 3, "s")
     c.rect(28, 16, 31, 17, "#")
+    # Gingerbread men in the oven, its glow on the floor; shade beside the fridge.
+    for x in (87, 93):
+        c.put(x, 70, "o")
+        c.rect(x - 1, 71, x + 1, 73, "o")
+        c.put(x - 2, 71, "o")
+        c.put(x + 2, 71, "o")
+        c.put(x - 1, 74, "o")
+        c.put(x + 1, 74, "o")
+    glow(c, 90, 82, 18, "O", "ws")
+    shade(c, 35, 22, 40, 77, "o", "kO")
     return c
 
 
@@ -185,6 +195,63 @@ def dots(c, color, y1, step_x=12, step_y=8, x0=2, y0=4):
     for x in range(x0, SIZE, step_x):
         for y in range(y0, y1, step_y):
             c.put(x, y, color)
+
+
+def halftone(c, x0, y0, x1, y1, color, step=2):
+    """Comic-book shading: a checker of dots over whatever is there."""
+    for y in range(y0, y1 + 1, step):
+        for x in range(x0 + (y // step) % 2, x1 + 1, step):
+            c.put(x, y, color)
+
+
+
+def _lit_pixels(c, x0, y0, x1, y1, only, step=2):
+    """The halftone checker positions in a box whose pixel is one of `only`."""
+    keys = {K[ch] for ch in only}
+    for y in range(max(0, y0), min(SIZE - 1, y1) + 1):
+        if y % step:
+            continue
+        for x in range(max(0, x0), min(SIZE - 1, x1) + 1):
+            if (x + (y // step) % 2) % step == 0 and c.px[y][x] in keys:
+                yield x, y
+
+
+def glow(c, cx, cy, r, color, only):
+    """Light falling on the walls/floor (`only` those colours) within r of a source."""
+    for x, y in list(_lit_pixels(c, cx - r, cy - r, cx + r, cy + r, only)):
+        if (x - cx) ** 2 + (y - cy) ** 2 <= r * r:
+            c.put(x, y, color)
+
+
+def dusk(c, cx, cy, r, color, only):
+    """The dark beyond r of the room's light: halftone `color` over `only`."""
+    for x, y in list(_lit_pixels(c, 0, 0, SIZE - 1, SIZE - 1, only)):
+        if (x - cx) ** 2 + (y - cy) ** 2 > r * r:
+            c.put(x, y, color)
+
+
+def shade(c, x0, y0, x1, y1, color, only):
+    """A comic shadow: halftone `color` over `only` in a box."""
+    for x, y in list(_lit_pixels(c, x0, y0, x1, y1, only)):
+        c.put(x, y, color)
+
+
+def paw(c, x, y, col="s"):
+    c.rect(x, y, x + 1, y + 1, col)
+    c.put(x - 1, y - 2, col)
+    c.put(x + 1, y - 3, col)
+    c.put(x + 3, y - 2, col)
+
+
+def candy_cane(c, x, y, h=8):
+    c.vline(x - 1, y - h, y, "#")
+    c.vline(x + 1, y - h + 2, y, "#")
+    for j in range(h + 1):
+        c.put(x, y - j, "r" if j % 2 == 0 else "w")
+    c.put(x + 1, y - h, "w")
+    c.put(x + 2, y - h + 1, "r")
+    c.put(x + 2, y - h, "#")
+    c.put(x + 3, y - h + 1, "#")
 
 
 def candle(c, x, y, h=6, color="r"):
@@ -259,6 +326,18 @@ def dining_room():
         c.ellipse(x, 99, 4, 1, "s", ink="s")
     candle(c, 41, 99, h=7)
     candle(c, 78, 99, h=7)
+    # Candlelight from the chandelier; garland on the hutch; a wreath centrepiece.
+    glow(c, 60, 10, 30, "y", "kO")
+    for x in range(4, 37):
+        c.put(x, 21 + (x % 8 > 3), "G")
+        if x % 6 == 1:
+            c.put(x, 22, "r")
+    shade(c, 4, 81, 38, 85, "p", "Oo")
+    shade(c, 78, 81, 118, 85, "p", "Oo")
+    c.ellipse(60, 99, 8, 2, "G")
+    for x in (54, 59, 64, 67):
+        c.put(x, 99 + (x % 2), "r")
+    candle(c, 59, 98, h=5)
     return c
 
 
@@ -310,6 +389,14 @@ def sun_porch():
     c.rect(90, 82, 92, 90, "O")
     c.rect(110, 82, 112, 90, "O")
     c.box(91, 67, 111, 71, "r")  # cushion
+    # Moon in the shut window, its light on the floor; snow blowing in.
+    c.ellipse(13, 22, 3, 3, "w", ink="s")
+    for y in range(84, 104):
+        k = (y - 84) // 2
+        shade(c, 6 + k, y, 30 + k, y, "c", "Oo")
+    for x, y in ((70, 34), (64, 44), (58, 36), (67, 26), (60, 50), (73, 52)):
+        c.put(x, y, "c")
+    shade(c, 86, 91, 116, 95, "p", "Oo")
     return c
 
 
@@ -353,51 +440,141 @@ def odd_corner():
     # A lamp with no shade, and a picture frame leaning against the wall.
     c.box(40, 66, 54, 80, "o")
     c.box(42, 68, 52, 78, "b")
+    # One bare bulb on a chain; dark in the corner; a mouse hole; a cobweb.
+    c.vline(40, 0, 7, "#")
+    c.ellipse(40, 10, 2, 2, "y", ink="O")
+    c.vline(42, 12, 18, "s")
+    glow(c, 40, 10, 18, "y", "gd")
+    shade(c, 61, 0, 70, 78, "g", "s")
+    shade(c, 52, 0, 59, 78, "d", "g")
+    dusk(c, 40, 10, 72, "p", "sgdo")
+    c.rect(37, 75, 41, 80, "#")
+    c.hline(38, 40, 74, "#")
+    for i in range(7):
+        c.put(60 - i, i, "w")
+        c.put(60 + i, i, "w")
+    for i in range(3, 9, 3):
+        c.hline(60 - i, 60 + i, i, "s")
     return c
 
 
 def sewing_nook():
-    """A dress form, a sewing machine on its table, a basket of yarn, fabric on a shelf."""
+    """Christmas sewing at 9 PM: an old black machine under its lamp with a
+    stocking half-sewn, a Santa dress pinned on the dress form, a braided rug."""
     c = Canvas("c")
-    dots(c, "b", FLOOR_Y, step_x=8, step_y=8)  # small-flower wallpaper
-    dots(c, "w", FLOOR_Y, step_x=8, step_y=8, x0=6, y0=8)
+    for i, y in enumerate(range(6, FLOOR_Y - 2, 11)):  # sprig wallpaper
+        for x in range(4 + (i % 2) * 7, SIZE, 14):
+            c.put(x, y, "y")
+            for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                c.put(x + dx, y + dy, "w")
+            c.put(x + 1, y + 2, "l")
     baseboard(c, color="w")
     planks(c, FLOOR_Y + 3, base="o", seam="p")
-    c.ellipse(60, 100, 40, 10, "r", ink="p")  # a round rag rug
-    c.ellipse(60, 100, 30, 7, "O", ink="r")
+    # A braided rag rug, red and green rings.
+    for i, (rx, ry) in enumerate(((42, 11), (34, 9), (26, 7), (18, 5), (10, 3))):
+        col = "rGrGr"[i]
+        c.ellipse(60, 101, rx, ry, col, ink="#" if i == 0 else col)
+    for x in range(22, 99, 4):  # the braid
+        c.put(x, 101 - 7 + (x // 4) % 2, "k")
+    halftone(c, 0, FLOOR_Y + 3, SIZE - 1, FLOOR_Y + 6, "p")  # dark along the wall
 
-    # A shelf of folded fabric, top left.
-    c.box(6, 26, 38, 28, "o")
-    for i, col in enumerate("rlyb"):
-        c.box(8 + i * 7, 18, 14 + i * 7, 25, col)
-    # Dress form, left: a red bodice on a stand.
-    c.ellipse(20, 42, 7, 4, "r")
-    c.box(14, 44, 26, 58, "r")
-    c.rect(16, 46, 24, 47, "w")  # measuring tape
-    c.ellipse(20, 60, 8, 3, "r")
-    c.vline(20, 63, 76, "#")
-    c.hline(14, 26, 77, "#")
-    c.put(18, 50, "y")  # pins
-    c.put(22, 53, "y")
+    # A clock by the caption: nine o'clock.
+    c.ellipse(20, 28, 5, 5, "w")
+    c.vline(20, 24, 28, "#")
+    c.hline(16, 20, 28, "#")
+    c.put(20, 21, "o")
 
-    # Sewing table, right, with the machine on it and a lamp.
-    c.box(78, 58, 118, 61, "o")
-    c.vline(81, 62, 80, "o")
-    c.vline(115, 62, 80, "o")
-    c.box(86, 42, 110, 57, "w")  # machine body
-    c.box(86, 42, 92, 57, "w")
-    c.box(86, 42, 110, 47, "w")
-    c.rect(93, 48, 110, 57, "c")  # the open arm
-    c.hline(93, 110, 57, "#")
-    c.rect(94, 48, 95, 54, "s")  # needle bar
-    c.rect(106, 38, 107, 41, "y")  # thread spool
-    c.rect(105, 37, 108, 37, "r")
-    # Basket of yarn on the floor, right of the table.
-    c.box(92, 82, 114, 92, "O")
-    for x in range(94, 113, 3):
-        c.vline(x, 83, 91, "o")
-    for x, col in ((97, "r"), (103, "b"), (109, "l")):
-        c.ellipse(x, 80, 3, 3, col)
+    # The dress form, left, wearing the Santa dress in progress.
+    rows = [(36, 1), (37, 2), (38, 2), (39, 1), (40, 6), (41, 8), (42, 8), (43, 9),
+            (44, 9), (45, 9), (46, 8), (47, 7), (48, 6), (49, 6), (50, 6), (51, 7)]
+    cx = 20
+    for y, half in rows:
+        c.hline(cx - half - 1, cx + half + 1, y, "#")
+    for y, half in rows:
+        c.hline(cx - half, cx + half, y, "k" if y < 44 else "r")
+    for j in range(13):  # the skirt flares out, pinned up unfinished
+        half = 7 + j * 5 // 12
+        y = 52 + j
+        c.hline(cx - half - 1, cx + half + 1, y, "#")
+        c.hline(cx - half, cx + half, y, "r")
+    c.rect(cx - 12, 62, cx + 1, 64, "w")  # white fur at the hem, half done
+    for x in range(cx + 2, cx + 13, 2):
+        c.put(x, 64, "k")  # still only chalked on
+        c.put(x, 63, "r")
+    c.hline(cx - 8, cx + 8, 44, "w")  # fur trim along the neckline
+    c.rect(cx - 1, 46, cx + 1, 50, "#")  # a belt and buckle
+    c.hline(cx - 6, cx + 6, 49, "#")
+    c.rect(cx - 1, 48, cx + 1, 50, "y")
+    for x, y in ((cx - 4, 41), (cx + 5, 42), (cx + 3, 56), (cx - 6, 59)):
+        c.put(x, y, "s")  # pins
+    c.vline(cx, 66, 77, "#")  # stand and feet
+    c.vline(cx + 1, 66, 77, "d")
+    c.hline(cx - 8, cx + 8, 78, "#")
+    c.put(cx - 9, 79, "#")
+    c.put(cx + 9, 79, "#")
+    c.ellipse(cx + 1, 81, 11, 1, "p", ink="p")  # shadow
+
+    # The hero: an old black sewing machine with gold scrollwork on a wooden
+    # table, its lamp on, a stocking half-sewn under the needle.
+    d = 5  # everything below sits this much lower than first drawn
+    halftone(c, 104, 30 + d, 116, 56 + d, "b")  # its comic shadow on the wall
+    c.box(66, 57 + d, 114, 61 + d, "O", ink="#")  # table top
+    c.hline(67, 113, 60 + d, "o")
+    c.box(68, 67, 112, 71, "o")  # apron, a drawer in it
+    halftone(c, 69, 68, 111, 70, "p")
+    c.box(84, 67, 96, 71, "O", ink="#")
+    c.put(90, 69, "y")
+    for x in (70, 108):  # legs
+        c.box(x, 72, x + 3, 82, "o")
+    c.ellipse(90, 84, 24, 2, "p", ink="p")  # shadow under the table
+    parts = ((70, 52, 108, 56), (96, 30, 106, 51), (74, 30, 106, 38), (72, 30, 82, 46))
+    for x0, y0, x1, y1 in parts:  # one ink outline round the whole machine
+        c.rect(x0 - 1, y0 - 1 + d, x1 + 1, y1 + 1 + d, "#")
+    for x0, y0, x1, y1 in parts:
+        c.rect(x0, y0 + d, x1, y1 + d, "p")
+    c.hline(75, 105, 30 + d, "d")  # light along the top
+    c.vline(72, 31 + d, 45 + d, "d")
+    c.hline(71, 107, 52 + d, "d")
+    for x in range(84, 95, 2):  # gold scrollwork
+        c.put(x, 34 + d + (x // 2) % 2, "y")
+    for y in range(41, 50, 2):
+        c.put(100 + (y // 2) % 2, y + d, "O")
+    c.hline(73, 105, 55 + d, "O")  # gold line round the bed
+    c.ellipse(109, 38 + d, 4, 4, "s")  # handwheel
+    c.put(109, 38 + d, "d")
+    c.put(109, 35 + d, "w")
+    c.ellipse(77, 36 + d, 1, 1, "s", ink="#")  # tension knob
+    c.vline(100, 24 + d, 29 + d, "s")  # spool pin, red thread
+    c.box(97, 25 + d, 103, 29 + d, "r")
+    c.hline(97, 103, 25 + d, "O")
+    c.hline(97, 103, 29 + d, "O")
+    for x in range(80, 97, 2):  # the thread, over to the needle
+        c.put(x, 28 + d, "r")
+    c.vline(79, 28 + d, 31 + d, "r")
+    c.rect(75, 47 + d, 76, 50 + d, "s")  # needle bar, needle, presser foot
+    c.put(75, 51 + d, "w")
+    c.hline(72, 79, 51 + d, "s")
+    c.rect(79, 47 + d, 81, 47 + d, "y")  # the little lamp under the head...
+    halftone(c, 73, 48 + d, 86, 51 + d, "y")  # ...and its pool of light
+    # The stocking: cuff under the needle, the leg hanging over the table.
+    c.box(73, 49 + d, 87, 52 + d, "w", ink="s")
+    c.rect(76, 58, 86, 74, "#")
+    c.rect(76, 70, 94, 78, "#")
+    c.rect(77, 58, 85, 73, "r")
+    c.rect(77, 71, 93, 77, "r")
+    c.rect(90, 71, 93, 77, "w")  # toe
+    for y in range(58, 65, 2):  # sewn so far: stitches; then chalk marks
+        c.put(78, y, "w")
+    for y in range(66, 76, 3):
+        c.put(78, y, "k")
+    for x in range(80, 90, 3):
+        c.put(x, 76, "k")
+    # Basket of yarn under the table, behind the stocking's toe.
+    c.box(96, 74, 112, 83, "O")
+    for x in range(98, 111, 3):
+        c.vline(x, 75, 82, "o")
+    for x, col in ((100, "l"), (106, "b")):
+        c.ellipse(x, 72, 3, 2, col)
     return c
 
 
@@ -448,6 +625,18 @@ def basement():
     # A paint can and a jar shelf.
     c.box(42, 72, 50, 80, "b")
     c.hline(42, 50, 74, "w")
+    # The furnace as an old octopus: round shoulders, ducts reaching up, rivets,
+    # its fire lighting the stone; the bulb is the only other light.
+    c.ellipse(20, 31, 14, 4, "s")
+    c.box(24, 10, 29, 28, "s")
+    c.box(24, 8, 46, 13, "s")
+    c.vline(28, 11, 28, "d")
+    for y in range(36, 79, 6):
+        c.put(8, y, "d")
+        c.put(31, y, "d")
+    glow(c, 20, 63, 30, "O", "gd")
+    glow(c, 60, 10, 18, "y", "gd")
+    dusk(c, 60, 10, 58, "p", "gd")
     return c
 
 
@@ -592,6 +781,14 @@ def hallway():
     c.put(17, 52, "r")
     c.put(20, 51, "r")
     c.put(21, 54, "r")
+    # Mistletoe under the lamp; shadow under the table; the ends of the hall dim.
+    c.put(60, 12, "r")
+    for x, y in ((58, 14), (59, 13), (61, 13), (62, 14), (60, 14)):
+        c.put(x, y, "G")
+    for x, y in ((59, 15), (61, 15)):
+        c.put(x, y, "w")
+    shade(c, 4, 81, 36, 85, "p", "Oo")
+    dusk(c, 60, 6, 58, "g", "sw")
     return c
 
 
@@ -641,6 +838,15 @@ def laundry_room():
     c.ellipse(88, 64, 5, 3, "r")
     c.ellipse(97, 63, 5, 3, "l")
     c.ellipse(104, 64, 4, 3, "b")
+    # The dryer's warmth on the tiles; shadows; a lost sock on the floor.
+    glow(c, 30, 63, 22, "O", "c")
+    dusk(c, 30, 63, 80, "b", "c")
+    shade(c, 2, 81, 40, 85, "n", "wb")
+    shade(c, 82, 83, 108, 87, "n", "wb")
+    c.rect(100, 96, 102, 100, "#")
+    c.rect(100, 99, 106, 102, "#")
+    c.rect(101, 96, 101, 100, "r")
+    c.rect(101, 100, 105, 101, "r")
     return c
 
 
@@ -691,6 +897,20 @@ def entryway():
     c.rect(96, 55, 100, 58, "r")  # bow
     c.rect(79, 52, 81, 54, "y")  # knob (on the latch side)
     c.box(84, 82, 112, 87, "g")  # mat
+    # Garland and lights round the door, jingle bells on the knob, wet boots.
+    for x in range(80, 117):
+        c.put(x, 10 + (x % 6 > 2), "G")
+        if x % 4 == 0:
+            c.put(x, 12, "yrb"[(x // 4) % 3])
+    for y in range(10, 60):
+        c.put(80 + (y % 6 > 2), y, "G")
+        if y % 4 == 0:
+            c.put(82, y, "yrb"[(y // 4) % 3])
+    c.put(80, 56, "y")
+    c.put(81, 58, "y")
+    for x, y in ((6, 92), (22, 93), (30, 91)):
+        c.hline(x, x + 6, y, "c")
+    shade(c, 2, 91, 38, 93, "p", "op")
     return c
 
 
@@ -735,6 +955,13 @@ def bedroom():
     c.rect(100, 26, 106, 27, "o")
     c.vline(103, 21, 25, "#")
     c.rect(104, 22, 106, 25, "w")
+    # Lamplight, dark beyond; a present hidden under the bed for tomorrow.
+    glow(c, 14, 47, 22, "O", "bc")
+    dusk(c, 14, 47, 60, "n", "bc")
+    shade(c, 80, 85, 119, 89, "p", "Oo")
+    c.box(88, 84, 100, 91, "r")
+    c.vline(94, 85, 90, "y")
+    c.rect(92, 83, 96, 84, "y")
     return c
 
 
@@ -787,6 +1014,16 @@ def kids_bedroom():
     c.rect(18, 32, 20, 34, "O")
     c.put(11, 17, "w")
     c.put(26, 22, "w")
+    # A star night-light, dark corners, a letter to Santa on the floor.
+    c.box(72, 69, 77, 75, "y")
+    c.put(74, 71, "O")
+    glow(c, 74, 72, 18, "y", "l")
+    dusk(c, 74, 72, 62, "G", "l")
+    c.box(44, 98, 53, 106, "w", ink="s")
+    for y in (100, 102, 104):
+        c.hline(46, 51, y, "s")
+    c.put(47, 100, "r")
+    c.rect(55, 103, 59, 104, "r")
     return c
 
 
@@ -821,8 +1058,19 @@ def garage():
     c.box(2, 56, 40, 60, "o")
     c.vline(5, 61, 80, "o")
     c.vline(37, 61, 80, "o")
-    c.box(8, 48, 24, 55, "r")
-    c.rect(13, 46, 19, 47, "#")
+    c.box(10, 72, 26, 79, "r")  # the toolbox, under the bench
+    c.rect(15, 70, 21, 71, "#")
+    # On the bench, a wooden toy train being painted for under the tree.
+    c.box(6, 47, 16, 55, "r")
+    c.box(12, 43, 16, 55, "r")
+    c.put(14, 45, "c")
+    c.rect(8, 44, 9, 46, "#")
+    c.box(18, 49, 28, 55, "k")  # its car, not painted yet
+    for x in (8, 14, 20, 26):
+        c.put(x, 55, "#")
+    c.box(31, 50, 36, 55, "l")  # a paint pot, brush in it
+    c.vline(34, 45, 49, "o")
+    c.put(30, 55, "r")
 
     # Shelves, right, crammed.
     for y in (26, 46):
@@ -839,6 +1087,9 @@ def garage():
     c.rect(94, 54, 108, 55, "#")
     c.vline(112, 50, 80, "o")
     c.rect(109, 78, 116, 84, "s")
+    # Dark beyond the strip light; shadow under the bench.
+    dusk(c, 60, 4, 68, "g", "s")
+    shade(c, 2, 79, 40, 83, "d", "g")
     return c
 
 
@@ -890,6 +1141,12 @@ def attic():
     for i in range(6):
         c.put(SIZE - 1 - i, 52 + i, "s")
         c.put(SIZE - 7 + i // 2, 58, "s")
+    # Moonlight down from the round window, dust in it.
+    for y in range(15, 93):
+        half = 5 + (y - 15) * 15 // 78
+        shade(c, 60 - half, y, 60 + half, y, "s", "opO")
+    for x, y in ((56, 40), (64, 52), (58, 64), (66, 34), (62, 74), (55, 58)):
+        c.put(x, y, "w")
     return c
 
 
@@ -918,6 +1175,15 @@ def yard():
     c.box(84, 96, 106, 100, "r")
     c.hline(82, 108, 102, "#")
     c.put(81, 101, "#")
+    # A snow angel; pines' shadows on the snow.
+    c.ellipse(60, 99, 10, 4, "w", ink="s")
+    for j in range(8):
+        c.hline(60 - 2 - j // 2, 60 + 2 + j // 2, 100 + j, "w")
+        c.put(60 - 3 - j // 2, 100 + j, "s")
+        c.put(60 + 3 + j // 2, 100 + j, "s")
+    c.ellipse(60, 93, 2, 2, "w", ink="s")
+    shade(c, 16, 85, 34, 89, "c", "w")
+    shade(c, 108, 83, 119, 87, "c", "w")
     return c
 
 
@@ -963,6 +1229,18 @@ def front_porch():
     c.rect(0, 100, SIZE - 1, SIZE - 1, "w")
     for x, y in scatter(12, 0, 100, SIZE - 1, SIZE - 1, 9):
         c.hline(x, x + 2, y, "c")
+    # The porch light's glow; a wreath; a shovel stuck in the drift.
+    glow(c, 87, 30, 20, "y", "sg")
+    c.ellipse(42, 40, 5, 5, "G")
+    c.ellipse(42, 40, 1, 1, "s", ink="#")
+    for x, y in ((38, 37), (45, 38), (40, 44), (46, 42)):
+        c.put(x, y, "r")
+    c.rect(40, 45, 44, 47, "r")
+    c.vline(98, 56, 72, "o")
+    c.hline(96, 100, 55, "#")
+    c.box(94, 72, 102, 78, "s")
+    for x, y in ((30, 92), (38, 96), (46, 92), (54, 96)):
+        c.rect(x, y, x + 2, y + 1, "s")
     return c
 
 
@@ -1004,6 +1282,13 @@ def snow_fort():
     wavy_line(c, 19, 29, 86, -3)
     c.vline(36, 84, 100, "o")
     c.rect(34, 100, 38, 104, "y")
+    # The moon, and the fort's walls shaded away from it.
+    moon(c, 46, 12, 4)
+    shade(c, 28, 22, 34, 86, "c", "w")
+    shade(c, 112, 28, 119, 86, "c", "w")
+    shade(c, 34, 70, 86, 76, "c", "w")
+    shade(c, 0, 87, 36, 91, "c", "w")
+    shade(c, 84, 87, 119, 91, "c", "w")
     return c
 
 
@@ -1046,6 +1331,15 @@ def front_walk():
     c.rect(104, 46, 105, 48, "r")
     c.vline(86, 72, 92, "o")
     c.box(82, 90, 90, 100, "s")
+    # Candy canes along the path, a wreath on the lamppost, its glow.
+    for y in (60, 74, 88, 102):
+        half = 8 + (y - 46) * 30 // (SIZE - 46)
+        candy_cane(c, 60 - half - 5, y, h=7)
+        candy_cane(c, 60 + half + 4, y, h=7)
+    glow(c, 23, 24, 16, "y", "n")
+    c.ellipse(23, 42, 3, 3, "G")
+    c.put(23, 42, "#")
+    c.rect(22, 45, 24, 46, "r")
     return c
 
 
@@ -1086,6 +1380,13 @@ def back_door():
     c.vline(112, 22, 70, "o")
     c.box(107, 70, 117, 82, "s")
     c.rect(110, 20, 114, 21, "#")
+    # Moonlight through the door's window onto the floor; dim far wall; snowy boots.
+    for y in range(91, 104):
+        k = (y - 91) // 2
+        shade(c, 10 + k, y, 30 + k, y, "s", "dg")
+    dusk(c, 19, 25, 70, "p", "g")
+    for x in (80, 88, 98, 106):
+        c.rect(x + 4, 79, x + 6, 79, "w")
     return c
 
 
@@ -1131,6 +1432,11 @@ def cellar_door():
     c.hline(15, 105, 112, "#")
     c.ellipse(10, 100, 12, 6, "w", ink="s")
     c.ellipse(110, 100, 12, 6, "w", ink="s")
+    # Warm light from the windows; paw prints in the snow, to the cellar door.
+    glow(c, 97, 26, 20, "O", "sg")
+    glow(c, 20, 76, 14, "O", "w")
+    for x, y in ((6, 114), (14, 110), (10, 104), (18, 100), (16, 94), (24, 90)):
+        paw(c, x, y)
     return c
 
 
@@ -1138,7 +1444,7 @@ def roof():
     """Up on the snowy roof: moon and stars, the neighbours' roofs, an antenna."""
     c = Canvas("n")
     night_sky(c, SIZE - 1, seed=55, stars=30)
-    moon(c, 20, 18, 8)
+    moon(c, 22, 40, 10)
     # Neighbours' rooftops in the distance, windows lit.
     for x0, x1, top in ((0, 34, 54), (30, 70, 60), (66, 96, 52), (92, 119, 58)):
         c.rect(x0, top, x1, 80, "p")
@@ -1148,9 +1454,6 @@ def roof():
             c.hline(mid - half, mid + half, y, "p")
         c.hline(mid - (x1 - x0) // 2, mid + (x1 - x0) // 2, top, "w")
         c.box(mid - 4, top + 6, mid + 2, top + 12, "y")
-    # A shooting star.
-    for i in range(8):
-        c.put(84 + i, 10 + i // 2, "w" if i > 4 else "c")
     # Our roof: shingles under a thick layer of snow, lights along the gutter.
     c.rect(0, 82, SIZE - 1, SIZE - 1, "r")
     for i, y in enumerate(range(84, SIZE, 5)):
@@ -1168,6 +1471,21 @@ def roof():
     for y, half in ((34, 8), (42, 6), (50, 4)):
         c.hline(108 - half, 108 + half, y, "d")
     c.put(108, 29, "w")
+    # Santa's sleigh across the moon, and the shingles shaded below the snow.
+    c.rect(14, 39, 19, 41, "#")
+    c.rect(14, 37, 15, 38, "#")
+    c.put(17, 38, "#")
+    c.hline(13, 20, 43, "#")
+    c.put(21, 42, "#")
+    c.hline(20, 23, 39, "#")
+    for rx in (24, 29):
+        c.rect(rx, 38, rx + 2, 39, "#")
+        c.put(rx, 40, "#")
+        c.put(rx + 2, 40, "#")
+        c.put(rx + 3, 37, "#")
+        c.put(rx + 3, 36, "#")
+        c.put(rx + 4, 35, "#")
+    shade(c, 0, 100, SIZE - 1, SIZE - 1, "p", "r")
     return c
 
 
@@ -1176,6 +1494,7 @@ def pond():
     c = Canvas("w")
     night_sky(c, 42, seed=61)
     snow_ground(c, 42, seed=19)
+    moon(c, 22, 22, 3)
     for x in range(0, SIZE, 9):  # pines along the far bank
         pine(c, x + 3, 48, 16 + (x * 3) % 9)
     # The ice.
@@ -1202,6 +1521,12 @@ def pond():
     c.ellipse(46, 102, 3, 4, "O", ink="#")
     c.put(46, 102, "o")
     c.rect(15, 96, 45, 98, "w")
+    # The moon's light on the ice; somebody's skates left on the log.
+    shade(c, 19, 72, 25, 96, "w", "c")
+    for x in (26, 35):
+        c.rect(x, 90, x + 3, 94, "r")
+        c.rect(x, 93, x + 6, 94, "r")
+        c.hline(x - 1, x + 7, 95, "s")
     return c
 
 
@@ -1259,6 +1584,15 @@ def tree_house():
     for x, y in ((40, 96), (76, 104), (50, 112), (20, 100)):
         c.rect(x, y, x + 2, y + 1, "O")
         c.put(x + 1, y + 2, "r")
+    # The lantern's glow; comics on the blanket; a tin-can phone out the window.
+    glow(c, 94, 25, 24, "O", "op")
+    c.rect(10, 64, 22, 65, "r")
+    c.rect(11, 66, 21, 67, "y")
+    c.rect(10, 68, 22, 69, "b")
+    c.hline(10, 22, 63, "#")
+    for t in range(39):
+        c.put(40 - t * 6 // 38, 84 - t, "k")
+    c.box(37, 84, 42, 90, "s")
     return c
 
 
@@ -1294,6 +1628,11 @@ def cave():
     for x in (99, 107):
         c.rect(x, 50, x + 2, 51, "y")
         c.put(x + 1, 50, "w")
+    # Moonlight through the mouth; dark deeper in; snowy paw prints walking in.
+    glow(c, 20, 60, 34, "s", "gd")
+    dusk(c, 20, 60, 50, "#", "dgp")
+    for x, y in ((36, 90), (44, 94), (52, 90), (60, 95), (68, 91)):
+        paw(c, x, y, "w")
     return c
 
 
@@ -1414,6 +1753,8 @@ def living_room():
     # The tree last, so it stands in front of everything.
     tx, ty = TREE_AT
     c.sprite(tx, ty, TREE)
+    # The fire lights the room.
+    glow(c, 19, 70, 30, "O", "rpo")
     return c
 
 
