@@ -160,6 +160,14 @@ over the room's colour key — not a map you walk around in.
   lures bob in their rooms; the item in hand sits bottom left, a critter
   following you home hops bottom right. No room backdrops yet — the black ink
   outlines are lost on the dark background until they land.
+- **Backdrops built 2026-11-07 (`cd-342.35`):** every room, the Living Room
+  included, has a 120x120 DB16 backdrop shown at 2x
+  (`tools/build_backdrops.py` -> `game/art/rooms/*.bmp`, drawn by
+  `game/backdrop.py` into one shared 7.2 KB RAM bitmap). Static art goes in
+  the backdrop (the Living Room's tree too); what changes with the game
+  (hiding spots, lures, presents, the escape) is drawn on top. Keep the middle
+  (art x ~44-76, y ~46-88) quiet for those, and mind the round panel's
+  corners. The room name is a yellow caption box.
 - **First visit:** iris in, then 1–2 captions of story/flavour. **Revisits:**
   iris in, location caption only.
 - **A hiding critter** is never fully visible: a tail sticking out from

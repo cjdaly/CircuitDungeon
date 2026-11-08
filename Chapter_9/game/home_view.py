@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: MIT
-"""The Living Room: the tree, the five presents, and the escape cutscene --
-cd-342.27, cd-342.10.
+"""The Living Room's presents and the escape cutscene -- cd-342.27, cd-342.10.
 
-The wide shot is drawn at 2x (doc/STYLE.md sec 1, "Wide"): scene_art.TREE and a
-present for every critter under it, each in its own colours. A present tells
+The wide shot is drawn at 2x (doc/STYLE.md sec 1, "Wide"): a present for every
+critter under the tree, each in its own colours. The tree itself is part of the
+room's backdrop (art/rooms/living_room.bmp, tools/build_backdrops.py), like
+every room's static art; this view draws only what changes with the game. A present tells
 you who's where with no HUD -- closed with a bow, its critter hasn't got out
 yet; tipped over and empty, it's out now; its critter sitting on top, it's home.
 
@@ -39,9 +40,8 @@ _TITLE_COLOR = 0xDAD45E
 _TITLE_Y = 196  # the critter's name, under its close-up
 _ZOOM_Y = 92  # ZOOM! during the bolt, over the tree
 
-# Wide shot, screen px. The tree: 40x52 at 2x, under the room name.
+# Wide shot, screen px. (The tree, in the backdrop, is at (80, 62), 80x104.)
 _WIDE = 2
-_TREE_X, _TREE_Y = 80, 62
 # Each present's top-left, in CAST order, in an arc in front of the tree.
 SLOTS = ((40, 168), (72, 160), (104, 172), (136, 160), (168, 168))
 _ON_BOX = 24  # a critter at home sits this far up from its box's top
@@ -90,16 +90,6 @@ def _box_palette(base, species):
     return palette
 
 
-def _bitmap(rows):
-    bitmap = displayio.Bitmap(len(rows[0]), len(rows), len(scene_art.COLORS))
-    for y, row in enumerate(rows):
-        for x, ch in enumerate(row):
-            index = scene_art.KEY[ch]
-            if index:
-                bitmap[x, y] = index
-    return bitmap
-
-
 class _Grid:
     """One tile of a sheet in its own scaled Group, so it can be moved and swapped."""
 
@@ -133,9 +123,6 @@ class HomeView:
         # The wide shot.
         self._wide = displayio.Group()
         self.group.append(self._wide)
-        tree = displayio.Group(scale=_WIDE, x=_TREE_X, y=_TREE_Y)
-        tree.append(displayio.TileGrid(_bitmap(scene_art.TREE), pixel_shader=art_palette))
-        self._wide.append(tree)
         self._boxes = []
         self._sitters = []
         species_order = tuple(scene_art.BOX_COLORS)

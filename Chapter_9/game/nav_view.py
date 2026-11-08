@@ -33,6 +33,7 @@ import comic_fonts
 import escape
 import hunt
 import rooms
+from backdrop import Backdrop
 from beats import Beat, BeatPlayer
 from hunt import wrap
 from room_banner import RoomLabel
@@ -89,13 +90,15 @@ class _Director:
 class NavView:
     """Owns the interactive-mode displayio Group (`.group`)."""
 
-    def __init__(self, width, height):
+    def __init__(self, width, height, backdrop_root="/art/rooms"):
         self.group = displayio.Group()
 
         bg_bitmap = displayio.Bitmap(width, height, 1)
         bg_palette = displayio.Palette(1)
         bg_palette[0] = _BG_COLOR
         self.group.append(displayio.TileGrid(bg_bitmap, pixel_shader=bg_palette))
+        self._backdrop = Backdrop(backdrop_root)  # the room's art, if it has some
+        self.group.append(self._backdrop.group)
         self._scene = displayio.Group()  # what a shake moves
         self.group.append(self._scene)
         self._things = SceneView()
@@ -126,6 +129,7 @@ class NavView:
 
     def show_room(self, name, live_exits):
         """Call on entering a room (and once at startup)."""
+        self._backdrop.show(name)
         self._label.show(name)
         self._live_exits = set(live_exits)
 

@@ -46,7 +46,7 @@ class Session:
         import nav_view
 
         self.world, self.hunt = _game(first)
-        self.nav = nav_view.NavView(240, 240)
+        self.nav = nav_view.NavView(240, 240, os.path.join(fake_display.GAME_DIR, "art", "rooms"))
         self.now = 0.0
         self._refresh(self.hunt.start(), self.hunt.event)
 

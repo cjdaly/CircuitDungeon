@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "game"))
 _STUBBED = ("displayio", "vectorio", "bitmaptools", "adafruit_display_text",
             "adafruit_display_text.bitmap_label",
             "adafruit_bitmap_font", "adafruit_bitmap_font.bitmap_font")
-_GAME_MODULES = ("app", "nav_view", "room_banner", "comic", "comic_fonts", "ornament",
+_GAME_MODULES = ("app", "backdrop", "nav_view", "room_banner", "comic", "comic_fonts", "ornament",
                  "scene_view")
 _GAME_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "game")
 _saved = {}
@@ -238,11 +238,11 @@ class _Run:
 
     def holding(self):
         """Whether the held-item icon is showing (scene_view's 7th layer, after home)."""
-        layers = self.nav_group[1][0]  # the scene: SceneView's group
+        layers = self.nav_group[2][0]  # the scene: SceneView's group
         return not layers[6].hidden
 
     def scene_x(self):
-        return self.nav_group[1].x
+        return self.nav_group[2].x
 
 
 class _Power:
@@ -513,10 +513,10 @@ class TestOverlays(unittest.TestCase):
 
     def test_the_cutscene_cuts_in_without_the_room_name_or_markers(self):
         r = _Run(seconds=4.5)  # 9 PM (2.25s), RATTLE! (1.6s), then the close-up
-        chrome = r.nav_group[1][1]
+        chrome = r.nav_group[2][1]
         self.assertTrue(chrome.hidden)
         r = _Run(seconds=_OPENING_S)
-        self.assertFalse(r.nav_group[1][1].hidden)
+        self.assertFalse(r.nav_group[2][1].hidden)
 
 
 class TestAppSmoke(unittest.TestCase):
