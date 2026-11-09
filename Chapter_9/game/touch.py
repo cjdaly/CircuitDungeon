@@ -19,6 +19,13 @@ waits _RETRY_INTERVAL before trying again. Treating every NACK that way, as it
 used to, left touch deaf for a second at a time -- long enough to swallow a
 quick tap whole, while a swipe usually outlasted it (playtest 2026-11-06).
 
+It also stopped the bus stalls (cd-342.20). Each reconnect runs the driver's
+start-up probe, and probing a chip that's going quiet is what makes it hold SDA
+low (the stall bus_recovery.py clears). A/B on ws-10, 2026-11-08, idle in
+ornament mode: the old drop-and-reconnect gave 17 reconnects and 2 stalls in
+~5 min; keeping the connection, 1 connect and 0 stalls in ~14 min. So keep
+reconnects rare.
+
 adafruit_cst8xx is imported lazily inside SafeTouch.poll() rather than at
 module level, so GestureTracker (pure logic, no hardware) stays importable
 under plain desktop Python -- see tests/test_edge_gesture.py and
@@ -26,6 +33,7 @@ edge_gesture.py, which reuses it.
 """
 
 _RETRY_INTERVAL = 1.0  # seconds between reconnect attempts while not connected
+_DIS_AUTO_SLEEP = 0xFE  # CST816 register: non-zero keeps the chip from sleeping
 
 # ValueError/OSError: the chip didn't ACK. RuntimeError: it answered with a bad
 # chip ID ("Did not find supported CST8XX chip"), seen on ws-1 while idle.
@@ -63,6 +71,44 @@ class SafeTouch:
         self.connects = 0
         self.drops = 0  # real drops: a timeout or a bad chip ID
         self.quiet = 0  # quiet ticks shrugged off (not printed; for the REPL)
+        self.last_quiet = False  # the last poll got no reading (touch_log.py)
+        self._want_awake = False
+        self._awake = None  # what the chip was last told; None = not told yet
+        self.sleep_writes = 0
+
+    def set_awake(self, awake):
+        """Keep the chip awake (in play) or let it auto-sleep (ornament, deep idle).
+
+        Asleep, the chip refuses most reads and has to wake when a finger lands,
+        so a quick tap can be over before it reports anything (cd-342.24,
+        TOUCH_LOG playtest 2026-11-08). Awake it answers every read, at some
+        cost in current, so only while the game is being played. Applied on the
+        next poll that reaches the chip.
+        """
+        self._want_awake = bool(awake)
+
+    def sleep_now(self, tries=5):
+        """Let the chip auto-sleep again before the board goes into deep idle."""
+        self._want_awake = False
+        for _ in range(tries):
+            if self._apply_awake():
+                return True
+        return False
+
+    def _apply_awake(self):
+        """Tell the chip the wanted sleep mode if it hasn't been. True once it has."""
+        if self._ctp is None:
+            return False
+        if self._awake == self._want_awake:
+            return True
+        try:
+            with self._ctp._i2c as device:  # the driver's I2CDevice
+                device.write(bytes((_DIS_AUTO_SLEEP, 1 if self._want_awake else 0)))
+        except _TOUCH_ERRORS:
+            return False  # asleep or busy: the next poll tries again
+        self._awake = self._want_awake
+        self.sleep_writes += 1
+        return True
 
     @property
     def connected(self):
@@ -72,6 +118,7 @@ class SafeTouch:
         """Switch to a rebuilt bus; the next poll() reconnects straight away."""
         self._i2c = i2c
         self._ctp = None
+        self._awake = None  # the chip was just reset: tell it again
         self._next_attempt = 0.0
 
     def poll(self, now):
@@ -80,6 +127,7 @@ class SafeTouch:
         Swallows every I2C error -- "not connected yet", a quiet tick and a
         dropped connection all read as "no touch" rather than an exception.
         """
+        self.last_quiet = True
         if self._ctp is None:
             if now < self._next_attempt:
                 return None
@@ -92,7 +140,9 @@ class SafeTouch:
                     self._next_attempt = now + self._retry_interval
                 return None
             self.connects += 1
+            self._awake = None
 
+        self._apply_awake()
         try:
             touches = self._ctp.touches
         except _TOUCH_ERRORS as error:
@@ -103,6 +153,7 @@ class SafeTouch:
             self._ctp = None  # dropped -- retry the connection after a pause
             self._next_attempt = now + self._retry_interval
             return None
+        self.last_quiet = False
         if not touches:
             return None
         point = touches[0]

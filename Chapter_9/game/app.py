@@ -70,11 +70,11 @@ class _LoopStats:
         self.imu_errors = 0
         self.last_imu_error = None
 
-    def report(self, now, mode, touch, clock):
+    def report(self, now, mode, touch, clock, extra=""):
         started = clock()
         print(
             "t={:.0f} {} ticks={} worst_ms: tick={} touch={} imu={} | imu_errors={} {} "
-            "| touch connects={} drops={} | last_print_ms={} free={}".format(
+            "| touch connects={} drops={} | last_print_ms={} free={}{}".format(
                 now,
                 mode,
                 self.ticks,
@@ -87,6 +87,7 @@ class _LoopStats:
                 getattr(touch, "drops", 0),
                 self.print_ms,
                 gc.mem_free(),
+                extra,
             )
         )
         self.print_ms = int((clock() - started) * 1000)
@@ -123,6 +124,13 @@ def run(display, backlight, touch, imu_gestures, width, height,
     # Review switch: settings.toml FINALE_NOW = "1" starts at the finale, every
     # critter already home. Leave it out for real play.
     finale_now = os.getenv("FINALE_NOW") in ("1", "true", "yes")
+    # Diagnostic: settings.toml TOUCH_LOG = "1" prints every stroke (touch_log.py).
+    tlog = None
+    set_awake = getattr(touch, "set_awake", None)
+    if os.getenv("TOUCH_LOG") in ("1", "true", "yes"):
+        from touch_log import TouchLog
+
+        tlog = TouchLog()
     if finale_now:
         hunt.skip_to_finale()
 
@@ -244,6 +252,8 @@ def run(display, backlight, touch, imu_gestures, width, height,
 
             point = touch.poll(now)
             touched = point is not None
+            if tlog is not None:
+                tlog.sample(now, point, getattr(touch, "last_quiet", False))
             after_touch = clock()
             stats.touch_s = max(stats.touch_s, after_touch - now)
 
@@ -260,6 +270,8 @@ def run(display, backlight, touch, imu_gestures, width, height,
             stats.imu_s = max(stats.imu_s, clock() - after_touch)
 
             new_mode = mode_ctl.update(touched, detector.is_still, now)
+            if set_awake is not None:  # the touch chip stays awake only while played
+                set_awake(mode == modes.INTERACTIVE and blanker.lit)
             if mode_ctl.just_switched:
                 mode = new_mode
                 display.root_group = (
@@ -287,6 +299,8 @@ def run(display, backlight, touch, imu_gestures, width, height,
 
             if mode == modes.INTERACTIVE and not game_on:
                 tracker.update(point, now)
+                if tlog is not None and point is None:
+                    tlog.end(now, "title" if tracker.gesture_done else "nothing")
                 title_screen.update(now)
                 if tracker.gesture_done:  # a tap anywhere starts the game
                     print("t={:.1f} title tapped: the game starts".format(now))
@@ -302,7 +316,23 @@ def run(display, backlight, touch, imu_gestures, width, height,
                     else None
                 )
                 direction = tracker.update(point, now)
-                if nav.overlay_up:
+                # A move goes through a caption (it would otherwise eat the
+                # gesture: cd-342.24); a centre tap moves the caption on, and
+                # a cutscene takes every gesture, so the story can't be skipped.
+                waits = nav.overlay_up and (direction is None or nav.cutscene_up)
+                if tlog is not None and point is None and tlog.stroke_open:
+                    if not tracker.gesture_done:
+                        outcome = "nothing (neither tap nor swipe)"
+                    elif waits:
+                        outcome = "cutscene advanced" if nav.cutscene_up else "caption advanced"
+                    elif direction is not None:
+                        outcome = "move " + direction + (
+                            "" if direction in world.live_exits() else " (blocked)") + (
+                            " through a caption" if nav.overlay_up else "")
+                    else:
+                        outcome = "centre tap"
+                    tlog.end(now, outcome)
+                if waits:
                     # Navigation waits: captions sit in the edge zones.
                     if tracker.gesture_done:
                         nav.tap_overlay(now)
@@ -343,6 +373,8 @@ def run(display, backlight, touch, imu_gestures, width, height,
                 print("t={:.1f} backlight {}".format(now, "on" if backlight_lit else "off"))
 
             if power is not None and deep.should_enter(blanker.lit, detector.is_still, now):
+                if hasattr(touch, "sleep_now"):
+                    touch.sleep_now()
                 deep.enter()
                 power.sleep()
                 imu_gestures.reset()
@@ -359,7 +391,8 @@ def run(display, backlight, touch, imu_gestures, width, height,
             stats.ticks += 1
             stats.tick_s = max(stats.tick_s, clock() - now)
             if now >= stats.next_report:
-                stats.report(now, mode if game_on else mode + "/title", touch, clock)
+                stats.report(now, mode if game_on else mode + "/title", touch, clock,
+                             "" if tlog is None else " | " + tlog.report())
         except Exception as exc:  # noqa: BLE001 -- a hard-crashed game is a black screen
             traceback.print_exception(exc)
             sleep(0.5)  # back off so a persistent fault doesn't spam serial

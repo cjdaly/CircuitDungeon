@@ -155,6 +155,12 @@ class NavView:
     def overlay_up(self):
         return self._player.active
 
+    @property
+    def cutscene_up(self):
+        """A cutscene beat is on (it draws a shot): taps advance it, moves wait."""
+        beat = self._player.current
+        return beat is not None and beat.shot is not None
+
     def tap_overlay(self, now):
         """A tap while an overlay is up: on to the next beat."""
         self._player.tap(now)

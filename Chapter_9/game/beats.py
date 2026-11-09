@@ -53,6 +53,7 @@ class BeatPlayer:
         self._stage = stage
         self._waiting = []
         self._ends_at = None
+        self.current = None  # the beat on screen
 
     @property
     def active(self):
@@ -76,8 +77,10 @@ class BeatPlayer:
     def _next(self, now):
         if self._waiting:
             beat = self._waiting.pop(0)
+            self.current = beat
             self._stage.show(beat, now)
             self._ends_at = now + beat.duration
         else:
+            self.current = None
             self._stage.clear()
             self._ends_at = None

@@ -18,6 +18,24 @@ NO_ACK = ValueError("No I2C device at address: 0x15")
 TIMEOUT = OSError(116, "ETIMEDOUT")
 
 
+class FakeDevice:
+    """The driver's I2CDevice, for register writes (SafeTouch.set_awake)."""
+
+    writes = []
+    write_error = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def write(self, data):
+        if type(self).write_error is not None:
+            raise type(self).write_error
+        type(self).writes.append(bytes(data))
+
+
 class FakeChip:
     """Stands in for adafruit_cst8xx.Adafruit_CST8XX."""
 
@@ -29,6 +47,7 @@ class FakeChip:
         type(self).ctor_calls += 1
         if type(self).ctor_error is not None:
             raise type(self).ctor_error
+        self._i2c = FakeDevice()
 
     @property
     def touches(self):
@@ -38,11 +57,62 @@ class FakeChip:
         return result
 
 
+class TestAwake(unittest.TestCase):
+    """cd-342.24: the chip kept awake while the game is played."""
+
+    def setUp(self):
+        FakeChip.ctor_error = None
+        FakeChip.touches_result = ()
+        FakeDevice.writes = []
+        FakeDevice.write_error = None
+        module = types.ModuleType("adafruit_cst8xx")
+        module.Adafruit_CST8XX = FakeChip
+        sys.modules["adafruit_cst8xx"] = module
+        self.addCleanup(sys.modules.pop, "adafruit_cst8xx", None)
+        self.touch = touch.SafeTouch(i2c=None)
+
+    def test_awake_is_told_to_the_chip_once(self):
+        self.touch.set_awake(True)
+        self.touch.poll(0.0)
+        self.touch.poll(0.1)
+        self.assertEqual(FakeDevice.writes, [b"\xfe\x01"])
+
+    def test_back_to_auto_sleep(self):
+        self.touch.set_awake(True)
+        self.touch.poll(0.0)
+        self.touch.set_awake(False)
+        self.touch.poll(0.1)
+        self.assertEqual(FakeDevice.writes, [b"\xfe\x01", b"\xfe\x00"])
+
+    def test_a_refused_write_is_tried_again_next_poll(self):
+        self.touch.set_awake(True)
+        FakeDevice.write_error = NO_ACK
+        self.touch.poll(0.0)
+        FakeDevice.write_error = None
+        self.touch.poll(0.1)
+        self.assertEqual(FakeDevice.writes, [b"\xfe\x01"])
+
+    def test_sleep_now_writes_straight_away(self):
+        self.touch.set_awake(True)
+        self.touch.poll(0.0)
+        self.assertTrue(self.touch.sleep_now())
+        self.assertEqual(FakeDevice.writes[-1], b"\xfe\x00")
+
+    def test_a_rebuilt_bus_is_told_again(self):
+        self.touch.set_awake(True)
+        self.touch.poll(0.0)
+        self.touch.use_bus(object())  # the chip was reset
+        self.touch.poll(0.1)
+        self.assertEqual(FakeDevice.writes, [b"\xfe\x01", b"\xfe\x01"])
+
+
 class TestSafeTouchErrors(unittest.TestCase):
     def setUp(self):
         FakeChip.ctor_error = None
         FakeChip.ctor_calls = 0
         FakeChip.touches_result = ()
+        FakeDevice.writes = []
+        FakeDevice.write_error = None
         module = types.ModuleType("adafruit_cst8xx")
         module.Adafruit_CST8XX = FakeChip
         sys.modules["adafruit_cst8xx"] = module

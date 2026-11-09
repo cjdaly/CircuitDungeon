@@ -126,6 +126,19 @@ The game starts with every critter already home, and the first tap past the
 title sets off the burst. The start-up line shows `FINALE_NOW` while it's on.
 Same rule: take it out for real play, never on a gift unit.
 
+## Diagnostic: the touch log
+
+To see why a tap or swipe didn't do what you meant, add this and reset:
+
+```
+TOUCH_LOG = "1"
+```
+
+Every stroke then prints a line on the serial console: where the finger went down
+and up, how long, how many readings the touch chip gave, and what the game did
+with it (a move, a centre tap, a caption moved on, a cutscene beat). The 10s
+stats line adds how many reads the chip refused. See `game/touch_log.py`.
+
 ## Two boards
 
 With two boards plugged in, the second mounts as `CIRCUITPY 1`, and which is

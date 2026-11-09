@@ -497,10 +497,19 @@ class TestOverlays(unittest.TestCase):
         r = _Run(seconds=_OPENING_S)
         self.assertEqual(r.message(), "")
 
-    def test_an_edge_tap_during_a_caption_advances_instead_of_moving(self):
+    def test_an_edge_tap_during_the_escape_advances_instead_of_moving(self):
+        # "9 PM" is part of the cutscene (the box shut under it): no skipping it.
         r = _Run(windows=[(0.5, 0.7, _RIGHT_EDGE)], seconds=1.5)
         self.assertEqual(r.room(), "LIVING ROOM")
         self.assertEqual(r.burst(), "RATTLE!")  # on into the escape cutscene
+
+    def test_an_edge_tap_goes_through_an_ordinary_caption(self):
+        # cd-342.24: a third of playtest gestures were eaten by captions.
+        to_odd_corner = (_RIGHT_EDGE, _RIGHT_EDGE, _TOP_EDGE)
+        at = _OPENING_S + (len(to_odd_corner) - 1) * _TAP_SPACING + 0.5  # "Batteries!" is up
+        r = _Run(windows=_taps(*to_odd_corner) + [(at, at + 0.2, _BOTTOM_EDGE)],
+                 seconds=at + 1.0)
+        self.assertEqual(r.room(), "KITCHEN")
 
     def test_a_corner_tap_also_advances(self):
         r = _Run(windows=[(0.5, 0.7, _at(5, 5))], seconds=1.5)
