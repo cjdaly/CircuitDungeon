@@ -130,6 +130,10 @@ class NavView:
         self._player = BeatPlayer(_Director(self._stage, self._things, self._chrome))
         self._live_exits = set()
 
+    def sprite_sheets(self):
+        """The props and critter sheets and palettes, for the title screen to share."""
+        return self._things.sheets()
+
     def refresh_backdrop(self):
         """Put the room's art back after another screen used the shared bitmap."""
         if getattr(self, "_room_name", None) is not None:

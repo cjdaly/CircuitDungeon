@@ -95,7 +95,7 @@ class _LoopStats:
 
 def run(display, backlight, touch, imu_gestures, width, height,
         max_ticks=None, clock=time.monotonic, sleep=time.sleep, bus_recovery=None,
-        power=None, drain=None):
+        power=None, drain=None, title=True):
     """Run the game forever (or `max_ticks` frames, for the smoke test).
 
     `touch` needs .poll(now) -> (x, y) | None; `imu_gestures` needs
@@ -118,7 +118,8 @@ def run(display, backlight, touch, imu_gestures, width, height,
 
     # Who this board is for: optional, set per board in settings.toml.
     player = os.getenv("PLAYER")
-    hunt = Hunt(world, make_roster(), player=player)
+    roster = make_roster()
+    hunt = Hunt(world, roster, player=player)
 
     nav = NavView(width, height)
 
@@ -127,10 +128,11 @@ def run(display, backlight, touch, imu_gestures, width, height,
         want = hunt.critter.preferred_item if hunt.critter else None
         nav.say(messages, now, hunt.event, want, hunt.escape, hunt.escape_at)
 
-    opening = hunt.start()  # sets the episode's gate, so before show_room
-    nav.show_room(world.room.name, world.live_exits())
-    nav.show_scene(hunt.scene(), clock())
-    tell(opening, clock())
+    def start_game(now):
+        opening = hunt.start()  # sets the episode's gate, so before show_room
+        nav.show_room(world.room.name, world.live_exits())
+        nav.show_scene(hunt.scene(), now)
+        tell(opening, now)
 
     ornament_group = displayio.Group()
     # The ornament screen's scenes take turns, and borrow the room art's bitmap.
@@ -146,8 +148,25 @@ def run(display, backlight, touch, imu_gestures, width, height,
         backlight.value = True
         return ScreenBlanker(backlight, timeout=timeout)
 
+    # The title screen (cd-342.34) is the interactive screen until the first tap:
+    # it blanks, idles and drops into the ornament scenes like the game does.
+    game_on = not title
+    title_screen = None
+    if title:
+        import title_view
+
+        cast = [(critter.species, critter.sprite) for critter in roster.all()]
+        title_screen = title_view.TitleView(nav.backdrop, nav.sprite_sheets(), cast, width,
+                                            height)
+        title_screen.show()
+    else:
+        start_game(clock())
+
+    def interactive_screen():
+        return nav.group if game_on else title_screen.group
+
     mode = mode_ctl.mode
-    display.root_group = nav.group
+    display.root_group = interactive_screen()
     blanker = blanker_for(mode)
     wait_for_release = False
     backlight_lit = True
@@ -237,14 +256,16 @@ def run(display, backlight, touch, imu_gestures, width, height,
             if mode_ctl.just_switched:
                 mode = new_mode
                 display.root_group = (
-                    nav.group if mode == modes.INTERACTIVE else ornament_group
+                    interactive_screen() if mode == modes.INTERACTIVE else ornament_group
                 )
                 blanker = blanker_for(mode)
                 print("t={:.1f} mode -> {}".format(now, mode))
                 if mode == modes.ORNAMENT:
                     show.enter(now)
-                else:
+                elif game_on:
                     nav.refresh_backdrop()  # the ornament screen had the shared bitmap
+                else:
+                    title_screen.show()
                 if touched:
                     wait_for_release = True  # the touch that woke us
 
@@ -257,6 +278,17 @@ def run(display, backlight, touch, imu_gestures, width, height,
                     else:
                         wait_for_release = False
 
+            if mode == modes.INTERACTIVE and not game_on:
+                tracker.update(point, now)
+                title_screen.update(now)
+                if tracker.gesture_done:  # a tap anywhere starts the game
+                    print("t={:.1f} title tapped: the game starts".format(now))
+                    game_on = True
+                    title_screen = None  # its sprites and labels can go
+                    display.root_group = nav.group
+                    nav.refresh_backdrop()
+                    start_game(now)
+            elif mode == modes.INTERACTIVE:
                 zone = (
                     edge_gesture.edge_of(point[0], point[1], width, height)
                     if point is not None and not nav.overlay_up
@@ -320,7 +352,7 @@ def run(display, backlight, touch, imu_gestures, width, height,
             stats.ticks += 1
             stats.tick_s = max(stats.tick_s, clock() - now)
             if now >= stats.next_report:
-                stats.report(now, mode, touch, clock)
+                stats.report(now, mode if game_on else mode + "/title", touch, clock)
         except Exception as exc:  # noqa: BLE001 -- a hard-crashed game is a black screen
             traceback.print_exception(exc)
             sleep(0.5)  # back off so a persistent fault doesn't spam serial

@@ -81,7 +81,7 @@
     "batteries": "gen_sprites_ai.py seed 1 (strength 0.85)",
     "cardboard box": "gen_sprites_ai.py seed 3 (strength 0.85)",
     "carrot": "gen_sprites_ai.py seed 4 (strength 0.85)",
-    "cat_0_1": "chirpy: gen_sprites_ai.py seed 5 (strength 0.85); frame 1 = 1px breathing bob; red bow added by hand (build_sprites.chirpy_bow)",
+    "cat_0_1": "chirpy: gen_sprites_ai.py seed 1 (strength 0.85), recoloured to her original's colours and given a red bow by hand (build_sprites.EDITS) -- Chris 2026-11-08: seed 5 was yellow and grey, not an orange tabby; frame 1 = 1px breathing bob",
     "chimney": "gen_sprites_ai.py seed 3 (strength 0.85)",
     "dog_0_0": "patch: gen_sprites_ai.py seed 3 (strength 0.85); frame 1 = 1px breathing bob",
     "dog_3_0": "sparky: gen_sprites_ai.py seed 5 (strength 0.85); frame 1 = 1px breathing bob",

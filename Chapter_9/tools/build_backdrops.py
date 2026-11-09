@@ -2042,6 +2042,48 @@ ORNAMENTS = {
     "ornament_sleigh.bmp": ornament_sleigh,
 }
 
+
+# ---- the title screen (cd-342.34) ------------------------------------------ #
+
+
+def title_art():
+    """Christmas Eve over the neighbourhood: the game puts the sign over the
+    middle, the presents and critters on the snow, TAP TO START below."""
+    c = Canvas("n")
+    night_sky(c, 92, seed=103, stars=36)
+    moon(c, 60, 10, 5)  # peeks over the sign
+    # Snowy hills far off, pines along them.
+    c.ellipse(20, 86, 34, 12, "s", ink="s")
+    c.ellipse(100, 84, 30, 13, "s", ink="s")
+    for x, h in ((6, 16), (16, 12), (104, 14), (114, 18)):
+        pine(c, x, 78, h)
+    # A house each side, windows lit, lights along the eaves.
+    for x0, x1, top in ((-4, 26, 62), (94, 124, 60)):
+        mid = (x0 + x1) // 2
+        c.rect(x0, top, x1, 92, "p")
+        for j in range(9):
+            half = (x1 - x0) // 2 * j // 8
+            c.hline(mid - half, mid + half, top - 9 + j, "p")
+            c.put(mid - half, top - 9 + j, "w")
+            c.put(mid + half, top - 9 + j, "w")
+        c.hline(x0, x1, top, "w")
+        string_lights(c, [(x, top + 1 + (x % 6 > 2)) for x in range(x0, x1 + 1, 2)])
+        for wx in range(x0 + 5, x1 - 4, 9):
+            c.box(wx, top + 7, wx + 4, top + 13, "y")
+            c.put(wx + 2, top + 10, "O")
+        glow(c, mid, top + 10, 16, "b", "n")
+    # The snow the presents sit on, a shadow along them, and plain snow below
+    # for TAP TO START.
+    snow_ground(c, 92, seed=107)
+    c.rect(0, 100, SIZE - 1, SIZE - 1, "w")
+    shade(c, 14, 97, 104, 99, "c", "w")
+    for x, y in scatter(10, 0, 104, SIZE - 1, SIZE - 1, 109):
+        c.hline(x, x + 2, y, "c")
+    return c
+
+
+TITLE = {"title.bmp": title_art}
+
 SHEET_W, SHEET_H = 128, 32
 
 
@@ -2203,6 +2245,7 @@ def main():
                 os.path.join(args.png, "ornament_sprites.png"))
     jobs = [(backdrop.file_name(room), room, draw) for room, draw in ROOMS.items()]
     jobs += [(f, f[:-4], draw) for f, draw in ORNAMENTS.items()]
+    jobs += [(f, f[:-4], draw) for f, draw in TITLE.items()]
     for fname, label, draw in jobs:
         if args.only and args.only not in (label, fname):
             continue

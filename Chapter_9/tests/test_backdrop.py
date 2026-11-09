@@ -26,9 +26,11 @@ import ornament  # noqa: E402
 # What a complete art set holds: a backdrop per room, plus the ornament screen's
 # scene backdrops and sprite sheet (cd-342.37).
 import scene_art  # noqa: E402
+import title_view  # noqa: E402  (just its file name; display imports are lazy)
 
 _ALL_ROOMS = ({backdrop.file_name(room.name) for room in rooms.make_world()._rooms.values()}
-              | set(ornament.FILES) | {scene_art.OBJECTS, scene_art.CRITTERS})
+              | set(ornament.FILES) | {scene_art.OBJECTS, scene_art.CRITTERS}
+              | {title_view.FILE})
 _SHEETS = {  # file -> (width, height) of the sprite sheets (cd-342.38)
     ornament.SPRITES: (ornament.SHEET_W, ornament.SHEET_H),
     scene_art.OBJECTS: (scene_art.TILE * len(scene_art.NAMES), scene_art.TILE),

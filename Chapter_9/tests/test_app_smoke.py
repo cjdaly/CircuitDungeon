@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "game"))
 _STUBBED = ("displayio", "vectorio", "bitmaptools", "adafruit_display_text",
             "adafruit_display_text.bitmap_label",
             "adafruit_bitmap_font", "adafruit_bitmap_font.bitmap_font")
-_GAME_MODULES = ("app", "backdrop", "nav_view", "room_banner", "comic", "comic_fonts", "ornament",
+_GAME_MODULES = ("app", "title_view", "backdrop", "nav_view", "room_banner", "comic", "comic_fonts", "ornament",
                  "scene_view")
 _GAME_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "game")
 _saved = {}
@@ -193,7 +193,8 @@ _CENTER = _at(120, 120)
 class _Run:
     """Runs app.run() for `seconds` of fake time and records what's on screen."""
 
-    def __init__(self, windows=(), jerk=0.0, seconds=5.0, imu=None, bus_recovery=None):
+    def __init__(self, windows=(), jerk=0.0, seconds=5.0, imu=None, bus_recovery=None,
+                 title=False):
         _labels.clear()
         import app  # after stubs are in place
 
@@ -210,6 +211,7 @@ class _Run:
             self.display, self.backlight, _Touch(self.clock, windows), self.imu,
             240, 240, max_ticks=int(seconds / 0.05),
             clock=self.clock.now, sleep=self.clock.sleep, bus_recovery=bus_recovery,
+            title=title,
         )
         self.nav_group = self.groups[0]
 
@@ -290,7 +292,7 @@ class _DozingPower(_Power):
 class TestDeepIdle(unittest.TestCase):
     """Set down untouched: ornament at ~30s, dark at ~5min, deep idle 10s later."""
 
-    def _run(self, seconds, move_at=1e9, power_class=None, move_for=1e9):
+    def _run(self, seconds, move_at=1e9, power_class=None, move_for=1e9, title=False):
         import app
 
         clock = _Clock()
@@ -301,6 +303,7 @@ class TestDeepIdle(unittest.TestCase):
         app.run(
             display, backlight, _Touch(clock, ()), power, 240, 240,
             max_ticks=int(seconds / 0.05), clock=clock.now, sleep=clock.sleep, power=power,
+            title=title,
         )
         return power, display, backlight
 
@@ -336,6 +339,12 @@ class TestDeepIdle(unittest.TestCase):
         power, display, backlight = self._run(1400.0, move_at=500.0, move_for=10.0)
         wake_at = power.events[1][1] - 100.0
         self.assertGreater(self._dark_again_after(wake_at), 300.0)
+
+    def test_the_title_screen_goes_dark_and_to_deep_idle_too(self):
+        # cd-342.34: the title must not be a new way to stay lit on battery.
+        power, display, backlight = self._run(400.0, title=True)
+        self.assertEqual([e for e, _ in power.events], ["sleep"])
+        self.assertFalse(backlight.value)
 
     def test_light_sleep_dozes_until_motion(self):
         power, display, backlight = self._run(1200.0, move_at=700.0, power_class=_DozingPower)
@@ -613,6 +622,40 @@ class TestAppSmoke(unittest.TestCase):
     def test_interactive_blanks_when_handled_but_untouched(self):
         r = _Run(jerk=10.0, seconds=125.0)
         self.assertFalse(r.backlight.value)
+
+
+class TestTitle(unittest.TestCase):
+    """The title screen: up at start, until a tap starts the game (cd-342.34)."""
+
+    def _texts(self, group):
+        found = []
+        for item in group:
+            if isinstance(item, _Group):
+                if not item.hidden:
+                    found.extend(self._texts(item))
+            elif isinstance(item, _Label) and item.text and not getattr(item, "hidden", False):
+                found.append(item.text)
+        return found
+
+    def test_starts_on_the_title_not_the_game(self):
+        run = _Run(seconds=3.0, title=True)
+        first = run.groups[0]
+        self.assertIn("CHRISTMAS", self._texts(first))
+        self.assertIn("CRITTERS", self._texts(first))
+        self.assertIs(run.groups[-1], first)  # still the title: nobody tapped
+
+    def test_a_tap_starts_the_game(self):
+        run = _Run(windows=[(2.0, 2.1, _CENTER)], seconds=4.0, title=True)
+        title, last = run.groups[0], run.groups[-1]
+        self.assertIsNot(last, title)
+        self.assertNotIn("CHRISTMAS", self._texts(last))
+        run.nav_group = last
+        self.assertEqual(run.room(), "LIVING ROOM")
+
+    def test_the_touch_that_wakes_a_dark_title_does_not_start_the_game(self):
+        # dark after the interactive timeout; a touch then only lights it.
+        run = _Run(windows=[(125.0, 125.1, _CENTER)], seconds=128.0, title=True)
+        self.assertIs(run.groups[-1], run.groups[0])
 
 
 if __name__ == "__main__":

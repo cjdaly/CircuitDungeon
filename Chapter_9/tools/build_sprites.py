@@ -143,19 +143,52 @@ def yarn():
     return t
 
 
-def chirpy_bow(t):
-    """A red Christmas bow at Chirpy's neck (the model left it off)."""
-    for x, y in ((13, 16), (17, 16), (13, 17), (14, 17), (16, 17), (17, 17), (13, 18), (17, 18),
-                 (14, 19), (16, 19)):
-        t.put(x, y, "r")
-    t.put(15, 17, "p")
-    for x, y in ((12, 16), (12, 17), (12, 18), (18, 16), (18, 17), (18, 18), (13, 15), (17, 15)):
-        t.put(x, y, "#")
+def bow(cx, cy):
+    """A red Christmas bow centred at (cx, cy): two loops, a knot, two tails, inked."""
+    def draw(t):
+        for dx, dy in ((-2, -1), (-2, 0), (-2, 1), (-1, 0), (1, 0), (2, -1), (2, 0), (2, 1),
+                       (-1, 2), (1, 2)):
+            t.put(cx + dx, cy + dy, "r")
+        t.put(cx, cy, "p")
+        for dx, dy in ((-3, -1), (-3, 0), (-3, 1), (3, -1), (3, 0), (3, 1), (-2, -2), (2, -2)):
+            t.put(cx + dx, cy + dy, "#")
+    return draw
 
 
-EDITS = {  # (set, sprite file stem) -> hand touch
-    ("sdxl-repaint", "cat_0_1"): chirpy_bow,
-    ("sdxl-repaint", "cat_0_1_f1"): chirpy_bow,
+_RGB = {i: ((scene_art.COLORS[i] >> 16) & 255, (scene_art.COLORS[i] >> 8) & 255,
+            scene_art.COLORS[i] & 255) for i in range(1, 17)}
+
+
+def lock_to_original(sprite_id):
+    """Recolour a sprite with only the colours its drawn original uses, each
+    pixel to the nearest of them -- keeps a redrawn critter the critter it was
+    (Chirpy is an orange tabby, not yellow and grey)."""
+    def draw(t):
+        ids = [c[0] for c in critter_candidates.CANDIDATES]
+        orig = drawn_critters()[2 * ids.index(sprite_id)]
+        keep = sorted({v for row in orig.px for v in row if v})
+        for y in range(TILE):
+            for x in range(TILE):
+                v = t.px[y][x]
+                if v and v not in keep:
+                    r, g, b = _RGB[v]
+                    t.px[y][x] = min(keep, key=lambda k: (_RGB[k][0] - r) ** 2
+                                     + (_RGB[k][1] - g) ** 2 + (_RGB[k][2] - b) ** 2)
+    return draw
+
+
+def both(*edits):
+    def draw(t):
+        for edit in edits:
+            edit(t)
+    return draw
+
+
+EDITS = {  # (set, sprite file stem) -> touches applied after loading, in order
+    # Chirpy: kept to her original's colours, then a bow under her chin (the
+    # model left it off); frame 1 is the 1px breathing bob, so the bow drops too.
+    ("sdxl-repaint", "cat_0_1"): both(lock_to_original("cat_0_1"), bow(11, 23)),
+    ("sdxl-repaint", "cat_0_1_f1"): both(lock_to_original("cat_0_1"), bow(11, 24)),
 }
 
 
@@ -177,8 +210,17 @@ def drawn_objects():
             for name in scene_art.NAMES]
 
 
+_DRAWN_CRITTERS = []
+
+
 def drawn_critters():
-    """critters_nn.bmp's tiles, re-indexed into this palette."""
+    """critters_nn.bmp's tiles, re-indexed into this palette (built once)."""
+    if not _DRAWN_CRITTERS:
+        _DRAWN_CRITTERS.extend(_read_drawn_critters())
+    return _DRAWN_CRITTERS
+
+
+def _read_drawn_critters():
     src = Image.open(os.path.join(CH9, "game", "art", "critters_nn.bmp"))
     old = src.getpalette()
     to_new = {0: 0}  # its colours are DB16 give or take a step: map to the nearest

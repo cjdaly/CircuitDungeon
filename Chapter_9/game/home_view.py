@@ -67,7 +67,7 @@ _BOLT_S = 0.9  # time to reach the edge
 _BOLT_PX = 130
 
 
-def _first_frame(sprite):
+def first_frame(sprite):
     for i, candidate in enumerate(critter_candidates.CANDIDATES):
         if candidate[0] == sprite:
             return 2 * i
@@ -80,7 +80,7 @@ def _solid(color):
     return palette
 
 
-def _box_palette(base, species):
+def box_palette(base, species):
     """scene_art's palette with this critter's present colours swapped in."""
     palette = displayio.Palette(len(scene_art.COLORS))
     for i in range(len(scene_art.COLORS)):
@@ -128,7 +128,7 @@ class HomeView:
         self._sitters = []
         species_order = tuple(scene_art.BOX_COLORS)
         self._palettes = {
-            species: _box_palette(art_palette, species) for species in species_order
+            species: box_palette(art_palette, species) for species in species_order
         }
         for _ in SLOTS:
             self._boxes.append(_Grid(self._wide, art_sheet, art_palette, scene_art.TILE, _WIDE))
@@ -190,7 +190,7 @@ class HomeView:
             self._normal_tile.append(self._tile_of[art])
             box.place(x, y, self._normal_tile[i])
             if state == hunt.BOX_HOME:
-                self._sitter_frame[i] = _first_frame(sprite)
+                self._sitter_frame[i] = first_frame(sprite)
                 sitter.place(x, y - _ON_BOX, self._sitter_frame[i])
             else:
                 sitter.hide()
@@ -265,7 +265,7 @@ class HomeView:
         dx, dy = {LEFT: (-1, 0), RIGHT: (1, 0), UP: (0, -1), DOWN: (0, 1)}[direction]
         travel = min(t / _BOLT_S, 1.0) * _BOLT_PX
         rx, ry = int(x + dx * travel), int(y - 8 + dy * travel)
-        frame = _first_frame(self._escape.sprite) + int(t / 0.1) % 2
+        frame = first_frame(self._escape.sprite) + int(t / 0.1) % 2
         self._runner.place(rx, ry, frame)
         self._runner.grid.flip_x = dx > 0  # the sprites face left
         if t < _BOLT_S:
@@ -275,7 +275,7 @@ class HomeView:
     def _draw_close(self, shot, t):
         escape = self._escape
         palette = self._palettes[escape.species]
-        frame = _first_frame(escape.sprite)
+        frame = first_frame(escape.sprite)
         box, lid, critter, big = self._close_box, self._lid, self._close_critter, self._big
         if box.grid.pixel_shader is not palette:  # setting it redraws the lot
             box.grid.pixel_shader = palette

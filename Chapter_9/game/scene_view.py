@@ -134,6 +134,7 @@ class SceneView:
         else:
             critter_palette = critters.pixel_shader
             critter_palette.make_transparent(0)
+        self._critter_sheet, self._critter_palette = critters, critter_palette
 
         # Back to front: a peeking critter, its spot, wiggles, the lure, a found critter.
         self._behind = displayio.Group(scale=_CRITTER_SCALE)
@@ -225,6 +226,11 @@ class SceneView:
         if scene.follower is not None:
             self._follower_frame = _first_frame(scene.follower)
         self.update(now)
+
+    def sheets(self):
+        """(objects, its palette, critters, its palette, tile index by name), to share."""
+        return (self._sheet, self._palette, self._critter_sheet, self._critter_palette,
+                self._tile_of)
 
     def icon(self, name):
         """(sheet, palette, tile, tile px) of one picture, for comic thought bubbles."""
