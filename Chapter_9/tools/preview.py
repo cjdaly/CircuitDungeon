@@ -71,7 +71,22 @@ class Session:
         self.nav.show_scene(self.hunt.scene(), self.now)
         want = self.hunt.critter.preferred_item if self.hunt.critter else None
         self.nav.say(list(messages), self.now, event, want, self.hunt.escape,
-                     self.hunt.escape_at)
+                     self.hunt.escape_at, self.hunt.cutscenes)
+
+    def arrive(self, room):
+        """Teleport, playing whatever arriving there sets off (a finale cutscene)."""
+        self.world.current = room
+        messages = self.hunt.entered()
+        self._refresh(messages, self.hunt.event)
+        return self
+
+    def skip(self):
+        """Tap through every caption and cutscene beat that's up."""
+        for _ in range(40):
+            if not self.nav.overlay_up:
+                break
+            self.next_beat()
+        return self
 
     def jump(self, room):
         """Teleport, for a quick look at a room (the gate still applies to moves)."""
@@ -176,6 +191,45 @@ def scenes():
         yield "{}_lure".format(species), s.at(0.1)
     s.jump("Odd Corner")
     yield "odd_corner", s.at(0.1)
+
+    yield from finale_scenes()
+
+
+def finale_scenes():
+    """The finale (cd-342.6): every critter home, then the burst."""
+    s = Session()
+    for critter in s.hunt._critters.values():
+        critter.escape("Yard")
+        critter.try_retrieve("Yard", (critter.preferred_item,))
+    s.hunt._next = len(s.hunt._order)
+    s.world.current = "Living Room"
+    s.hunt._quiet()
+    s._refresh(s.hunt._start_next_episode(lead=0), s.hunt.event)
+    yield "f01_all_home", s.at(0.5)
+    yield "f02_burst", s.next_beat().at(0.45)
+    yield "f03_chaos", s.next_beat().at(0.6)
+    yield "f04_chaos_glitch", s.next_beat().at(0.9)
+    yield "f05_running_flat", s.next_beat().at(0.3)
+    yield "f06_parade_home", s.skip().at(0.3)
+    yield "f07_parade_kitchen", s.jump("Kitchen").at(0.3)
+    s.arrive("Odd Corner")
+    yield "f08_odd_corner", s.at(0.3)
+    yield "f09_tower1", s.next_beat().at(0.1)
+    for n in range(2, 6):
+        s.next_beat()
+    yield "f10_tower5", s.at(0.5)
+    yield "f11_grab", s.next_beat().at(0.8)
+    yield "f12_got_them", s.next_beat().at(0.3)
+    yield "f13_carrying", s.skip().at(0.3)
+    s.arrive("Living Room")
+    yield "f14_hop", s.at(1.3)
+    yield "f15_hop_done", s.at(1.9)
+    yield "f16_charged", s.next_beat().at(0.3)
+    s.next_beat()
+    yield "f17_liftoff", s.next_beat().at(1.0)
+    yield "f18_liftoff_lap", s.at(0.9)
+    yield "f19_cookies", s.next_beat().next_beat().at(0.3)
+    yield "f20_end", s.skip().at(0.3)
 
 
 def main(argv):

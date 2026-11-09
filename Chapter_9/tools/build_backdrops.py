@@ -414,15 +414,14 @@ def odd_corner():
     baseboard(c, color="d")
     planks(c, FLOOR_Y + 3, base="o", seam="p")
 
-    # A high shelf, top right. (The batteries are the scene's own lure,
-    # drawn by scene_view in the middle, so not here too.)
-    c.box(70, 24, 118, 27, "o")
-    c.rect(74, 28, 75, 32, "#")
-    c.rect(112, 28, 113, 32, "#")
-    c.box(78, 16, 86, 23, "c")  # an old jar
-    c.rect(77, 14, 87, 15, "s")
-    c.box(93, 12, 108, 23, "O")  # an old box beside it
-    c.hline(93, 108, 16, "o")
+    # A high shelf on the right wall, just under the room caption, above a
+    # critter's head. The batteries are the scene's own lure: scene_view puts
+    # them on this shelf at 1x (its _SHELF_*), at x 71-83 standing on y 49.
+    c.box(62, 49, 93, 51, "o")
+    c.rect(66, 52, 67, 56, "#")
+    c.rect(88, 52, 89, 56, "#")
+    c.box(86, 41, 91, 48, "c")  # an old jar beside them
+    c.rect(85, 40, 92, 40, "s")
 
     # Boxes stacked up the left, the "too many boxes" way.
     c.box(4, 50, 32, 80, "O")
@@ -435,10 +434,10 @@ def odd_corner():
     c.box(88, 56, 118, 80, "k")
     c.hline(88, 118, 62, "o")
     c.box(94, 40, 114, 56, "O")
-    for i in range(36):
-        c.put(84 - i // 3, 44 + i, "o")
-    c.box(68, 78, 76, 88, "y")
-    for x in range(69, 76, 2):
+    for i in range(24):  # leaning on the boxes, below the shelf
+        c.put(86 - i // 3, 56 + i, "o")
+    c.box(74, 78, 82, 88, "y")
+    for x in range(75, 82, 2):
         c.vline(x, 84, 88, "O")
     # A lamp with no shade, and a picture frame leaning against the wall.
     c.box(40, 66, 54, 80, "o")

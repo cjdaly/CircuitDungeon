@@ -36,6 +36,7 @@ room map.
 IN_BOX = "in_box"
 HIDING = "hiding"
 RETURNED = "returned"
+LOOSE = "loose"  # the finale: out again, following you (cd-342.6)
 
 
 class Critter:
@@ -56,7 +57,8 @@ class Critter:
 
         Returns True on success; False (no-op) if not currently IN_BOX.
         RETURNED is terminal, not a path back to IN_BOX -- once retrieved,
-        a critter's arc is done and it doesn't escape again.
+        a critter's arc is done and it doesn't escape again (the finale's
+        burst() is the one way back out).
         """
         if self.state != IN_BOX:
             return False
@@ -76,6 +78,25 @@ class Critter:
         if self.state != HIDING:
             return False
         if room_name != self.location or self.preferred_item not in held_items:
+            return False
+        self.state = RETURNED
+        self.location = self.home
+        return True
+
+    def burst(self):
+        """The finale: a RETURNED critter is out again, all at once (cd-342.6).
+
+        The one deliberate way back out of RETURNED; nothing in the hunt
+        itself uses it. Returns True if it got out, False (no-op) otherwise.
+        """
+        if self.state != RETURNED:
+            return False
+        self.state = LOOSE
+        return True
+
+    def recharge(self):
+        """The finale's end: a LOOSE critter, fresh battery in, is home for good."""
+        if self.state != LOOSE:
             return False
         self.state = RETURNED
         self.location = self.home

@@ -31,6 +31,7 @@ import vectorio
 import comic
 import comic_fonts
 import escape
+import finale
 import hunt
 import rooms
 from backdrop import Backdrop
@@ -158,24 +159,37 @@ class NavView:
         """A tap while an overlay is up: on to the next beat."""
         self._player.tap(now)
 
-    def say(self, messages, now, event=None, want=None, escaped=None, escape_at=0):
+    def say(self, messages, now, event=None, want=None, escaped=None, escape_at=0,
+            cutscenes=()):
         """Show `messages` as captions, one after another.
 
         `event` is what just happened (hunt.Hunt.event): finding a critter
         shouts FOUND! first and puts `want`, the scene_art name of its lure, in a
-        thought bubble over the first caption; bringing one home adds hearts. An
-        escape (`escaped`, a hunt.Escape) plays the cutscene before message
-        `escape_at`, with the box still shut under the messages before it.
+        thought bubble over the first caption; bringing one home adds hearts.
+        `cutscenes` (hunt.Hunt.cutscenes) plays each named cutscene before its
+        message: the escape (about `escaped`, a hunt.Escape) with the box still
+        shut under the captions before it, and the finale's (finale.CUTSCENES)
+        with their own shots before and after. An escape with no `cutscenes`
+        plays before message `escape_at`.
         """
+        cuts = dict(cutscenes)
+        if event == hunt.ESCAPED and not cuts:
+            cuts[escape_at] = hunt.ESCAPE_SCENE
         beats = []
+        shot = self._shot_before(cuts[min(cuts)]) if cuts else None
         for index, text in enumerate(messages):
-            if event == hunt.ESCAPED and index == escape_at:
+            name = cuts.get(index)
+            if name == hunt.ESCAPE_SCENE:
                 self._things.set_escape(escaped)
                 beats.extend(escape.cutscene())
+                shot = None
+            elif name is not None:
+                make, _before, after = finale.CUTSCENES[name]
+                beats.extend(make(self._things.parade_size()))
+                shot = after
             lines = wrap(text)
             # A caption holds two lines; anything longer runs on into the next.
             for i in range(0, len(lines), 2):
-                shot = escape.CALM if event == hunt.ESCAPED and index < escape_at else None
                 beats.append(Beat(caption="\n".join(lines[i:i + 2]), shot=shot))
         if event == hunt.FOUND:
             if beats and want is not None:
@@ -184,6 +198,12 @@ class NavView:
         elif event == hunt.RETRIEVED and beats:
             beats[0].emanata = _HEARTS
         self._player.play(beats, now)
+
+    @staticmethod
+    def _shot_before(name):
+        if name == hunt.ESCAPE_SCENE:
+            return escape.CALM
+        return finale.CUTSCENES[name][1]
 
     def bonk(self, now):
         """A move onto an edge with no exit at all."""

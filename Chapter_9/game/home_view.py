@@ -196,6 +196,14 @@ class HomeView:
                 sitter.hide()
         self._draw_shot(0.0)
 
+    def slot_of(self, species):
+        """Which present is this critter's (an index into SLOTS), or None."""
+        return self._species_slot.get(species)
+
+    def sitter_visible(self, slot, visible):
+        """Show or hide the critter sitting on a present (the finale's hops)."""
+        self._sitters[slot].group.hidden = not visible
+
     def set_escape(self, escape):
         """The critter the next escape cutscene is about (a hunt.Escape)."""
         self._escape = escape

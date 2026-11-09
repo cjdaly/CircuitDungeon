@@ -53,7 +53,7 @@
       "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: a cozy living room, decorated for Christmas, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
     },
     "odd_corner.bmp": {
-      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: a cluttered corner. Up on a high shelf: batteries!, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
+      "note": "gen_backdrops_ai.py img2img strength 0.75 seed 1, 30 steps, from the drawn Odd Corner with its shelf moved under the caption (2026-11-08; seed 1 kept the shelf best); prompt: a cluttered corner. Up on a high shelf: batteries!, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"
     },
     "pond.bmp": {
       "note": "gen_backdrops_ai.py img2img strength 0.75 seed 2, 30 steps; prompt: a small frozen pond at the edge of the yard, pixel art, bold black outlines, flat colours, comic style, front view, Christmas Eve night, warm light, open floor in the middle"

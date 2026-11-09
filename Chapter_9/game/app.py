@@ -120,13 +120,19 @@ def run(display, backlight, touch, imu_gestures, width, height,
     player = os.getenv("PLAYER")
     roster = make_roster()
     hunt = Hunt(world, roster, player=player)
+    # Review switch: settings.toml FINALE_NOW = "1" starts at the finale, every
+    # critter already home. Leave it out for real play.
+    finale_now = os.getenv("FINALE_NOW") in ("1", "true", "yes")
+    if finale_now:
+        hunt.skip_to_finale()
 
     nav = NavView(width, height)
 
     def tell(messages, now):
         """Show what the hunt just said, drawn the way its last event wants."""
         want = hunt.critter.preferred_item if hunt.critter else None
-        nav.say(messages, now, hunt.event, want, hunt.escape, hunt.escape_at)
+        nav.say(messages, now, hunt.event, want, hunt.escape, hunt.escape_at,
+                hunt.cutscenes)
 
     def start_game(now):
         opening = hunt.start()  # sets the episode's gate, so before show_room
@@ -200,7 +206,8 @@ def run(display, backlight, touch, imu_gestures, width, height,
 
     print("Ch9 ready -- start: {}  player={}  art={}{}  free={}".format(
         world.current, player, getattr(nav, "art_set", None),
-        "  OPEN_ALL_ROOMS" if world.open_all else "", gc.mem_free()))
+        ("  OPEN_ALL_ROOMS" if world.open_all else "") + ("  FINALE_NOW" if finale_now else ""),
+        gc.mem_free()))
 
     while max_ticks is None or ticks < max_ticks:
         ticks += 1

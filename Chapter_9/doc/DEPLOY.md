@@ -113,6 +113,19 @@ The story still runs, but no door is shut. The start-up line shows
 `OPEN_ALL_ROOMS` while it's on. Take it out for real play, and never put it on a
 gift unit.
 
+## Review mode: straight to the finale
+
+To try the finale (`doc/EPISODES.md` §6) without playing all five episodes
+first, add this and reset:
+
+```
+FINALE_NOW = "1"
+```
+
+The game starts with every critter already home, and the first tap past the
+title sets off the burst. The start-up line shows `FINALE_NOW` while it's on.
+Same rule: take it out for real play, never on a gift unit.
+
 ## Two boards
 
 With two boards plugged in, the second mounts as `CIRCUITPY 1`, and which is

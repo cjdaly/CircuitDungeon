@@ -10,6 +10,8 @@ disk):
 - once found, it stands in front of the spot, waiting for its lure
 - a lure (or what hides it: a snowman, a dark room) sits in its room, bobbing
 - the item in hand shows bottom left; a critter following you home, bottom right
+- in the finale, the whole parade of critters trailing round the bottom, and
+  the finale's cutscene shots (finale_view.py)
 
 Everything is built once and shown/hidden or moved, never re-created, so a room
 change allocates nothing (the cd-yl4 Label-churn lesson). The pictures come
@@ -26,9 +28,11 @@ import displayio
 import backdrop
 import comic_shapes
 import critter_candidates
+import finale
 import scene_art
+from finale_view import FinaleView
 from home_view import HomeView
-from hunt import HIDING
+from hunt import BOX_HOME, HIDING, SHELF
 from walk import bob
 
 OBJECTS = scene_art.OBJECTS
@@ -54,6 +58,10 @@ _WIGGLE_X = (_MIDDLE_X - 34, _MIDDLE_X + _ART_PX + 2)  # wiggle lines either sid
 _WIGGLE_Y = _SPOT_Y + 8
 _LURE_BOB_PX = 3
 _LURE_BOB_PERIOD = 1.6
+# A lure up on the Odd Corner's high shelf (hunt.SHELF): 1x and still, its
+# bottom row standing on the shelf (backdrop y 49, so 98 on screen), just
+# under the room caption and above a standing critter's head.
+_SHELF_X, _SHELF_Y, _SHELF_SCALE = 138, 68, 1
 
 _IDLE_FRAME_S = 0.5  # critter frame flip at rest
 _HOP_FRAME_S = 0.2  # ...and while hopping along behind you
@@ -184,8 +192,15 @@ class SceneView:
                       self._front, self._held_layer, self._follow_layer):
             layer.hidden = True
             self.group.append(layer)
+        self._finale = FinaleView(self._sheet, self._palette, self._tile_of, critters,
+                                  critter_palette, self._home)
+        self.group.append(self._finale.group)
+        self._boxes = None  # the scene's presents, to put back after a finale shot
+        self._finale_shot = False
 
         self._pose = None
+        self._held_shown = False
+        self._lure_high = False
         self._critter_frame = 0
         self._follower_frame = 0
         self._spot_top = 0
@@ -194,7 +209,9 @@ class SceneView:
     def show(self, scene, now=0.0):
         """Show a hunt.Scene: call it whenever the room or what's in it changes."""
         self._shown_at = now
+        self._boxes = scene.boxes
         self._home.show(scene.boxes)
+        self._finale.show(scene.parade)
         self._spot_layer.hidden = scene.spot is None
         if scene.spot is not None:
             self._spot[0] = self._tile_of[scene.spot]
@@ -217,8 +234,15 @@ class SceneView:
         self._lure_layer.hidden = scene.lure is None
         if scene.lure is not None:
             self._lure[0] = self._tile_of[scene.lure]
+        self._lure_high = scene.lure_at == SHELF
+        layer = self._lure_layer
+        if self._lure_high:
+            layer.scale, layer.x, layer.y = _SHELF_SCALE, _SHELF_X, _SHELF_Y
+        else:
+            layer.scale, layer.x = _ART_SCALE, _MIDDLE_X
 
-        self._held_layer.hidden = scene.held is None
+        self._held_layer.hidden = scene.held is None or self._finale_shot
+        self._held_shown = scene.held is not None
         if scene.held is not None:
             self._held[0] = self._tile_of[scene.held]
 
@@ -241,11 +265,28 @@ class SceneView:
         self._home.set_escape(escape)
 
     def shot(self, name, now):
-        """Draw one escape-cutscene shot (home_view's names), or None for none."""
-        self._home.shot(name, now)
+        """Draw one cutscene shot (home_view's escape shots or finale.SHOTS), or None."""
+        in_finale = name in finale.SHOTS
+        self._home.shot(None if in_finale else name, now)
+        self._finale.shot(name if in_finale else None, now)
+        if name == finale.ALL_HOME and self._boxes:  # the calm before the burst
+            self._home.show(tuple((species, BOX_HOME, sprite)
+                                  for species, _state, sprite in self._boxes))
+        elif in_finale or self._finale_shot:
+            self._home.show(self._boxes)  # as the scene has them (and every sitter back)
+        self._finale_shot = in_finale
+        if in_finale:
+            self._held_layer.hidden = True  # the finale draws its own batteries
+        elif self._held_shown:
+            self._held_layer.hidden = False
+
+    def parade_size(self):
+        """How many critters the finale has (for its tower's beats)."""
+        return self._finale.size
 
     def update(self, now):
         self._home.update(now)
+        self._finale.update(now)
         t = now - self._shown_at
         if self._pose is not None:
             self._critter[0] = self._critter_frame + int(t / _IDLE_FRAME_S) % 2
@@ -260,7 +301,7 @@ class SceneView:
                 self._spot_layer.x = _MIDDLE_X
         else:
             self._spot_layer.x = _MIDDLE_X
-        if not self._lure_layer.hidden:
+        if not self._lure_layer.hidden and not self._lure_high:
             self._lure_layer.y = _LURE_Y - bob(t, _LURE_BOB_PERIOD, _LURE_BOB_PX)
         if not self._follow_layer.hidden:
             self._follower[0] = self._follower_frame + int(t / _HOP_FRAME_S) % 2

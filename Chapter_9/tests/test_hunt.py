@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "game"))
 
 import critters  # noqa: E402
 import episodes  # noqa: E402
+import finale  # noqa: E402
 import hunt  # noqa: E402
 import rooms  # noqa: E402
 from rooms import DOWN, LEFT, RIGHT, UP  # noqa: E402
@@ -224,13 +225,91 @@ class TestBringingItHome(HuntCase):
         self.hunt.tapped()
         messages = self.walk(LEFT, LEFT, LEFT)
         self.assertEqual(messages[0], "Chirpy curls up on the rug")
-        self.assertEqual(self.hunt.stage, hunt.DONE)
+        # The last one home: the finale bursts out (TestFinale).
+        self.assertEqual(messages[1], "All home!")
+        self.assertEqual(self.hunt.stage, hunt.PARADE)
         self.assertIsNone(self.world.gate)
-        self.assertEqual(self.hunt.tapped(), ["Merry Christmas!"])
 
     def test_passing_through_the_tree_while_hunting_does_nothing_special(self):
         self.walk(RIGHT, LEFT)
         self.assertEqual(self.hunt.stage, hunt.HUNTING)
+
+
+class TestFinale(unittest.TestCase):
+    """cd-342.6: after the last one's home, everyone bursts out again."""
+
+    def setUp(self):
+        self.world = rooms.make_world()
+        self.roster = critters.make_roster(choice=first_choice)
+        self.game = hunt.Hunt(self.world, self.roster, order=[], player="Sam")
+        for critter in self.roster.all():  # as if every episode were played
+            critter.escape("Yard")
+            critter.try_retrieve("Yard", (critter.preferred_item,))
+        self.messages = self.game.start()
+
+    def walk_to(self, goal):
+        messages = []
+        for direction in _route(self.world, goal):
+            self.assertTrue(self.world.move(direction))
+            messages = self.game.entered()
+        return messages
+
+    def test_every_box_pops_and_the_house_opens(self):
+        self.assertEqual(self.game.stage, hunt.PARADE)
+        self.assertEqual(self.game.event, hunt.BURST)
+        self.assertEqual(self.messages[0], "All home!")
+        self.assertEqual(self.game.cutscenes, ((1, finale.BURST_SCENE),))
+        self.assertIsNone(self.world.gate)
+        boxes = self.game.scene().boxes
+        self.assertEqual({state for _, state, _ in boxes}, {hunt.BOX_EMPTY})
+
+    def test_they_all_follow_you_biggest_first(self):
+        parade = self.game.scene().parade
+        self.assertEqual([species for species, _ in parade], list(hunt.TOWER_ORDER))
+        self.walk_to("Kitchen")
+        self.assertEqual(len(self.game.scene().parade), 5)
+        self.assertEqual(self.game.tapped(), ["To the Odd Corner!"])
+
+    def test_the_batteries_wait_on_the_shelf_until_the_parade_arrives(self):
+        messages = self.walk_to("Odd Corner")
+        self.assertEqual(self.game.event, hunt.TOWER)
+        self.assertEqual(self.game.cutscenes, ((1, finale.TOWER_SCENE),))
+        self.assertEqual(messages[1], "Got them!")
+        scene = self.game.scene()
+        self.assertEqual(scene.held, "batteries")
+        self.assertIsNone(scene.lure)  # off the shelf now
+
+    def test_home_with_the_batteries_ends_the_game(self):
+        self.walk_to("Odd Corner")
+        messages = self.walk_to(critters.HOME)
+        self.assertEqual(self.game.stage, hunt.DONE)
+        self.assertEqual(self.game.event, hunt.CHARGED)
+        self.assertEqual(self.game.cutscenes,
+                         ((0, finale.HOP_SCENE), (2, finale.LIFTOFF_SCENE)))
+        self.assertIn("THANKS! NICE ROBOTS!", messages)
+        self.assertEqual(messages[-2:], ["Merry Christmas,", "Sam!"])
+        boxes = self.game.scene().boxes
+        self.assertEqual({state for _, state, _ in boxes}, {hunt.BOX_HOME})
+        self.assertIsNone(self.game.scene().parade)
+
+    def test_every_finale_line_fits_the_caption(self):
+        lines = list(self.messages)
+        lines += self.walk_to("Odd Corner")
+        lines += self.walk_to(critters.HOME)
+        for text in lines:
+            self.assertLessEqual(len(hunt.wrap(text)), 2, text)  # one caption each
+            for ch in text.upper():  # the comic font has nothing else
+                self.assertIn(ch, hunt._CAPTION_GLYPHS, text)
+            for line in hunt.wrap(text):
+                self.assertLessEqual(hunt.text_px(line), hunt.CAPTION_PX, line)
+
+    def test_the_review_switch_starts_at_the_finale(self):
+        world = rooms.make_world()
+        game = hunt.Hunt(world, critters.make_roster(choice=first_choice))
+        game.skip_to_finale()
+        self.assertEqual(game.start()[0], "All home!")
+        self.assertEqual(game.stage, hunt.PARADE)
+        self.assertEqual(len(game.scene().parade), 5)
 
 
 class TestEpisodeSequence(unittest.TestCase):
@@ -342,8 +421,13 @@ class TestWholeGame(unittest.TestCase):
                 self.game.start()
                 for _ in order:
                     self.play_episode()
-                self.assertEqual(self.game.stage, hunt.DONE)
+                self.assertEqual(self.game.stage, hunt.PARADE)
                 self.assertIsNone(self.world.gate)
+                self.go("Odd Corner")
+                self.assertEqual(self.game.stage, hunt.CARRYING)
+                messages = self.go(critters.HOME)
+                self.assertEqual(self.game.stage, hunt.DONE)
+                self.assertEqual(messages[-1], "Merry Christmas!")
 
     def test_the_hour_moves_on_with_each_episode(self):
         self.game._order = list(self.ORDERS[0])
@@ -449,6 +533,10 @@ class TestScene(HuntCase):
     def test_the_batteries_are_always_in_the_odd_corner(self):
         self.walk(RIGHT, RIGHT, UP)
         self.assertEqual(self.hunt.scene().lure, "batteries")
+        self.assertEqual(self.hunt.scene().lure_at, hunt.SHELF)  # small, up high
+
+    def test_other_lures_are_in_the_middle(self):
+        self.assertIsNone(self.hunt.scene().lure_at)
 
     def test_the_end_shows_nothing(self):
         game = hunt.Hunt(rooms.make_world(), critters.make_roster(choice=first_choice), order=[])
