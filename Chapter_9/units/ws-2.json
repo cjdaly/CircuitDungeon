@@ -1,0 +1,38 @@
+{
+  "art_set": "sdxl-repaint",
+  "battery": "gift-350",
+  "battery_mah": "350",
+  "board_id": "waveshare_rp2350_touch_lcd_1_28",
+  "build": "waveshare_rp2350_touch_lcd_1_28",
+  "device_id": "ws-2",
+  "firmware": [
+    10,
+    3,
+    1,
+    ""
+  ],
+  "fs_kb": 15328,
+  "golden": {
+    "bundle": "20261106",
+    "firmware": "10.3.1"
+  },
+  "i2c": [
+    "0x15",
+    "0x6b"
+  ],
+  "imu_who_rev": [
+    "0x5",
+    "0x7c"
+  ],
+  "machine": "Waveshare RP2350-TOUCH-LCD-1.28 with rp2350",
+  "nvm_cleared": 4096,
+  "provisioned": "2026-11-11 00:27",
+  "sda_clocks": 0,
+  "touch_chip_id": [
+    "0xb5"
+  ],
+  "touch_fw": [
+    "0x2"
+  ],
+  "uid": "e4dd5f67e49972ef"
+}
