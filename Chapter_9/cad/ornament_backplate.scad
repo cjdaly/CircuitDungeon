@@ -9,7 +9,7 @@
 // WHAT THIS CHANGES (Chris, 2026-11-08, after test-fitting the 350 mAh
 // battery in a printed deep_backplate_20mm: fits, ~33 mm deep overall)
 //   1. HANGING HOLES: two Ø3 holes through the top wall (the notch side),
-//      4 mm back from the notch's centre and 4 mm either side of it, for a
+//      3 mm back from the notch's centre and 4 mm either side of it, for a
 //      ribbon or string loop.
 //   2. ROUNDED BACK: the side walls curve in toward the back face, like a
 //      bauble. The back face is on the print bed, so the curve is an
@@ -19,6 +19,10 @@
 //      outside edge, from the back face down to `well_keep` above the screw
 //      head, to make the screws easier to get at. The bottom `well_keep` mm
 //      stays a closed tube to guide the screw onto its standoff.
+//   4. SCREW SEAT (2026-11-12): the countersink taper is 1 mm instead of
+//      2 mm (the well runs 1 mm further down), so the screws reach the
+//      board; the well is 1 mm wider (5.2) for Chris's screwdriver and the
+//      taper 0.5 mm wider (4.5 -> 2.5).
 //
 // COORDINATE FRAME  (as Chapter 8's stock/deep backplates)
 //   Origin at the plate centre. +Y = top (the notch, hanging-on-the-tree
@@ -35,7 +39,7 @@ include <../../Chapter_8/cad/custom_backplate.scad>
 // ---- carried over from deep_backplate_20mm.scad, unchanged ----
 extra_depth = 20.0;  // extra interior depth vs. the flat stock plate
 shell       = 3.0;   // wall + floor thickness
-well_d      = 4.2;   // screw-well counterbore dia
+well_d      = 4.2 + 1.0; // screw-well dia (4.2 in Ch8; +1 so Chris's driver fits, 2026-11-12)
 well_boss_d = 8.0;   // solid boss dia around each screw well
 btn_wall    = 1.5;
 btn_tube_up = 2.0;
@@ -44,11 +48,19 @@ btn_bore_wide_d = 4.5;
 btn_bore_flat   = 1.0;
 btn_boss_d  = btn_bore_wide_d + 2 * btn_wall;
 
+// ---- 4. screw seat (2026-11-12) ----
+// Ch8 tapers the screw path over the whole plate_th (2 mm) from hole_d_out to
+// hole_d_in, which left the screws too short to reach the board. Here the
+// well runs down to Z = plate_th - taper_h and the taper is only the last
+// taper_h, widened by taper_widen at both ends.
+taper_h     = 1.0;   // was plate_th (2.0)
+taper_widen = 0.5;   // cone dia hole_d_out/hole_d_in (4.0/2.0) -> 4.5/2.5
+
 // ---- 1. hanging holes ----
 hang_on     = true;
 hang_d      = 3.0;   // hole dia (was 2)
-hang_back   = 4.0;   // from the notch's centre toward the back face (8 -> 5 -> 3 -> 4, Chris 2026-11-08)
-hang_across = 4.0;   // each side of the centre line (8 -> 5 -> 3 -> 4)
+hang_back   = 3.0;   // from the notch's centre toward the back face (8 -> 5 -> 3 -> 4, Chris 2026-11-08; back to 3, 2026-11-12)
+hang_across = 4.0;   // each side of the centre line (8 -> 5 -> 3 -> 4; kept at 4)
 
 // ---- 2. rounded back ----
 round_on      = true;
@@ -143,14 +155,16 @@ module ornament_backplate() {
                                  h = plate_th - floor_top + btn_tube_up);
         }
 
-        // screw path: the stock countersink cone at the seat plane...
+        // screw path: a short countersink cone at the inner end of the
+        // seat plane...
         hole_positions()
-            translate([0, 0, -eps])
-                cylinder(d1 = hole_d_out, d2 = hole_d_in, h = plate_th + 2 * eps);
+            translate([0, 0, plate_th - taper_h - eps])
+                cylinder(d1 = hole_d_out + taper_widen, d2 = hole_d_in + taper_widen,
+                         h = taper_h + 2 * eps);
         // ...and the well from the back face down to it
         hole_positions()
             translate([0, 0, outer_face - eps])
-                cylinder(d = well_d, h = -outer_face + eps);
+                cylinder(d = well_d, h = plate_th - taper_h - outer_face + 2 * eps);
 
         // 3. each well slotted open on its outside edge (pointing away from
         // the centre), back face to well_keep above the screw head
@@ -190,5 +204,8 @@ echo(str("rounded back: ", round_in, " mm in at the bed, curve ", round_h,
          " mm tall, ", round_max_deg, " deg max overhang"));
 echo(str("hanging holes: dia ", hang_d, " at X = +/-", hang_across, ", Z = ", hang_z,
          " (", hang_back, " mm back from the notch centre)"));
+echo(str("screw seat: well dia ", well_d, " to Z = ", plate_th - taper_h,
+         ", then taper ", hole_d_out + taper_widen, " -> ", hole_d_in + taper_widen,
+         " over ", taper_h, " mm"));
 echo(str("screw-well slots: back face to Z = ", -well_keep, " (", -well_keep - outer_face,
          " mm open, ", well_keep, " mm closed above the screw head)"));
