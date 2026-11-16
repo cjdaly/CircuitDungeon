@@ -88,6 +88,13 @@ class TestGiftTag(unittest.TestCase):
         for paper, ribbon, tag in gift_tag.STYLES:
             self.assertLess(paper, len(gift_tag.PAPERS))
 
+    def test_no_green_name_on_green_paper(self):
+        # Chris 2026-11-15: green dots plus a green name was all green.
+        greens = (gift_tag._GREEN, gift_tag._LEAF)
+        for paper, ribbon, tag in gift_tag.STYLES:
+            if gift_tag.PAPERS[paper][1][0] in greens:
+                self.assertNotIn(tag[3], greens, gift_tag.PAPERS[paper][0])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -2,7 +2,7 @@
 """The gift tag before the title: FOR <PLAYER>, FROM CHRIS -- cd-342.44.
 
 A close-up of a present's corner: wrapping paper filling the screen, a ribbon
-crossing under a bow, and the tag tied on with a string. It says who the board
+crossing under a bow, and the tag, a rounded sticker. It says who the board
 is for (settings.toml PLAYER), so a reset tells you which board is which. It
 shows for SHOW_S (settings.toml TAG_SECONDS overrides it), or until a tap, then the title comes up (app.py).
 
@@ -43,6 +43,7 @@ _RIBBON_WHITE = (_WHITE, 0x8595A1)
 # Tags: (fill, inner line, small words, name).
 _TAG_KRAFT = (_KRAFT, _BROWN, _DARK_RED, _RED)
 _TAG_WHITE = (_WHITE, _RED, _INK, _GREEN)
+_TAG_WHITE_RED = (_WHITE, _GOLD, _INK, _RED)  # on green paper, where a green name drowns
 _TAG_RED = (_RED, _GOLD, _GOLD, _WHITE)
 _TAG_GREEN = (_GREEN, _GOLD, _GOLD, _WHITE)
 _TAG_GOLD = (_GOLD, _RED, _DARK_RED, _RED)
@@ -51,7 +52,7 @@ _TAG_GOLD = (_GOLD, _RED, _DARK_RED, _RED)
 # gift board ws-01 .. ws-10, ordered so neighbouring boards differ.
 STYLES = (
     (0, _RIBBON_GREEN, _TAG_KRAFT),
-    (1, _RIBBON_RED, _TAG_WHITE),
+    (1, _RIBBON_RED, _TAG_WHITE_RED),
     (2, _RIBBON_GOLD, _TAG_RED),
     (3, _RIBBON_GOLD, _TAG_GREEN),
     (4, _RIBBON_GREEN, _TAG_WHITE),
@@ -62,17 +63,17 @@ STYLES = (
     (3, _RIBBON_WHITE, _TAG_KRAFT),
 )
 
-# Layout (240x240 round panel). The tag points left, where its hole is; the bow
-# sits up and left where the ribbons cross, and the string runs down to the hole.
+# Layout (240x240 round panel). The tag is a sticker, a rounded rectangle across
+# the middle; the bow sits up and left where the ribbons cross.
 _RIBBON_X, _RIBBON_Y, _RIBBON_W = 74, 48, 28  # band centres, width
 _KNOT = (_RIBBON_X, _RIBBON_Y)
 _TAG_TOP, _TAG_BOTTOM = 70, 190
-_TAG_TIP, _TAG_BODY, _TAG_RIGHT, _TAG_CHAMFER = 14, 50, 220, 12
-_HOLE = (40, 130)
-_HOLE_R, _RING_R = 6, 10
-_TEXT_X = 132  # the words' centre: the tag body's, nudged clear of the hole
-_NAME_MAX_W = 150  # widest name that fits between the hole and the bezel
-_FOR_Y, _NAME_Y, _FROM_Y = 96, 131, 166
+_TAG_LEFT, _TAG_RIGHT, _TAG_RADIUS = 20, 220, 16
+_TEXT_X = 120  # the words' centre: the sticker's
+_NAME_MAX_W = 170  # widest name that fits inside the sticker's line
+_FOR_Y, _NAME_Y, _FROM_Y = 96, 131, 164
+_NAME_LIFT = 6  # a one-line name sits this much higher, up under FOR (the title
+# font's box has room above its capitals, so centred it looked low)
 
 
 def clean_name(name):
@@ -199,25 +200,21 @@ def _pattern_value(pattern, x, y):
     return 0
 
 
-def _tag_points(inset):
-    """The tag's outline, `inset` px in from the outer edge."""
-    i = inset
-    top, bottom = _TAG_TOP + i, _TAG_BOTTOM - i
-    mid = (_TAG_TOP + _TAG_BOTTOM) // 2
-    body, right, chamfer = _TAG_BODY + i // 2, _TAG_RIGHT - i, _TAG_CHAMFER
-    return [(_TAG_TIP + 2 * i, mid), (body, top), (right - chamfer, top), (right, top + chamfer),
-            (right, bottom - chamfer), (right - chamfer, bottom), (body, bottom)]
-
-
-def _line_points(a, b, width):
-    """A straight line from a to b, `width` px thick, as a polygon."""
+def _tag_points(inset, steps=6):
+    """The sticker's outline, a rounded rectangle `inset` px in from its edge."""
     import math
 
-    dx, dy = b[0] - a[0], b[1] - a[1]
-    length = math.sqrt(dx * dx + dy * dy) or 1.0
-    ox, oy = -dy / length * width / 2, dx / length * width / 2
-    return [(int(a[0] + ox), int(a[1] + oy)), (int(b[0] + ox), int(b[1] + oy)),
-            (int(b[0] - ox), int(b[1] - oy)), (int(a[0] - ox), int(a[1] - oy))]
+    i = inset
+    left, right, top, bottom = _TAG_LEFT + i, _TAG_RIGHT - i, _TAG_TOP + i, _TAG_BOTTOM - i
+    r = max(_TAG_RADIUS - i, 2)
+    points = []
+    # Corner centres clockwise from top right, each with its quarter turn's start.
+    for cx, cy, start in ((right - r, top + r, -90), (right - r, bottom - r, 0),
+                          (left + r, bottom - r, 90), (left + r, top + r, 180)):
+        for k in range(steps + 1):
+            a = math.radians(start + 90 * k / steps)
+            points.append((round(cx + r * math.cos(a)), round(cy + r * math.sin(a))))
+    return points
 
 
 def _ellipse_points(cx, cy, rx, ry, tilt, steps=14):
@@ -299,21 +296,6 @@ class GiftTag:
         for label in names:
             group.append(label)
 
-        # The string, from under the bow down to the hole: ink, then twine.
-        twine = solid(_WHITE if fill != _WHITE else _RED)
-        group.append(vectorio.Polygon(pixel_shader=ink, points=_line_points(_KNOT, _HOLE, 5)))
-        group.append(vectorio.Polygon(pixel_shader=twine, points=_line_points(_KNOT, _HOLE, 3)))
-        # The hole's reinforcing ring, and the hole showing the paper's colour.
-        group.append(vectorio.Circle(pixel_shader=ink, radius=_RING_R + 1, x=_HOLE[0], y=_HOLE[1]))
-        group.append(vectorio.Circle(pixel_shader=solid(line), radius=_RING_R, x=_HOLE[0],
-                                     y=_HOLE[1]))
-        group.append(vectorio.Circle(pixel_shader=ink, radius=_HOLE_R + 1, x=_HOLE[0],
-                                     y=_HOLE[1]))
-        group.append(vectorio.Circle(pixel_shader=solid(paper_colors[0]), radius=_HOLE_R,
-                                     x=_HOLE[0], y=_HOLE[1]))
-        group.append(vectorio.Polygon(pixel_shader=twine, points=_line_points(
-            (_HOLE[0] - 1, _HOLE[1] - _HOLE_R - 2), (_HOLE[0] + 2, _HOLE[1]), 3)))
-
         # The bow over the knot: two loops, two tails, the knot.
         kx, ky = _KNOT
         for points in (
@@ -345,7 +327,8 @@ class GiftTag:
         if layout is not None:
             font, scale = layout
             return [Label(fonts[font], text=self.name, color=color, scale=scale,
-                          anchor_point=(0.5, 0.5), anchored_position=(_TEXT_X, _NAME_Y))]
+                          anchor_point=(0.5, 0.5),
+                          anchored_position=(_TEXT_X, _NAME_Y - _NAME_LIFT))]
         lines = split_name(self.name)
         font = fonts["title"]
         if max(width(font, line) for line in lines) > _NAME_MAX_W:
