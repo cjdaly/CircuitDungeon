@@ -99,6 +99,21 @@ PLAYER = "Sam"
 Use letters, digits and `! ' , . ?` only, since the comic fonts have nothing else.
 Anything else draws as a gap. Without it, the game says `MERRY CHRISTMAS!`.
 
+The name also goes on a gift tag shown before the title (`game/gift_tag.py`,
+`cd-342.44`): `FOR <PLAYER>, FROM CHRIS` on wrapping paper, for 10 s or
+until a tap. Set `TAG_SECONDS = "5"` in `settings.toml` to change how long. Reset a board to see whose it is. There are 10 looks (paper, ribbon
+and tag colours), and every reset moves on to the next one. The counter is the
+last byte of the board's nvm, just past the drain log's records. Each board
+starts the cycle at its own `DEVICE_ID` number, so boards reset side by side
+differ. Serial prints `tag up 2.5s, turn N (paper)` at start-up. The tag turns a
+hyphen into a space and drops any other character the fonts lack. Without
+`PLAYER`, there's no tag.
+
+**Recipients stay out of git.** Keep the list of who gets which board in
+`Chapter_9/units/recipients.local.json`. `*.local.json` is gitignored, so the
+file never reaches the public repo. Don't put the names in beads either, since
+its history can be pushed.
+
 ## Review mode: every room open
 
 Each episode opens only part of the house (`doc/EPISODES.md`), so some rooms

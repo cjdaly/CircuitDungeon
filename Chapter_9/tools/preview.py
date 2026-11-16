@@ -127,6 +127,13 @@ def scenes():
     """(name, image) for every moment worth looking at."""
     from rooms import DOWN, LEFT, RIGHT, UP
 
+    # The gift tag before the title (cd-342.44), in two of its looks.
+    import gift_tag
+
+    for name in ("Test1", "Mary-Kate O'Neil"):
+        yield "t0_tag_" + gift_tag.clean_name(name).split()[0].lower(), fake_display.render(
+            gift_tag.GiftTag(name).group)
+
     # The opening escape, a beat at a time.
     s = Session()
     yield "e1_9pm", s.at(0.5)

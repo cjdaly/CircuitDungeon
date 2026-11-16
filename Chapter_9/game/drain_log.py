@@ -34,6 +34,8 @@ runs under plain desktop Python (see tests/test_drain_log.py).
 """
 import struct
 
+# len(nvm) // SIZE slots: 341 on the 4096-byte nvm, ending 4 bytes short. The last
+# byte is the gift tag's turn counter (gift_tag.next_turn) -- keep clear of it.
 MAGIC = 0xD2
 KIND_BOOT = 0
 KIND_SAMPLE = 1

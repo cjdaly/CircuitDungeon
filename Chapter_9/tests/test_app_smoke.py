@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "game"))
 _STUBBED = ("displayio", "vectorio", "bitmaptools", "adafruit_display_text",
             "adafruit_display_text.bitmap_label",
             "adafruit_bitmap_font", "adafruit_bitmap_font.bitmap_font")
-_GAME_MODULES = ("app", "title_view", "backdrop", "nav_view", "room_banner", "comic", "comic_fonts", "ornament",
+_GAME_MODULES = ("app", "title_view", "gift_tag", "backdrop", "nav_view", "room_banner", "comic", "comic_fonts", "ornament",
                  "scene_view")
 _GAME_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "game")
 _saved = {}
@@ -665,6 +665,56 @@ class TestTitle(unittest.TestCase):
         # dark after the interactive timeout; a touch then only lights it.
         run = _Run(windows=[(125.0, 125.1, _CENTER)], seconds=128.0, title=True)
         self.assertIs(run.groups[-1], run.groups[0])
+
+
+class TestGiftTag(unittest.TestCase):
+    """FOR <PLAYER>, FROM CHRIS before the title (cd-342.44)."""
+
+    def setUp(self):
+        self._saved_player = os.environ.get("PLAYER")
+        os.environ["PLAYER"] = "Test1"
+
+    def tearDown(self):
+        if self._saved_player is None:
+            os.environ.pop("PLAYER", None)
+        else:
+            os.environ["PLAYER"] = self._saved_player
+
+    _texts = TestTitle._texts
+
+    def test_the_tag_comes_first_then_the_title_on_its_own(self):
+        run = _Run(seconds=12.0, title=True)
+        first, last = run.groups[0], run.groups[-1]
+        self.assertIn("TEST1", self._texts(first))
+        self.assertIn("FROM CHRIS", self._texts(first))
+        self.assertIn("CHRISTMAS", self._texts(last))
+        shown = sum(1 for group in run.groups if group is first) * 0.05
+        self.assertAlmostEqual(shown, 10.0, delta=0.2)
+
+    def test_settings_can_change_how_long_the_tag_stays(self):
+        os.environ["TAG_SECONDS"] = "4"
+        try:
+            run = _Run(seconds=6.0, title=True)
+        finally:
+            del os.environ["TAG_SECONDS"]
+        shown = sum(1 for group in run.groups if group is run.groups[0]) * 0.05
+        self.assertAlmostEqual(shown, 4.0, delta=0.2)
+
+    def test_a_tap_skips_the_tag_but_does_not_start_the_game(self):
+        run = _Run(windows=[(1.0, 1.1, _CENTER)], seconds=2.0, title=True)
+        last = run.groups[-1]
+        self.assertIsNot(last, run.groups[0])
+        self.assertIn("CHRISTMAS", self._texts(last))
+
+    def test_a_second_tap_starts_the_game(self):
+        run = _Run(windows=[(1.0, 1.1, _CENTER), (2.0, 2.1, _CENTER)], seconds=3.0, title=True)
+        self.assertNotIn("CHRISTMAS", self._texts(run.groups[-1]))
+        self.assertNotIn("TEST1", self._texts(run.groups[-1]))
+
+    def test_no_player_no_tag(self):
+        os.environ.pop("PLAYER", None)
+        run = _Run(seconds=1.0, title=True)
+        self.assertIn("CHRISTMAS", self._texts(run.groups[0]))
 
 
 if __name__ == "__main__":

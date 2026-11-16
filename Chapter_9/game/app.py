@@ -96,7 +96,7 @@ class _LoopStats:
 
 def run(display, backlight, touch, imu_gestures, width, height,
         max_ticks=None, clock=time.monotonic, sleep=time.sleep, bus_recovery=None,
-        power=None, drain=None, title=True):
+        power=None, drain=None, title=True, tag_turn=0):
     """Run the game forever (or `max_ticks` frames, for the smoke test).
 
     `touch` needs .poll(now) -> (x, y) | None; `imu_gestures` needs
@@ -104,7 +104,7 @@ def run(display, backlight, touch, imu_gestures, width, height,
     given, needs .rebuild() -> status string (bus_recovery.BusRecovery);
     `power`, if given, needs .sleep() and .wake() (hardware.DevicePower) and
     turns on deep idle; `drain`, if given, needs .tick(now, lit, asleep) and .woke(shift)
-    (drain_log.DrainLog).
+    (drain_log.DrainLog). `tag_turn` picks the gift tag's look (gift_tag.next_turn).
     """
     import displayio
 
@@ -133,6 +133,21 @@ def run(display, backlight, touch, imu_gestures, width, height,
         tlog = TouchLog()
     if finale_now:
         hunt.skip_to_finale()
+
+    # The gift tag (cd-342.44): who this board is for, ahead of the title. It goes
+    # up first, so it's on screen while the rest loads.
+    tag = None
+    if title and player:
+        import gift_tag
+
+        # settings.toml TAG_SECONDS = "5" changes how long it stays up.
+        try:
+            show_s = float(os.getenv("TAG_SECONDS") or gift_tag.SHOW_S)
+        except ValueError:
+            show_s = gift_tag.SHOW_S
+        tag = gift_tag.GiftTag(player, width=width, height=height, now=clock(), show_s=show_s,
+                               device_id=os.getenv("DEVICE_ID"), turn=tag_turn)
+        display.root_group = tag.group
 
     nav = NavView(width, height)
 
@@ -177,7 +192,9 @@ def run(display, backlight, touch, imu_gestures, width, height,
         start_game(clock())
 
     def interactive_screen():
-        return nav.group if game_on else title_screen.group
+        if game_on:
+            return nav.group
+        return title_screen.group if tag is None else tag.group
 
     mode = mode_ctl.mode
     display.root_group = interactive_screen()
@@ -212,10 +229,14 @@ def run(display, backlight, touch, imu_gestures, width, height,
             print("t={:.1f} imu read ok after bus rebuild".format(now))
         return sample
 
-    print("Ch9 ready -- start: {}  player={}  art={}{}  free={}".format(
+    if tag is not None:  # loading took a while: give it a moment once taps work
+        loaded_in = clock() - tag.shown_at
+        tag.until = max(tag.until, clock() + gift_tag.MIN_LIVE_S)
+    print("Ch9 ready -- start: {}  player={}  art={}{}  free={}{}".format(
         world.current, player, getattr(nav, "art_set", None),
         ("  OPEN_ALL_ROOMS" if world.open_all else "") + ("  FINALE_NOW" if finale_now else ""),
-        gc.mem_free()))
+        gc.mem_free(), "" if tag is None else "  tag up {:.1f}s, turn {} ({})".format(
+            loaded_in, tag_turn, tag.style[0])))
 
     while max_ticks is None or ticks < max_ticks:
         ticks += 1
@@ -297,7 +318,19 @@ def run(display, backlight, touch, imu_gestures, width, height,
                     else:
                         wait_for_release = False
 
-            if mode == modes.INTERACTIVE and not game_on:
+            if mode == modes.INTERACTIVE and tag is not None:
+                tracker.update(point, now)
+                if tlog is not None and point is None:
+                    tlog.end(now, "tag" if tracker.gesture_done else "nothing")
+                if tracker.gesture_done or tag.done(now):  # a tap, or its time is up
+                    print("t={:.1f} gift tag -> title ({})".format(
+                        now, "tapped" if tracker.gesture_done else "time up"))
+                    tag = None  # its paper and labels can go
+                    display.root_group = title_screen.group
+                    if touched:  # a finger still down mustn't then start the game
+                        wait_for_release = True
+                    gc.collect()
+            elif mode == modes.INTERACTIVE and not game_on:
                 tracker.update(point, now)
                 if tlog is not None and point is None:
                     tlog.end(now, "title" if tracker.gesture_done else "nothing")

@@ -54,8 +54,21 @@ def main():
     app.run(
         display, backlight, touch, gestures, hardware.WIDTH, hardware.HEIGHT,
         bus_recovery=recovery, power=hardware.DevicePower(display, gestures),
-        drain=make_drain_log(),
+        drain=make_drain_log(), tag_turn=next_tag_turn(),
     )
+
+
+def next_tag_turn():
+    """Which wrapping the gift tag wears this boot: one on from the last (cd-342.44)."""
+    import microcontroller
+
+    import gift_tag
+
+    try:
+        return gift_tag.next_turn(microcontroller.nvm)
+    except (OSError, ValueError, TypeError) as exc:  # a look is not worth a crash
+        print("gift tag turn: {!r}".format(exc))
+        return 0
 
 
 def make_drain_log():
