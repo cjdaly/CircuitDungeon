@@ -23,6 +23,17 @@
 //      2 mm (the well runs 1 mm further down), so the screws reach the
 //      board; the well is 1 mm wider (5.2) for Chris's screwdriver and the
 //      taper 0.5 mm wider (4.5 -> 2.5).
+//   5. CORNER BULGES (2026-11-15): each well sits so close to the edge that
+//      even its "closed" tube above the screw head had a hairline gap on the
+//      outside. Now the last `well_keep` mm before the screw end is a closed
+//      sleeve round each well: a `bulge_wall` thick cylinder that bulges out
+//      past the wall, from Z = -well_keep up to the seat plane (Z = 0). It
+//      stops there: Z = 0 .. plate_th goes inside the board's screen case,
+//      so a bulge there would foul it (tried and backed out, 2026-11-15) --
+//      the well's hairline breakout in that band is hidden in the case.
+//      Below the sleeve a cone eases back to the wall (~63 deg from flat,
+//      `bulge_taper_k`), and the slot (3.) ends in a round arch at the sleeve
+//      instead of a flat 5 mm bridge, so it all prints smoothly.
 //
 // COORDINATE FRAME  (as Chapter 8's stock/deep backplates)
 //   Origin at the plate centre. +Y = top (the notch, hanging-on-the-tree
@@ -70,8 +81,14 @@ round_steps   = 12;   // slices the curve is built from
 
 // ---- 3. open screw wells ----
 well_slot_on = true;
-well_keep    = 8.0;   // closed tube left above the screw head (Z = 0)
+well_keep    = 10.0;  // closed tube left above the screw head (Z = 0), the bulge's sleeve; 8 -> 10, 2026-11-15
 well_slot_w  = well_d; // slot width; = well_d opens the well's outer half
+
+// ---- 5. corner bulges ----
+bulge_on    = true;  // the sleeve covers the closed tube: Z = -well_keep .. 0, not the seat plane
+bulge_wall  = 1.2;   // sleeve wall round the well: three 0.4 mm lines
+bulge_taper_k = 2.0; // cone height / its step out: 1 = 45 deg, 2 = ~63 deg from flat
+slot_arch   = true;  // round-arched top to each slot, not a flat bridge
 
 /* ============================== derived ================================= */
 
@@ -80,6 +97,13 @@ outer_face = floor_top - shell;             // back face (on the print bed)
 box_h      = plate_th - outer_face;
 btn_bore_flat_at = btn_bore_wide_d / 2 - btn_bore_flat;
 hang_z     = plate_th / 2 - hang_back;      // the notch spans Z 0..plate_th
+
+hole_from_centre = sqrt(pow(hole_dx / 2, 2) + pow(hole_dy / 2, 2));
+bulge_r      = well_d / 2 + bulge_wall;
+bulge_len    = well_keep;                         // stops at Z = 0: the seat plane is in the screen case
+bulge_flush  = width_lr / 2 - hole_from_centre;  // a circle this size stays inside the wall
+bulge_taper  = (bulge_r - bulge_flush) * bulge_taper_k;  // cone back in to flush
+arch_h       = slot_arch ? well_slot_w / 2 : 0;  // semicircle, its top at -well_keep
 
 round_h  = round_on ? round_r * sin(round_max_deg) : 0;        // curve height
 round_in = round_on ? round_r * (1 - cos(round_max_deg)) : 0;  // inset at the bed
@@ -147,6 +171,16 @@ module ornament_backplate() {
                 translate([-notch_w / 2, flat_tb / 2 - 1, 0])
                     cube([notch_w, notch_out + 1, plate_th]);
 
+            // 5. the corner bulges: a sleeve round each well's closed tube up
+            // to the seat plane, with a cone under it (toward the bed)
+            if (bulge_on)
+                hole_positions() {
+                    translate([0, 0, -well_keep])
+                        cylinder(r = bulge_r, h = bulge_len, $fn = 64);
+                    translate([0, 0, -well_keep - bulge_taper])
+                        cylinder(r1 = bulge_flush, r2 = bulge_r, h = bulge_taper + eps, $fn = 64);
+                }
+
             // BOOT/RESET poke-tube bosses
             if (buttons_on)
                 button_positions()
@@ -167,13 +201,19 @@ module ornament_backplate() {
                 cylinder(d = well_d, h = plate_th - taper_h - outer_face + 2 * eps);
 
         // 3. each well slotted open on its outside edge (pointing away from
-        // the centre), back face to well_keep above the screw head
+        // the centre), back face to well_keep above the screw head, its top
+        // a round arch (a flat top would be a bridge)
         if (well_slot_on)
             for (sx = [-1, 1], sy = [-1, 1])
-                translate([sx * hole_dx / 2, sy * hole_dy / 2, outer_face - 1])
-                    rotate([0, 0, atan2(sy * hole_dy, sx * hole_dx)])
-                        translate([0, -well_slot_w / 2, 0])
-                            cube([width_lr, well_slot_w, -well_keep - outer_face + 1]);
+                translate([sx * hole_dx / 2, sy * hole_dy / 2, 0])
+                    rotate([0, 0, atan2(sy * hole_dy, sx * hole_dx)]) {
+                        translate([0, -well_slot_w / 2, outer_face - 1])
+                            cube([width_lr, well_slot_w, -well_keep - arch_h - outer_face + 1]);
+                        if (slot_arch)
+                            translate([0, 0, -well_keep - arch_h])
+                                rotate([0, 90, 0])
+                                    cylinder(r = arch_h, h = width_lr, $fn = 48);
+                    }
 
         // BOOT/RESET bores: round lip at the back face, then the wider D
         if (buttons_on)
@@ -209,3 +249,6 @@ echo(str("screw seat: well dia ", well_d, " to Z = ", plate_th - taper_h,
          " over ", taper_h, " mm"));
 echo(str("screw-well slots: back face to Z = ", -well_keep, " (", -well_keep - outer_face,
          " mm open, ", well_keep, " mm closed above the screw head)"));
+echo(str("corner bulges: sleeve r ", bulge_r, " (wall ", bulge_wall, ") Z = ", -well_keep,
+         " .. ", -well_keep + bulge_len, " (", bulge_len, " mm), ", bulge_r - bulge_flush,
+         " mm proud of the outline, cone ", bulge_taper, " mm tall below; slot arch ", arch_h, " mm"));
