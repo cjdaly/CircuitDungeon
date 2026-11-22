@@ -21,8 +21,12 @@ Chapter_9/tools/deploy.sh --mpy                # modules precompiled (needs mpy-
 Same mechanism as Chapter 8's script (`boot.py` turns auto-reload off; the
 script ejects the drive to flush the FAT cache; then RESET / power-cycle to
 run). It rsyncs with `--delete`, so a previously deployed Chapter 8 demo or
-`main.py` is replaced — but `lib/` and `settings.toml` are never touched, so
-`DEVICE_ID` survives. `--demo NAME` copies `game/NAME.py` over the device's `main.py` so a
+`main.py` is replaced — but `lib/` and `settings.toml` are never overwritten, so
+`DEVICE_ID` survives. The one thing a deploy adds to `settings.toml`, if the line
+is missing, is `CIRCUITPY_PYSTACK_SIZE = 4096`: a bigger Python stack, as a
+backstop for the game's deepest drawing calls (`cd-342.47.5`,
+`doc/ARCHITECTURE.md` §5). It costs about 2.5 KB of RAM and takes effect on the
+next reset; a line already there, at any value, is left alone. `--demo NAME` copies `game/NAME.py` over the device's `main.py` so a
 look-test runs instead of the game (e.g. `--demo critter_demo`, the animated
 critter browser, or `--demo overlay_demo`, every comic overlay in turn); the
 desktop `main.py` is untouched, and a plain re-deploy puts the game back. To go back to a Chapter 8 demo, run
@@ -90,7 +94,7 @@ awaiting on-device feel-testing (`cd-342.7`).
 ## Naming a board
 
 To end the game with `MERRY CHRISTMAS,` then the player's name, add this to the
-board's `settings.toml`, which deploys leave alone:
+board's `settings.toml`, which deploys otherwise leave alone:
 
 ```
 PLAYER = "Sam"

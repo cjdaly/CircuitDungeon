@@ -30,6 +30,11 @@
 # mismatch. The whole game is staged in a temp folder and synced as usual:
 # the board's old .py modules go because they aren't in the staged copy, not
 # by deleting them one by one.
+#
+# settings.toml is the board's own (PLAYER, DEVICE_ID, battery) and is never
+# overwritten. The one thing a deploy adds to it, when missing, is
+# CIRCUITPY_PYSTACK_SIZE = 4096: a bigger Python stack as a backstop
+# (cd-342.47.5, doc/ARCHITECTURE.md sec 5). It takes effect on the next reset.
 
 set -euo pipefail
 
@@ -37,6 +42,7 @@ EJECT=1
 DEMO=""
 ART_SET="drawn"
 MPY=0
+PYSTACK=4096  # bytes; CircuitPython's default is 1536
 while [ $# -gt 0 ]; do
   case "$1" in
     --no-eject) EJECT=0; shift ;;
@@ -142,6 +148,15 @@ if [ ${#missing[@]} -ne 0 ]; then
   echo "deploy: WARNING — missing from $TARGET/lib/ :  ${missing[*]}" >&2
   echo "        circup --path $TARGET install adafruit_bitmap_font adafruit_cst8xx adafruit_gc9a01a adafruit_register adafruit_display_text adafruit_ticks" >&2
   echo "        cp $VENDOR/qmi8658c.py $TARGET/lib/" >&2
+fi
+
+# --- the Python stack backstop (cd-342.47.5) ---
+# The game is built to CircuitPython's default 1536 bytes (tests/test_frames.py);
+# this is safety margin. A line the board already has, whatever its value, stays.
+if ! grep -q '^[[:space:]]*CIRCUITPY_PYSTACK_SIZE' "$TARGET/settings.toml" 2>/dev/null; then
+  printf '\n# A bigger Python stack, as a backstop (added by deploy.sh: Chapter_9 cd-342.47.5)\nCIRCUITPY_PYSTACK_SIZE = %s\n' \
+    "$PYSTACK" >> "$TARGET/settings.toml"
+  echo "deploy: added CIRCUITPY_PYSTACK_SIZE = $PYSTACK to $TARGET/settings.toml"
 fi
 
 sync

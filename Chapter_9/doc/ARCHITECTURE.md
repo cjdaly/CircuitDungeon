@@ -12,8 +12,8 @@ touches these on a board (§5 has the tool).
 
 | budget | what we have | notes |
 |---|---|---|
-| **Python call stack** (pystack) | 1536 bytes, CircuitPython's default `CIRCUITPY_PYSTACK_SIZE` | Every active call holds a frame: about 28 bytes of overhead plus 4 bytes per local variable and per stack slot. Run out and the call raises `RuntimeError: pystack exhausted`. |
-| **Deepest call: drawing text** | `bitmap_label`'s `text` setter goes 5 calls deep inside the library | This is the call that runs out first. On 2026-11-22 the escape cutscene died here (`cd-342.46`). Headroom, measured with `tools/device_run.py --depth` (extra small calls the game survives): 3 after the first fix, 7 after step 2 (`cd-342.47.2`), **11 after step 3** (`cd-342.47.3`; `--no-title`), still 11 after step 4. Start-up, which builds the gift tag's labels, survives 8. |
+| **Python call stack** (pystack) | designed to 1536 bytes, CircuitPython's default; deployed boards get 4096 as a backstop (`CIRCUITPY_PYSTACK_SIZE`, §5) | Every active call holds a frame: about 28 bytes of overhead plus 4 bytes per local variable and per stack slot. Run out and the call raises `RuntimeError: pystack exhausted`. |
+| **Deepest call: drawing text** | `bitmap_label`'s `text` setter goes 5 calls deep inside the library | This is the call that runs out first. On 2026-11-22 the escape cutscene died here (`cd-342.46`). Headroom, measured with `tools/device_run.py --depth` (extra small calls the game survives): 3 after the first fix, 7 after step 2 (`cd-342.47.2`), **11 after step 3** (`cd-342.47.3`; `--no-title`), still 11 after step 4. Start-up, which builds the gift tag's labels, survives 8. `tests/test_frames.py` keeps every path at 4 or more. |
 | **RAM** | about 150 KB headroom, largest free block at least 128 KB (ws-10, `cd-342.38`) | `gc.mem_free()` misleads on CircuitPython 10, because the heap grows on demand. Measure `gc.mem_alloc()` differences instead. |
 | **Frame time** | loop sleeps `_TICK` = 50 ms; about 18 fps in play | |
 | **Drawing a caption's words** | about 570 ms on the board | This is `bitmap_label` rendering the text. Nothing else per beat comes close. Keep captions to what the story needs. |
@@ -215,9 +215,19 @@ on a board:
     macOS caches writes to the CIRCUITPY drive, and a reset can read a
     half-written file. It doesn't `import main`, because `main.py` starts the
     game when imported.
-- **A frame-size test** on the desktop (`cd-342.47.5`) keeps the drawing
-  path's frames small, using CPython's code objects as a stand-in for the
-  board's.
-- **More stack, as a backstop** (to be decided in `cd-342.47.5`):
-  `CIRCUITPY_PYSTACK_SIZE` in `settings.toml`. Deploys don't touch that file,
-  so every board would need it by hand.
+- **A frame-size test** on the desktop, `tests/test_frames.py`
+  (`cd-342.47.5`). It adds up each text-drawing path's frames from `main()`
+  down, using CPython's code objects as a stand-in for the board's, plus
+  what the library takes below them (calibrated on ws-1 with
+  `device_run.py --depth`), and fails if a path leaves fewer than 4 small
+  calls of the 1536-byte stack to spare. `-v` prints each path's numbers.
+  It's good to about one call: it predicted 4 for `6be05de`, where the board
+  had 3. The paths are written out by hand, so a new path that draws text
+  needs adding there.
+- **More stack, as a backstop**: `CIRCUITPY_PYSTACK_SIZE = 4096` in a
+  board's `settings.toml` works on CP 10.3.1 (ws-1, 2026-11-22: the game
+  survived `--depth 40` and ran out at 75, against 11 at the default). It
+  costs about 2.5 KB of RAM. `tools/deploy.sh` adds that line to a board's
+  `settings.toml` when it's missing, so every deployed board has it. The
+  game is still designed to the default 1536 bytes, which `test_frames.py`
+  holds it to: the bigger stack is only margin.
