@@ -31,21 +31,16 @@ import vectorio
 import comic
 import comic_fonts
 import escape
-import finale
-import hunt
 import rooms
+import storyboard
 from backdrop import Backdrop
-from beats import Beat, BeatPlayer
-from hunt import wrap
+from beats import BeatPlayer
 from room_banner import RoomLabel
 from scene_view import SceneView
 
 _BG_COLOR = 0x101018
 
 _ROOM_NAME_Y = 50  # top band, under the UP marker; the middle is the scene's
-_FOUND_BURST = "Found!"
-# Hearts either side of a critter that's coming home with you (screen px).
-_HEARTS = (("heart", 56, 92), ("heart", 152, 92))
 
 _MARKER_RADIUS = 9
 _AVAILABLE_DIM = 0x1A4028
@@ -159,7 +154,7 @@ class NavView:
         self._new_room = True
 
     def show_scene(self, scene, now):
-        """Draw what's in the room (a hunt.Scene). Call after anything changes it."""
+        """Draw what's in the room (a story.Scene). Call after anything changes it."""
         self._new_scene = scene
         self._scene_at = now
 
@@ -177,55 +172,16 @@ class NavView:
         """A tap while an overlay is up: on to the next beat, at update()."""
         self._player.tap(now)
 
-    def say(self, messages, now, event=None, want=None, escaped=None, escape_at=0,
-            cutscenes=()):
-        """Show `messages` as captions, one after another, from update().
-
-        `event` is what just happened (hunt.Hunt.event): finding a critter
-        shouts FOUND! first and puts `want`, the scene_art name of its lure, in a
-        thought bubble over the first caption; bringing one home adds hearts.
-        `cutscenes` (hunt.Hunt.cutscenes) plays each named cutscene before its
-        message: the escape (about `escaped`, a hunt.Escape) with the box still
-        shut under the captions before it, and the finale's (finale.CUTSCENES)
-        with their own shots before and after. An escape with no `cutscenes`
-        plays before message `escape_at`.
-        """
-        cuts = dict(cutscenes)
-        if event == hunt.ESCAPED and not cuts:
-            cuts[escape_at] = hunt.ESCAPE_SCENE
-        beats = []
-        shot = self._shot_before(cuts[min(cuts)]) if cuts else None
-        for index, text in enumerate(messages):
-            name = cuts.get(index)
-            if name == hunt.ESCAPE_SCENE:
-                self._things.set_escape(escaped)
-                beats.extend(escape.cutscene())
-                shot = None
-            elif name is not None:
-                make, _before, after = finale.CUTSCENES[name]
-                beats.extend(make(self._things.parade_size()))
-                shot = after
-            lines = wrap(text)
-            # A caption holds two lines; anything longer runs on into the next.
-            for i in range(0, len(lines), 2):
-                beats.append(Beat(caption="\n".join(lines[i:i + 2]), shot=shot))
-        if event == hunt.FOUND:
-            if beats and want is not None:
-                beats[0].thought = self._things.icon(want)
-            beats.insert(0, Beat(burst=_FOUND_BURST))
-        elif event == hunt.RETRIEVED and beats:
-            beats[0].emanata = _HEARTS
-        self._player.play(beats, now)
-
-    @staticmethod
-    def _shot_before(name):
-        if name == hunt.ESCAPE_SCENE:
-            return escape.CALM
-        return finale.CUTSCENES[name][1]
+    def tell(self, news, now):
+        """Show `news` (a story.News: what the hunt just said, or a bump's
+        reason) as storyboard.py's beats, from update()."""
+        if news.escape is not None:
+            self._things.set_escape(news.escape)  # who the escape cutscene is about
+        self._player.play(storyboard.beats(news, self._things.icon), now)
 
     def bonk(self, now):
         """A move onto an edge with no exit at all."""
-        self._player.play([Beat(burst="Bonk!", shake=True)], now)
+        self._player.play(storyboard.bonk(), now)
 
     def update(self, now, active_zone):
         """Call once per frame: the only place this screen draws. `active_zone` =

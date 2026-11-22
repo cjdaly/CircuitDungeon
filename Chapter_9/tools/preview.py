@@ -69,9 +69,9 @@ class Session:
     def _refresh(self, messages=(), event=None):
         self.nav.show_room(self.world.room.name, self.world.live_exits())
         self.nav.show_scene(self.hunt.scene(), self.now)
-        want = self.hunt.critter.preferred_item if self.hunt.critter else None
-        self.nav.say(list(messages), self.now, event, want, self.hunt.escape,
-                     self.hunt.escape_at, self.hunt.cutscenes)
+        news = self.hunt.news(list(messages))
+        news.event = event  # what this moment shows, which may not be the hunt's last
+        self.nav.tell(news, self.now)
         self.nav.update(self.now, None)  # the game's tick draws it straight away
 
     def arrive(self, room):

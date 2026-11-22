@@ -16,6 +16,7 @@ from episodes import EASY  # noqa: E402
 import finale  # noqa: E402
 import hunt  # noqa: E402
 import rooms  # noqa: E402
+import storyboard  # noqa: E402
 from rooms import DOWN, LEFT, RIGHT, UP  # noqa: E402
 
 _GAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "game")
@@ -299,11 +300,11 @@ class TestFinale(unittest.TestCase):
         lines += self.walk_to("Odd Corner")
         lines += self.walk_to(critters.HOME)
         for text in lines:
-            self.assertLessEqual(len(hunt.wrap(text)), 2, text)  # one caption each
+            self.assertLessEqual(len(storyboard.wrap(text)), 2, text)  # one caption each
             for ch in text.upper():  # the comic font has nothing else
-                self.assertIn(ch, hunt._CAPTION_GLYPHS, text)
-            for line in hunt.wrap(text):
-                self.assertLessEqual(hunt.text_px(line), hunt.CAPTION_PX, line)
+                self.assertIn(ch, storyboard._CAPTION_GLYPHS, text)
+            for line in storyboard.wrap(text):
+                self.assertLessEqual(storyboard.text_px(line), storyboard.CAPTION_PX, line)
 
     def test_the_review_switch_starts_at_the_finale(self):
         world = rooms.make_world()
@@ -703,7 +704,8 @@ class TestEscapeAndBoxes(HuntCase):
         self.assertEqual(self.hunt.escape.species, "cat")
         self.assertEqual(self.hunt.escape.name, "Chirpy")
         self.assertEqual(self.hunt.escape.direction, RIGHT)  # to the Dining Room
-        self.assertEqual(self.opening[self.hunt.escape_at], "Chirpy escaped!")
+        self.assertEqual(self.hunt.cutscenes, ((1, hunt.ESCAPE_SCENE),))  # after the hour
+        self.assertEqual(self.opening[1], "Chirpy escaped!")
 
     def test_every_episode_bolts_along_its_first_step(self):
         for species, _lure, _habit, _sprites in critters.CAST:
@@ -738,7 +740,8 @@ class TestEscapeAndBoxes(HuntCase):
         self.assertEqual(self.box("dog")[0], hunt.BOX_EMPTY)
         self.assertEqual(self.hunt.event, hunt.ESCAPED)
         self.assertEqual(messages[0], "Chirpy curls up on the rug")
-        self.assertEqual(messages[self.hunt.escape_at], self.hunt.critter.name + " escaped!")
+        self.assertEqual(self.hunt.cutscenes, ((2, hunt.ESCAPE_SCENE),))  # after home, the hour
+        self.assertEqual(messages[2], self.hunt.critter.name + " escaped!")
 
     def test_moving_or_tapping_clears_the_escape_event(self):
         self.walk(RIGHT)
@@ -765,11 +768,11 @@ class TestPlayerName(unittest.TestCase):
 
 class TestWrap(unittest.TestCase):
     def test_short_text_stays_on_one_line(self):
-        self.assertEqual(hunt.wrap("Nothing here"), ["Nothing here"])
+        self.assertEqual(storyboard.wrap("Nothing here"), ["Nothing here"])
 
     def test_wraps_on_word_boundaries(self):
         self.assertEqual(
-            hunt.wrap("Chirpy loves fresh air!"), ["Chirpy loves", "fresh air!"]
+            storyboard.wrap("Chirpy loves fresh air!"), ["Chirpy loves", "fresh air!"]
         )
 
     def test_every_message_for_every_critter_fits_two_lines(self):
@@ -797,20 +800,20 @@ class TestWrap(unittest.TestCase):
                     short = hunt._SHORT_ITEM.get(item, item)
                     text = template.format(name=name, item=item, habit=habit, short=short)
                     with self.subTest(text=text):
-                        lines = hunt.wrap(text)
+                        lines = storyboard.wrap(text)
                         self.assertLessEqual(len(lines), 2, lines)
                         self.assertLessEqual(max(len(ln) for ln in lines), 15, lines)
                         for line in lines:
                             self.assertLessEqual(_px(line, _CAPTION), _CAPTION_PX, line)
 
     def test_the_wrap_widths_match_the_caption_font(self):
-        self.assertEqual(len(hunt._CAPTION_WIDTHS), len(hunt._CAPTION_GLYPHS))
-        for ch, width in zip(hunt._CAPTION_GLYPHS, hunt._CAPTION_WIDTHS):
+        self.assertEqual(len(storyboard._CAPTION_WIDTHS), len(storyboard._CAPTION_GLYPHS))
+        for ch, width in zip(storyboard._CAPTION_GLYPHS, storyboard._CAPTION_WIDTHS):
             self.assertEqual(width, _CAPTION[ch], ch)
-        self.assertEqual(hunt.text_px("Acorn wants the"), _px("Acorn wants the", _CAPTION))
+        self.assertEqual(storyboard.text_px("Acorn wants the"), _px("Acorn wants the", _CAPTION))
 
     def test_wrap_breaks_a_line_that_is_short_but_too_wide(self):
-        self.assertEqual(hunt.wrap("Acorn wants the walnuts"), ["Acorn wants", "the walnuts"])
+        self.assertEqual(storyboard.wrap("Acorn wants the walnuts"), ["Acorn wants", "the walnuts"])
 
     def test_every_room_name_fits_across_the_top(self):
         for room in rooms.make_world().all_rooms():

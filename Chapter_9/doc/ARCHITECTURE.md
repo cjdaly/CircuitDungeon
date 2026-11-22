@@ -13,7 +13,7 @@ touches these on a board (§5 has the tool).
 | budget | what we have | notes |
 |---|---|---|
 | **Python call stack** (pystack) | 1536 bytes, CircuitPython's default `CIRCUITPY_PYSTACK_SIZE` | Every active call holds a frame: about 28 bytes of overhead plus 4 bytes per local variable and per stack slot. Run out and the call raises `RuntimeError: pystack exhausted`. |
-| **Deepest call: drawing text** | `bitmap_label`'s `text` setter goes 5 calls deep inside the library | This is the call that runs out first. On 2026-11-22 the escape cutscene died here (`cd-342.46`). Headroom, measured with `tools/device_run.py --depth` (extra small calls the game survives): 3 after the first fix, 7 after step 2 (`cd-342.47.2`), **11 after step 3** (`cd-342.47.3`; `--no-title`). Start-up, which builds the gift tag's labels, survives 8. |
+| **Deepest call: drawing text** | `bitmap_label`'s `text` setter goes 5 calls deep inside the library | This is the call that runs out first. On 2026-11-22 the escape cutscene died here (`cd-342.46`). Headroom, measured with `tools/device_run.py --depth` (extra small calls the game survives): 3 after the first fix, 7 after step 2 (`cd-342.47.2`), **11 after step 3** (`cd-342.47.3`; `--no-title`), still 11 after step 4. Start-up, which builds the gift tag's labels, survives 8. |
 | **RAM** | about 150 KB headroom, largest free block at least 128 KB (ws-10, `cd-342.38`) | `gc.mem_free()` misleads on CircuitPython 10, because the heap grows on demand. Measure `gc.mem_alloc()` differences instead. |
 | **Frame time** | loop sleeps `_TICK` = 50 ms; about 18 fps in play | |
 | **Drawing a caption's words** | about 570 ms on the board | This is `bitmap_label` rendering the text. Nothing else per beat comes close. Keep captions to what the story needs. |
@@ -24,7 +24,7 @@ What follows from these:
 
 - **Draw only from the update pass** (`cd-342.47.3`). Input handlers
   change state and say what to show: `NavView.show_room`, `show_scene`,
-  `say`, `bonk`, `tap_overlay` and `BeatPlayer.play` / `tap` only record it.
+  `tell`, `bonk`, `tap_overlay` and `BeatPlayer.play` / `tap` only record it.
   `NavView.update` (from the loop's `GameScreen.update`) does the drawing,
   so text is always drawn at one known, shallow depth. Anything that drives
   a `NavView` outside the game (`tools/preview.py`) calls `update()` after
@@ -64,8 +64,15 @@ OrnamentScreen ornament.py  the ornament scenes
 rooms.py                    the room graph, exits, gates
 critters.py                 the cast, roster, lures
 episodes.py                 per-critter episodes: open rooms, hiding and lure rooms, clues
-hunt.py      Hunt           the playable loop: start, entered, tapped, bumped -> messages
+hunt.py      Hunt           the playable loop: start, entered, tapped, bumped -> messages;
+                            news(messages) and scene() report them as story.py's data
+story.py                    what passes from the model to the views: Scene, News, Escape,
+                            and the names they use (events, box states, poses)
 scene_art.py                names of lures, hiding spots and props
+
+-- from what happened to what's shown --
+storyboard.py               News -> comic beats: captions, FOUND!, hearts, cutscenes
+                            spliced in (cd-342.47.4); caption wrapping
 
 -- the game screen's drawing --
 backdrop.py                 the room's art
@@ -78,7 +85,7 @@ comic.py  Stage             caption, balloon, thought bubble, burst, emanata, in
   comic_shapes.py, comic_fonts.py
 clearance.py                keeping popups off the scene (cd-342.46)
 beats.py  BeatPlayer        plays comic beats in order, on taps or timers
-escape.py, finale.py        cutscenes, written as beats
+escape.py, finale.py        cutscenes, written as beats (storyboard.py splices them in)
 
 -- not the game --
 critter_demo.py, overlay_demo.py   look-tests (deploy.sh --demo)
@@ -87,8 +94,10 @@ critter_candidates.py              GENERATED sprite index (tools/build_critter_c
 sprite_scale.py                    unused: nothing imports it, but it is deployed
 ```
 
-The model layer is in good shape: small, testable, no displayio. Most of the
-problems are in how the loop and the screens are wired together.
+The model layer is in good shape: small, testable, no displayio. Since step 4
+the views import `story`, not `hunt`: the model and the drawing meet only in
+`story.py`'s plain data, and `storyboard.py` is the one place that decides how
+what happened is shown.
 
 ## 3. What's wrong with the wiring
 
@@ -96,7 +105,9 @@ problems are in how the loop and the screens are wired together.
 step 3 (`cd-342.47.3`) moved drawing out of input handling: every caption is
 now drawn from `run → Game.tick → _play → GameScreen.update → NavView.update →
 BeatPlayer.update`, about 880 bytes deep before the library, against 1150 in
-the chain below. The frame sizes below are from before both.*
+the chain below. Step 4 (`cd-342.47.4`) untangled story and screen:
+`GameScreen` hands `NavView.tell` the hunt's `News`, and `storyboard.beats`
+builds the beats. What follows is how it was before.*
 
 **`app.run` does everything.** It is one 340-line function with 68 locals and
 4 nested helper functions. It covers:

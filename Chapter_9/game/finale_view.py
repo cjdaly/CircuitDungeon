@@ -118,17 +118,12 @@ class FinaleView:
         self._shot_at = 0.0
 
     def show(self, parade):
-        """The critters following you (hunt.Scene.parade), or None. The last
+        """The critters following you (story.Scene.parade), or None. The last
         parade is kept: the ending's shots play after they're all home."""
         self._walking = bool(parade)
         if parade:
             self._parade = tuple(parade)[:len(self._grids)]
             self._frames = tuple(first_frame(sprite) for _, sprite in self._parade)
-
-    @property
-    def size(self):
-        """How many critters the finale has (the last parade)."""
-        return len(self._parade)
 
     def shot(self, name, now):
         """Start drawing a finale shot; None goes back to just the parade."""

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Draws what's in the room to see and tap -- cd-342.26.
 
-hunt.Hunt.scene() says what the current room holds (hunt.Scene); SceneView draws
+hunt.Hunt.scene() says what the current room holds (story.Scene); SceneView draws
 it, in the middle of the panel where a tap lands on it (edge_gesture's centre
 disk):
 
@@ -33,7 +33,7 @@ import finale
 import scene_art
 from finale_view import FinaleView
 from home_view import HomeView
-from hunt import BOX_HOME, HIDING, SHELF
+from story import BOX_HOME, HIDING, SHELF
 from walk import bob
 
 OBJECTS = scene_art.OBJECTS
@@ -59,7 +59,7 @@ _WIGGLE_X = (_MIDDLE_X - 34, _MIDDLE_X + _ART_PX + 2)  # wiggle lines either sid
 _WIGGLE_Y = _SPOT_Y + 8
 _LURE_BOB_PX = 3
 _LURE_BOB_PERIOD = 1.6
-# A lure up on the Odd Corner's high shelf (hunt.SHELF): 1x and still, its
+# A lure up on the Odd Corner's high shelf (story.SHELF): 1x and still, its
 # bottom row standing on the shelf (backdrop y 49, so 98 on screen), just
 # under the room caption and above a standing critter's head.
 _SHELF_X, _SHELF_Y, _SHELF_SCALE = 138, 68, 1
@@ -218,7 +218,7 @@ class SceneView:
         self._dance_at = 0.0
 
     def show(self, scene, now=0.0):
-        """Show a hunt.Scene: call it whenever the room or what's in it changes."""
+        """Show a story.Scene: call it whenever the room or what's in it changes."""
         self._shown_at = now
         self._boxes = scene.boxes
         self._home.show(scene.boxes)
@@ -320,7 +320,7 @@ class SceneView:
         return self._sheet, self._palette, self._tile_of[name], scene_art.TILE
 
     def set_escape(self, escape):
-        """The critter the next escape cutscene is about (a hunt.Escape)."""
+        """The critter the next escape cutscene is about (a story.Escape)."""
         self._home.set_escape(escape)
 
     def shot(self, name, now):
@@ -338,10 +338,6 @@ class SceneView:
             self._held_layer.hidden = True  # the finale draws its own batteries
         elif self._held_shown:
             self._held_layer.hidden = False
-
-    def parade_size(self):
-        """How many critters the finale has (for its tower's beats)."""
-        return self._finale.size
 
     def update(self, now):
         self._home.update(now)

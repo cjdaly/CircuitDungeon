@@ -19,6 +19,7 @@ import displayio
 
 import edge_gesture
 import ornament
+from story import News
 
 
 class TagScreen:
@@ -139,7 +140,7 @@ class GameScreen:
             return
         reason = self.hunt.bumped(direction)
         if reason:
-            self._nav.say([reason], now)
+            self._nav.tell(News([reason]), now)
         else:
             self._nav.bonk(now)
 
@@ -148,11 +149,8 @@ class GameScreen:
         self._nav.show_scene(self.hunt.scene(), now)
 
     def _tell(self, messages, now):
-        """Show what the hunt just said, drawn the way its last event wants."""
-        hunt = self.hunt
-        want = hunt.critter.preferred_item if hunt.critter else None
-        self._nav.say(messages, now, hunt.event, want, hunt.escape, hunt.escape_at,
-                      hunt.cutscenes)
+        """Show what the hunt just said (storyboard.py draws it)."""
+        self._nav.tell(self.hunt.news(messages), now)
 
     def _outcome(self, direction, waits):
         """What the touch log says a finished stroke did."""

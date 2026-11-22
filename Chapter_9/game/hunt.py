@@ -12,13 +12,15 @@ open. Then the player:
 3. taps the critter again holding the lure, and it follows them home
 4. walks back to the tree, which starts the next episode
 
-Each method returns the messages to show, as plain strings; this module has no
-display code, so it runs under plain desktop Python (see tests/test_hunt.py).
-
-What's in the room to see and tap -- the critter, the lure, the item in hand --
-comes from scene() (cd-342.26), and .event says what a tap just did, so the view
-can draw it rather than the text telling you to tap. .cutscenes says which
-cutscene plays before which message (the escape, cd-342.10; the finale's, finale.py).
+Each method returns the messages to show, as plain strings, and news() wraps
+them with what else the screen needs (a story.News): .event says what a tap
+just did, so the view can draw it rather than the text telling you to tap, and
+.cutscenes says which cutscene plays before which message (the escape,
+cd-342.10; the finale's, finale.py). What's in the room to see and tap -- the
+critter, the lure, the item in hand -- comes from scene() (cd-342.26). Both are
+story.py's plain data; storyboard.py turns News into comic beats. This module
+has no display code, so it runs under plain desktop Python (see
+tests/test_hunt.py).
 
 After the last episode comes the finale (cd-342.6, doc/EPISODES.md sec 6):
 every critter bursts out again (PARADE), you lead them to the Odd Corner where
@@ -29,38 +31,16 @@ import episodes
 import finale
 from critters import CAST, HIDING as CRITTER_HIDING, HOME, IN_BOX, LOOSE, RETURNED
 from scene_art import HIDING_SPOTS
+# What the hunt reports (story.py), named here too for the hunt's tests.
+from story import (BOX_CLOSED, BOX_EMPTY, BOX_HOME, BURST, CHARGED, ESCAPE_SCENE,  # noqa: F401
+                   ESCAPED, FOUND, HIDING, RETRIEVED, SHELF, TOOK, TOWER, WAITING, Escape,
+                   News, Scene)
 
 HUNTING = "hunting"
 GOING_HOME = "going_home"
 PARADE = "parade"  # the finale: everyone loose, following you to the Odd Corner
 CARRYING = "carrying"  # ...and back to the tree with the batteries
 DONE = "done"
-
-# What the last tapped(), start() or entered() did, for the view to show it
-# (Hunt.event).
-FOUND = "found"
-TOOK = "took"
-RETRIEVED = "retrieved"
-ESCAPED = "escaped"  # an episode began: play the escape (Hunt.escape)
-BURST = "burst"  # the finale began: every box popped
-TOWER = "tower"  # the parade reached the batteries
-CHARGED = "charged"  # home with the batteries: the ending
-
-# A present under the tree (Scene.boxes).
-BOX_CLOSED = "closed"  # its critter hasn't got out yet
-BOX_EMPTY = "empty"  # tipped over: its critter is out
-BOX_HOME = "home"  # its critter is back, sitting on it
-
-# How the critter looks in the room where it hides (Scene.pose).
-HIDING = "hiding"
-WAITING = "waiting"  # found, waiting for its lure
-
-# Where a lure is drawn (Scene.lure_at): the middle of the room, big and
-# bobbing (the default), or up on the Odd Corner's high shelf, small and
-# still, so the batteries look out of reach.
-SHELF = "shelf"
-
-ESCAPE_SCENE = "escape"  # Hunt.cutscenes: the escape (escape.py); the rest are finale.py's
 
 # The tower, bottom to top: the biggest critters underneath.
 TOWER_ORDER = ("reindeer", "dog", "robot", "cat", "squirrel")
@@ -77,82 +57,6 @@ _HOURS = ("9 PM", "10 PM", "11 PM", "Near midnight", "Midnight")
 # Short names for the "<critter> wants the <item>" line, so it fits two lines;
 # the thought bubble beside it shows the item itself.
 _SHORT_ITEM = {"ball of yarn": "yarn", "squeaky ball": "ball"}
-
-_BANNER_CHARS = 15  # Bangers on the round panel; tests check the real pixel widths
-
-
-# Caption font (Bangers) advance widths in px, one per comic_fonts.GLYPHS character.
-# tests/test_hunt.py checks them against the BDF.
-_CAPTION_GLYPHS = " !',.0123456789?ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-_CAPTION_WIDTHS = (6, 7, 6, 6, 6, 12, 9, 12, 12, 12, 12, 13, 9, 14, 13, 12, 11, 11, 11, 12, 9, 9, 13, 12, 6, 8, 12, 8, 16, 12, 13, 10, 14, 12, 11, 10, 11, 10, 16, 11, 10, 11)
-CAPTION_PX = 160  # widest caption line: keeps a two-line box's corners on the panel
-
-
-def text_px(text):
-    """Width of `text` in the caption font, upper-cased as it's drawn."""
-    total = 0
-    for ch in text.upper():
-        i = _CAPTION_GLYPHS.find(ch)
-        total += _CAPTION_WIDTHS[i] if i >= 0 else 0
-    return total
-
-
-def wrap(text, width=_BANNER_CHARS, px=CAPTION_PX):
-    """Word-wrap into lines at most `width` characters and `px` pixels where possible."""
-    lines = []
-    line = ""
-    for word in text.split(" "):
-        longer = line + " " + word
-        if line and (len(longer) > width or text_px(longer) > px):
-            lines.append(line)
-            line = word
-        else:
-            line = line + " " + word if line else word
-    lines.append(line)
-    return lines
-
-
-class Scene:
-    """What the current room shows, as plain data. Every field is None when absent.
-
-    spot: scene_art name of the critter's hiding spot
-    critter: its sprite id (critters.Critter.sprite), when it's in this room
-    pose: HIDING (peeking out) or WAITING (found)
-    lure: scene_art name of what's at the lure spot (the lure, or what hides it)
-    lure_at: None for the middle of the room, or SHELF
-    follower: sprite id of a critter following you home
-    parade: the finale's critters following you, ((species, sprite id), ...),
-        bottom of the tower first
-    held: the item in hand
-    boxes: under the tree (HOME only), ((species, BOX_*, sprite id), ...) in CAST order
-    """
-
-    def __init__(self, spot=None, critter=None, pose=None, lure=None, follower=None,
-                 held=None, boxes=None, lure_at=None, parade=None):
-        self.spot = spot
-        self.critter = critter
-        self.pose = pose
-        self.lure = lure
-        self.lure_at = lure_at
-        self.parade = parade
-        self.follower = follower
-        self.held = held
-        self.boxes = boxes
-
-
-class Escape:
-    """The critter that just got out, for the escape cutscene.
-
-    `direction` is the way it bolts: the first step from the tree toward where
-    it's hiding, so the cutscene is also a hint.
-    """
-
-    def __init__(self, species, sprite, name, direction):
-        self.species = species
-        self.sprite = sprite
-        self.name = name
-        self.direction = direction
-
 
 class Hunt:
     def __init__(self, world, roster, order=None, player=None,
@@ -174,8 +78,7 @@ class Hunt:
         self._locked = False
         self._player = player  # who this board is for, if it says
         self.event = None  # FOUND / TOOK / RETRIEVED / ESCAPED
-        self.escape = None  # Escape, when event is ESCAPED
-        self.escape_at = 0  # ...and the message the cutscene plays before
+        self.escape = None  # Escape, the last critter to get out
         self.cutscenes = ()  # ((message index, cutscene name), ...) for the last messages
 
     def start(self):
@@ -186,6 +89,15 @@ class Hunt:
     def _quiet(self):
         self.event = None
         self.cutscenes = ()
+
+    def news(self, messages):
+        """`messages`, just returned by start(), entered() or tapped(), with
+        what else the screen needs to show them (story.News)."""
+        escaping = any(name == ESCAPE_SCENE for _index, name in self.cutscenes)
+        return News(messages, self.event, self.cutscenes,
+                    escape=self.escape if escaping else None,
+                    want=self.critter.preferred_item if self.critter else None,
+                    parade=len(self._parade()))
 
     def _start_next_episode(self, lead):
         """`lead`: how many messages the caller puts ahead of these."""
@@ -211,8 +123,7 @@ class Hunt:
         self.event = ESCAPED
         self.escape = Escape(self.critter.species, self.critter.sprite, self.critter.name,
                              self._first_step())
-        self.escape_at = lead + 1  # after the hour
-        self.cutscenes = ((self.escape_at, ESCAPE_SCENE),)
+        self.cutscenes = ((lead + 1, ESCAPE_SCENE),)  # after the hour
         return [hour, "{} escaped!".format(self.critter.name)] + self._escape_clues()
 
     def _first_step(self):

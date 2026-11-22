@@ -32,6 +32,7 @@ import comic_fonts
 import comic_shapes
 import critter_candidates
 import scene_art
+import story
 from escape import BOLT, CALM, CLOSE_SHOTS, CLOSEUP, NAME, PEEK, POP, RATTLE
 from rooms import DOWN, LEFT, RIGHT, UP
 
@@ -173,8 +174,7 @@ class HomeView:
     # ------------------------------------------------------------------ #
 
     def show(self, boxes):
-        """The presents, as hunt.Scene.boxes; None hides the whole room."""
-        import hunt
+        """The presents, as story.Scene.boxes; None hides the whole room."""
 
         self.group.hidden = boxes is None
         self._shown = boxes or ()
@@ -186,10 +186,10 @@ class HomeView:
             if box.grid.pixel_shader is not self._palettes[species]:
                 box.grid.pixel_shader = self._palettes[species]
             x, y = SLOTS[i]
-            art = "present tipped" if state == hunt.BOX_EMPTY else "present"
+            art = "present tipped" if state == story.BOX_EMPTY else "present"
             self._normal_tile.append(self._tile_of[art])
             box.place(x, y, self._normal_tile[i])
-            if state == hunt.BOX_HOME:
+            if state == story.BOX_HOME:
                 self._sitter_frame[i] = first_frame(sprite)
                 sitter.place(x, y - _ON_BOX, self._sitter_frame[i])
             else:
@@ -205,7 +205,7 @@ class HomeView:
         self._sitters[slot].group.hidden = not visible
 
     def set_escape(self, escape):
-        """The critter the next escape cutscene is about (a hunt.Escape)."""
+        """The critter the next escape cutscene is about (a story.Escape)."""
         self._escape = escape
 
     def shot(self, name, now):

@@ -591,9 +591,10 @@ class TestAppSmoke(unittest.TestCase):
 
     def test_a_long_message_runs_on_into_a_second_caption(self):
         import nav_view
+        import story
 
         nav = nav_view.NavView(240, 240)
-        nav.say(["one two three four five six seven eight"], 0.0)  # three lines
+        nav.tell(story.News(["one two three four five six seven eight"]), 0.0)  # three lines
         nav.update(0.0, None)
         self.assertTrue(nav.overlay_up)
         nav.tap_overlay(0.1)
