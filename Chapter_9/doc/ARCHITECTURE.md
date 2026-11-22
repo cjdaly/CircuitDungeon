@@ -13,7 +13,7 @@ touches these on a board (§5 has the tool).
 | budget | what we have | notes |
 |---|---|---|
 | **Python call stack** (pystack) | 1536 bytes, CircuitPython's default `CIRCUITPY_PYSTACK_SIZE` | Every active call holds a frame: about 28 bytes of overhead plus 4 bytes per local variable and per stack slot. Run out and the call raises `RuntimeError: pystack exhausted`. |
-| **Deepest call: drawing text** | `bitmap_label`'s `text` setter goes 5 calls deep inside the library | This is the call that runs out first. On 2026-11-22 the escape cutscene died here (`cd-342.46`): with the game's real call depth it fits, but not with 4 more small frames under it. |
+| **Deepest call: drawing text** | `bitmap_label`'s `text` setter goes 5 calls deep inside the library | This is the call that runs out first. On 2026-11-22 the escape cutscene died here (`cd-342.46`). Headroom, measured with `tools/device_run.py --depth` (extra small calls the game survives): 3 after the first fix, **7 after step 2** (`cd-342.47.2`). |
 | **RAM** | about 150 KB headroom, largest free block at least 128 KB (ws-10, `cd-342.38`) | `gc.mem_free()` misleads on CircuitPython 10, because the heap grows on demand. Measure `gc.mem_alloc()` differences instead. |
 | **Frame time** | loop sleeps `_TICK` = 50 ms; about 18 fps in play | |
 | **Drawing a caption's words** | about 570 ms on the board | This is `bitmap_label` rendering the text. Nothing else per beat comes close. Keep captions to what the story needs. |
@@ -39,17 +39,19 @@ boot.py, main.py            bootstrap: display, I2C bus, touch, IMU; starts app.
 hardware.py, touch.py,      the board: pins, display, touch chip wrapper,
 imu.py, bus_recovery.py     motion sensor, bus recovery
 
-app.py  run()               THE LOOP, and everything around it (see §3)
+app.py  Game, run()         THE LOOP: read sensors, handle, update (cd-342.47.2)
+settings.py                 the game's settings.toml keys, read once
+sensors.py                  touch, motion, stillness, bus recovery
+power_manager.py            blanking per mode, deep idle, drain log
+  modes.py, stillness.py,   the policies it uses: game or ornament, still or
+  screen_blanker.py,        handled, when to blank, when to sleep; battery log
+  power.py, drain_log.py
 
-modes.py, stillness.py,     when to show the game or the ornament, when to blank,
-screen_blanker.py,          when to drop into deep idle; battery logging
-power.py, drain_log.py
-
--- screens --
-gift_tag.py                 FOR <PLAYER>, FROM CHRIS, before the title
-title_view.py               CHRISTMAS CRITTERS, until a tap
-nav_view.py  NavView        the game screen; owns everything below
-ornament.py  Show           the ornament scenes
+-- screens (screens.py: group, enter, handle, update) --
+TagScreen    gift_tag.py    FOR <PLAYER>, FROM CHRIS, before the title
+TitleScreen  title_view.py  CHRISTMAS CRITTERS, until a tap
+GameScreen   nav_view.py    the game; NavView owns everything below
+OrnamentScreen ornament.py  the ornament scenes
 
 -- the game's model (plain Python, no displayio) --
 rooms.py                    the room graph, exits, gates
@@ -82,6 +84,9 @@ The model layer is in good shape: small, testable, no displayio. Most of the
 problems are in how the loop and the screens are wired together.
 
 ## 3. What's wrong with the wiring
+
+*Step 2 (`cd-342.47.2`) has since split `app.run` into the parts in §2; the
+frame sizes below are from before it.*
 
 **`app.run` does everything.** It is one 340-line function with 68 locals and
 4 nested helper functions. It covers:
@@ -176,15 +181,19 @@ on a board:
 - **The preview tool** shows how screens look without a board:
   `/usr/bin/python3 Chapter_9/tools/preview.py`. It can't show stack, RAM or
   timing.
-- **A scripted run on the board** (`cd-342.47.5`, to become
-  `tools/device_run.py`): run the real game with fake taps, so cutscenes can
-  be checked without a finger, and report any traceback.
-  - Send the script over the REPL in paste mode, not as a file on the drive:
+- **A scripted run on the board**: `tools/device_run.py SERIAL` runs the
+  real game with fake taps (through the gift tag, the title and the escape
+  cutscene) and reports any traceback.
+  - `--depth N` runs it under N extra nested calls: the smallest N that
+    fails tells you how much stack is to spare. Run it after any change on
+    the drawing path, and note the number in §1.
+  - `--push FILE...` loads changed modules over serial instead of from the
+    board's flash, so a change can be tried without deploying (or when macOS
+    won't mount the drive). A reset puts the board back on what's deployed.
+  - It talks to the REPL over serial and never writes files to the drive:
     macOS caches writes to the CIRCUITPY drive, and a reset can read a
-    half-written file.
-  - Don't `import main` from it: `main.py` starts the game when imported.
-  - Adding a few nested calls around `app.run` measures how much stack is to
-    spare.
+    half-written file. It doesn't `import main`, because `main.py` starts the
+    game when imported.
 - **A frame-size test** on the desktop (`cd-342.47.5`) keeps the drawing
   path's frames small, using CPython's code objects as a stand-in for the
   board's.

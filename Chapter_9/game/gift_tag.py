@@ -235,10 +235,6 @@ class GiftTag:
     def __init__(self, name, sender=FROM, width=240, height=240, now=0.0, device_id=None,
                  turn=0, show_s=SHOW_S):
         import displayio
-        import vectorio
-        from adafruit_display_text.bitmap_label import Label
-
-        import comic_fonts
 
         self.name = clean_name(name)
         self.shown_at = now
@@ -246,57 +242,78 @@ class GiftTag:
         paper_index, ribbon, tag = style_for(self.name, device_id, turn)
         pattern, paper_colors = PAPERS[paper_index]
         self.style = (pattern, ribbon, tag)
-
-        def solid(color):
-            palette = displayio.Palette(1)
-            palette[0] = color
-            return palette
-
         self.group = displayio.Group()
-        group = self.group
+        # One small method per layer, bottom to top: drawing a label goes deep
+        # (doc/ARCHITECTURE.md sec 1), so no big frame sits under _words.
+        self._paper(pattern, paper_colors, width, height)
+        self._ribbons(ribbon, width, height)
+        self._sticker(tag)
+        self._words(tag, sender)
+        self._bow(ribbon)
 
-        # The paper: one tile, repeated over the whole screen.
+    def _paper(self, pattern, colors, width, height):
+        """One tile, repeated over the whole screen."""
+        import displayio
+
         tile = displayio.Bitmap(_TILE, _TILE, 4)
         paint_pattern(tile, pattern)
         paper = displayio.Palette(4)
-        for i, color in enumerate(paper_colors):
+        for i, color in enumerate(colors):
             paper[i] = color
-        group.append(displayio.TileGrid(tile, pixel_shader=paper, width=width // _TILE + 1,
-                                        height=height // _TILE + 1, tile_width=_TILE,
-                                        tile_height=_TILE))
+        self.group.append(displayio.TileGrid(
+            tile, pixel_shader=paper, width=width // _TILE + 1, height=height // _TILE + 1,
+            tile_width=_TILE, tile_height=_TILE))
 
-        # The ribbons: a band down and a band across, each with darker edges.
-        face, edge = solid(ribbon[0]), solid(ribbon[1])
+    def _ribbons(self, ribbon, width, height):
+        """A band down and a band across, each with darker edges."""
+        import vectorio
+
+        face, edge = _solid(ribbon[0]), _solid(ribbon[1])
         half = _RIBBON_W // 2
         for vertical in (True, False):
             for shader, grow in ((edge, 0), (face, -3)):
                 if vertical:
-                    group.append(vectorio.Rectangle(pixel_shader=shader,
-                                                    width=_RIBBON_W + 2 * grow, height=height,
-                                                    x=_RIBBON_X - half - grow, y=0))
+                    self.group.append(vectorio.Rectangle(
+                        pixel_shader=shader, width=_RIBBON_W + 2 * grow, height=height,
+                        x=_RIBBON_X - half - grow, y=0))
                 else:
-                    group.append(vectorio.Rectangle(pixel_shader=shader, width=width,
-                                                    height=_RIBBON_W + 2 * grow,
-                                                    x=0, y=_RIBBON_Y - half - grow))
+                    self.group.append(vectorio.Rectangle(
+                        pixel_shader=shader, width=width, height=_RIBBON_W + 2 * grow,
+                        x=0, y=_RIBBON_Y - half - grow))
 
-        # The tag: ink edge, fill, a thin inner line, then the words.
-        fill, line, words, name_color = tag
-        ink = solid(_INK)
-        for shader, inset in ((ink, 0), (solid(fill), 3), (solid(line), 7), (solid(fill), 9)):
-            group.append(vectorio.Polygon(pixel_shader=shader, points=_tag_points(inset)))
+    def _sticker(self, tag):
+        """The tag: ink edge, fill, a thin inner line, fill again."""
+        import vectorio
 
+        fill, line = tag[0], tag[1]
+        for color, inset in ((_INK, 0), (fill, 3), (line, 7), (fill, 9)):
+            self.group.append(vectorio.Polygon(pixel_shader=_solid(color),
+                                               points=_tag_points(inset)))
+
+    def _words(self, tag, sender):
+        """FOR, the name, FROM <sender>."""
+        from adafruit_display_text.bitmap_label import Label
+
+        import comic_fonts
+
+        words, name_color = tag[2], tag[3]
         caption = comic_fonts.caption()
         names = self._name_labels(Label, comic_fonts, name_color)
         spread = 6 if len(names) > 1 else 0  # a two-line name needs more room
-        group.append(Label(caption, text="FOR", color=words, anchor_point=(0.5, 0.5),
-                           anchored_position=(_TEXT_X, _FOR_Y - spread)))
-        group.append(Label(caption, text="FROM " + clean_name(sender), color=words,
-                           anchor_point=(0.5, 0.5),
-                           anchored_position=(_TEXT_X, _FROM_Y + spread)))
+        self.group.append(Label(caption, text="FOR", color=words, anchor_point=(0.5, 0.5),
+                                anchored_position=(_TEXT_X, _FOR_Y - spread)))
+        self.group.append(Label(caption, text="FROM " + clean_name(sender), color=words,
+                                anchor_point=(0.5, 0.5),
+                                anchored_position=(_TEXT_X, _FROM_Y + spread)))
         for label in names:
-            group.append(label)
+            self.group.append(label)
 
-        # The bow over the knot: two loops, two tails, the knot.
+    def _bow(self, ribbon):
+        """Over the knot: two loops, two tails, the knot."""
+        import vectorio
+
+        group = self.group
+        ink, face, edge = _solid(_INK), _solid(ribbon[0]), _solid(ribbon[1])
         kx, ky = _KNOT
         for points in (
                 [(kx - 4, ky), (kx - 22, ky + 34), (kx - 12, ky + 30), (kx - 8, ky + 38), (kx + 2, ky)],
@@ -339,6 +356,14 @@ class GiftTag:
 
     def done(self, now):
         return now >= self.until
+
+
+def _solid(color):
+    import displayio
+
+    palette = displayio.Palette(1)
+    palette[0] = color
+    return palette
 
 
 def _grow(points, cx, cy, by):
