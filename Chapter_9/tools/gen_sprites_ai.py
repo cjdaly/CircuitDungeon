@@ -52,6 +52,7 @@ NEGATIVE = ("text, letters, watermark, photo, photorealistic, 3d render, blurry,
 SUBJECTS = {
     # critters (critters.CAST), each with one festive touch
     "patch": ("critter", "dog_0_0", "a white dog with orange patches and perky ears, a red collar with a gold bell"),
+    # dog_3_0 is Dolly now: build_sprites.EDITS recolours this one brown/red.
     "sparky": ("critter", "dog_3_0", "a red-orange dog with floppy ears wearing a green and white striped scarf"),
     "woofer": ("critter", "dog_4_0", "a big bulky white and tan dog wearing a red knitted scarf"),
     "chirpy": ("critter", "cat_0_1", "an orange tabby cat with a little red Christmas bow"),

@@ -89,6 +89,16 @@ and wrong-way branches.)*
 scene. This replaces the strict "where at escape, what when found" split in
 `STYLE.md` §5. That split is now just one pattern among several.
 
+**DECIDED (Chris, 2026-11-21, `cd-342.40`): clue difficulty is a setting.**
+The room clues below, which name the edge to tap, are **easy**. **Medium**, the
+default, swaps them for hot or cold: every move says, in the critter's voice,
+whether it took you closer (`WOOF! LOUDER!`) or farther (`WOOF... FAINTER`).
+The map has no loops, so every move is exactly one or the other. Once the
+critter is found, the hints point to its lure (`SQUEAK! WARMER`), then back
+to the critter once you hold it. **Hard** has no room clues at all. Every
+level keeps the story lines (habit, bump reasons, lure-room text).
+`settings.toml DIFFICULTY`, see `DEPLOY.md`.
+
 A clue has three parts: **when** it shows, **what form** it takes, and
 **what it points at**.
 

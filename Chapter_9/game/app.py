@@ -32,6 +32,7 @@ import time
 import traceback
 
 import edge_gesture
+import episodes
 import modes
 import ornament
 import power as deep_idle
@@ -120,7 +121,10 @@ def run(display, backlight, touch, imu_gestures, width, height,
     # Who this board is for: optional, set per board in settings.toml.
     player = os.getenv("PLAYER")
     roster = make_roster()
-    hunt = Hunt(world, roster, player=player)
+    # How much the clues help: settings.toml DIFFICULTY = "easy", "medium" (the
+    # default) or "hard" (episodes.DIFFICULTIES, cd-342.40).
+    hunt = Hunt(world, roster, player=player,
+                difficulty=episodes.difficulty(os.getenv("DIFFICULTY")))
     # Review switch: settings.toml FINALE_NOW = "1" starts at the finale, every
     # critter already home. Leave it out for real play.
     finale_now = os.getenv("FINALE_NOW") in ("1", "true", "yes")
@@ -232,8 +236,8 @@ def run(display, backlight, touch, imu_gestures, width, height,
     if tag is not None:  # loading took a while: give it a moment once taps work
         loaded_in = clock() - tag.shown_at
         tag.until = max(tag.until, clock() + gift_tag.MIN_LIVE_S)
-    print("Ch9 ready -- start: {}  player={}  art={}{}  free={}{}".format(
-        world.current, player, getattr(nav, "art_set", None),
+    print("Ch9 ready -- start: {}  player={}  art={}  clues={}{}  free={}{}".format(
+        world.current, player, getattr(nav, "art_set", None), hunt.difficulty,
         ("  OPEN_ALL_ROOMS" if world.open_all else "") + ("  FINALE_NOW" if finale_now else ""),
         gc.mem_free(), "" if tag is None else "  tag up {:.1f}s, turn {} ({})".format(
             loaded_in, tag_turn, tag.style[0])))

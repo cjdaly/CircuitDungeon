@@ -26,6 +26,7 @@ import math
 import displayio
 
 import backdrop
+import clearance
 import comic_shapes
 import critter_candidates
 import finale
@@ -73,6 +74,13 @@ _HELD_BACK = 0x241C2C
 _HELD_BACK_RADIUS = 22
 _FOLLOW_X, _FOLLOW_Y = 162, 156
 _FOLLOW_HOP_PX = 3
+
+# A critter out in the open dances clear of a caption or thought bubble rather
+# than sit under it (cd-342.46): side to side, a hop on each step.
+_DANCE_SWING_PX = clearance.DANCE_SWING
+_DANCE_PERIOD = 1.2  # s for one sway there and back
+_DANCE_HOP_PX = 4
+_DANCE_MARGIN = clearance.DANCE_MARGIN  # px kept between a dancer and a popup
 
 
 def _palette():
@@ -205,6 +213,9 @@ class SceneView:
         self._follower_frame = 0
         self._spot_top = 0
         self._shown_at = 0.0
+        self._covers = None  # popup rects to keep out from under (avoid())
+        self._dance = []  # (layer, (x, y) top-left it dances around)
+        self._dance_at = 0.0
 
     def show(self, scene, now=0.0):
         """Show a hunt.Scene: call it whenever the room or what's in it changes."""
@@ -249,7 +260,55 @@ class SceneView:
         self._follow_layer.hidden = scene.follower is None
         if scene.follower is not None:
             self._follower_frame = _first_frame(scene.follower)
+        self._critter.flip_x = self._follower.flip_x = False
+        self._plan_dance()
         self.update(now)
+
+    def _dancers(self):
+        """(layer, its usual top-left) of each critter out in the open, showing."""
+        out = []
+        if self._pose is not None and self._pose != HIDING:
+            out.append((self._front, (_MIDDLE_X, _WAIT_Y)))
+        if not self._follow_layer.hidden:
+            out.append((self._follow_layer, (_FOLLOW_X, _FOLLOW_Y)))
+        return out
+
+    def dancer_rects(self):
+        """(x, y, size) of each critter out in the open, at home, for comic.Stage."""
+        size = scene_art.TILE * _CRITTER_SCALE
+        return [(x, y, size) for _layer, (x, y) in self._dancers()]
+
+    def keep_clear(self):
+        """Screen rects of what's drawn that a caption should keep off -- all of
+        it but the critters out in the open, who dance clear instead."""
+        return clearance.things_in(self.group, skip=[layer for layer, _home in self._dancers()])
+
+    def avoid(self, covers, now):
+        """Popups are up over `covers` (rects), or none (None): a critter out in
+        the open under one dances clear of it until they're gone."""
+        self._covers = [clearance.grow(r, _DANCE_MARGIN) for r in covers] if covers else None
+        self._dance_at = now
+        self._plan_dance()
+
+    def _plan_dance(self):
+        self._dance = []
+        if not self._covers:
+            for layer, (x, y) in self._dancers():
+                layer.x, layer.y = x, y
+                layer[0].flip_x = False
+            return
+        blocked = list(self._covers)
+        size = scene_art.TILE * _CRITTER_SCALE
+        for layer, home in self._dancers():
+            if not clearance.covered((home[0], home[1], home[0] + size, home[1] + size),
+                                     self._covers):
+                continue  # nothing over it: it stays put
+            spot = clearance.dance_spot(home, size, blocked, _DANCE_SWING_PX)
+            if spot is None:
+                continue  # nowhere clear to go
+            self._dance.append((layer, spot))
+            blocked.append((spot[0] - _DANCE_SWING_PX, spot[1],
+                            spot[0] + size + _DANCE_SWING_PX, spot[1] + size))
 
     def sheets(self):
         """(objects, its palette, critters, its palette, tile index by name), to share."""
@@ -306,3 +365,8 @@ class SceneView:
         if not self._follow_layer.hidden:
             self._follower[0] = self._follower_frame + int(t / _HOP_FRAME_S) % 2
             self._follow_layer.y = _FOLLOW_Y - bob(t, _HOP_FRAME_S, _FOLLOW_HOP_PX)
+        for layer, (x, y) in self._dance:
+            u = 2 * math.pi * (now - self._dance_at) / _DANCE_PERIOD
+            layer.x = x + int(_DANCE_SWING_PX * math.sin(u))
+            layer.y = y - int(_DANCE_HOP_PX * abs(math.sin(2 * u)))
+            layer[0].flip_x = math.cos(u) > 0  # the sprites face left

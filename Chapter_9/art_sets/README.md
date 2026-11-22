@@ -38,8 +38,9 @@ from flash and shows them at 2x, the backdrops' pixel size.
 `/usr/bin/python3 Chapter_9/tools/build_sprites.py` builds them: `drawn` gets
 the hand-drawn props (`tools/scene_art_src.py`, doubled; the yarn drawn new at
 32x32) and the DawnLike critters (CC-BY, credited in the chapter README);
-other sets get `drawn`'s with their `sprites/` put in, plus any hand touches
-listed in its `EDITS` (Chirpy's bow).
+other sets get `drawn`'s with their `sprites/` put in. Any set, `drawn` too,
+gets the hand touches listed for it in `EDITS` (Chirpy's bow, Dolly's
+brown/red recolour).
 
 A set may be **partial**: rooms it doesn't have come from its `base` set
 (normally `drawn`). The tests check every set is complete once its base is

@@ -11,6 +11,7 @@ import displayio
 import vectorio
 from adafruit_display_text.bitmap_label import Label
 
+import clearance
 import comic_fonts
 import comic_shapes
 
@@ -24,6 +25,12 @@ _RED = 0xD04648
 _LINE_OFFSET = 13  # a two-line text's lines sit this far above/below its middle
 _LINE_HEIGHT = 26
 _CAPTION_Y = 172
+# Where a caption's middle can go, (one line, two lines), best first: the
+# bottom, as it always was; the top, over the room name (hidden meanwhile);
+# the middle. Each caption takes the one covering least of the scene (cd-342.46).
+BOTTOM, TOP, MIDDLE = "bottom", "top", "middle"
+_CAPTION_BANDS = ((BOTTOM, _CAPTION_Y, _CAPTION_Y), (TOP, 66, 76), (MIDDLE, 120, 120))
+_THOUGHT_WEIGHT = 4  # covering the thought bubble is worse than covering a thing
 _BORDER = 2
 _CAPTION_PAD_X = 6
 _CAPTION_PAD_Y = 2
@@ -78,6 +85,12 @@ class _Lines:
         second.text = lines[1] if two else ""
         return max(first.bounding_box[2], second.bounding_box[2]), len(lines)
 
+    def move(self, x, y, count):
+        """Re-place what show() drew, without redrawing the words."""
+        first, second = self._labels
+        first.anchored_position = (x, y - _LINE_OFFSET if count > 1 else y)
+        second.anchored_position = (x, y + _LINE_OFFSET)
+
 
 class _Caption:
     """Narration: black words in a small yellow box with a black border."""
@@ -93,18 +106,41 @@ class _Caption:
         self.group.append(self._fill)
         self._lines = _Lines(self.group, comic_fonts.caption(), _INK)
 
-    def show(self, text):
-        widest, count = self._lines.show(text, self._middle, _CAPTION_Y)
-        width = widest + 2 * _CAPTION_PAD_X
-        height = count * _LINE_HEIGHT + 2 * _CAPTION_PAD_Y
+    def draw(self, text):
+        """Draw the words, not placed yet. Kept tiny: bitmap_label goes five
+        calls deep under it, and the board's pystack has little to spare (a
+        fat frame here made the escape cutscene die with "pystack exhausted")."""
+        self._widest, self._count = self._lines.show(text, self._middle, _CAPTION_Y)
+
+    def bands(self):
+        """Each band's rect for what draw() drew."""
+        self._width = self._widest + 2 * _CAPTION_PAD_X
+        self._height = self._count * _LINE_HEIGHT + 2 * _CAPTION_PAD_Y
+        rects = []
+        for _name, one, two in _CAPTION_BANDS:
+            y = two if self._count > 1 else one
+            x0 = self._middle - self._width // 2 - _BORDER
+            y0 = y - self._height // 2 - _BORDER
+            rects.append((x0, y0, x0 + self._width + 2 * _BORDER,
+                          y0 + self._height + 2 * _BORDER))
+        return rects
+
+    def place(self, band):
+        """Show what draw() drew in _CAPTION_BANDS[band]; returns its name."""
+        name, one, two = _CAPTION_BANDS[band]
+        y = two if self._count > 1 else one
+        if y != _CAPTION_Y:
+            self._lines.move(self._middle, y, self._count)
+        width, height = self._width, self._height
         self._fill.width, self._fill.height = width, height
         self._fill.x = self._middle - width // 2
-        self._fill.y = _CAPTION_Y - height // 2
+        self._fill.y = y - height // 2
         self._border.width = width + 2 * _BORDER
         self._border.height = height + 2 * _BORDER
         self._border.x = self._fill.x - _BORDER
         self._border.y = self._fill.y - _BORDER
         self.group.hidden = False
+        return name
 
 
 class _Balloon:
@@ -136,25 +172,58 @@ class _Balloon:
 class _Thought:
     """What a critter wants: an icon, no words, in a cloud with trailing circles."""
 
-    # (x, y, radius) from the cloud's middle; the last two are the trail.
-    _PUFFS = ((-20, -8, 22), (20, -8, 22), (-20, 12, 20), (20, 12, 20), (0, 0, 32),
-              (6, 44, 7), (12, 58, 4))
+    # (x, y, radius) from the cloud's middle.
+    _CLOUD = ((-20, -8, 22), (20, -8, 22), (-20, 12, 20), (20, 12, 20), (0, 0, 32))
+    _TRAIL_R = (7, 4)
+    # Where the cloud can go, best first (cd-342.46): its middle, and its trail's
+    # two circles from there, pointing back at the thinker -- above a critter in
+    # the middle, or beside one that has danced off to the other side.
+    SPOTS = (
+        ((_THOUGHT_X, _THOUGHT_Y), ((6, 44), (12, 58))),
+        ((172, 146), ((-52, 8), (-64, 12))),
+        ((68, 146), ((52, 8), (64, 12))),
+    )
 
     def __init__(self, parent):
         self.group = _hidden_group(parent, x=_THOUGHT_X, y=_THOUGHT_Y)
         ink = _palette(_INK)
         paper = _palette(_PAPER)
-        for x, y, radius in self._PUFFS:
-            self.group.append(vectorio.Circle(
-                pixel_shader=ink, x=x, y=y, radius=radius + _BORDER))
-        for x, y, radius in self._PUFFS:
-            self.group.append(vectorio.Circle(pixel_shader=paper, x=x, y=y, radius=radius))
+        self._trail = []
+        for palette, grow in ((ink, _BORDER), (paper, 0)):
+            for x, y, radius in self._CLOUD:
+                self.group.append(vectorio.Circle(
+                    pixel_shader=palette, x=x, y=y, radius=radius + grow))
+            for radius in self._TRAIL_R:
+                puff = vectorio.Circle(pixel_shader=palette, x=0, y=0, radius=radius + grow)
+                self.group.append(puff)
+                self._trail.append(puff)
         offset = -_TILE * _ICON_SCALE // 2
         self._icon = displayio.Group(scale=_ICON_SCALE, x=offset, y=offset)
         self.group.append(self._icon)
 
-    def show(self, icon):
-        """`icon` is (sheet, palette, tile index, tile px), from SceneView.icon()."""
+    @classmethod
+    def rects(cls, spot=0):
+        """Screen rects the cloud and its trail cover at SPOTS[spot]."""
+        (cx, cy), trail = cls.SPOTS[spot]
+        cloud = cls._CLOUD
+        out = [(cx + min(x - r for x, _y, r in cloud) - _BORDER,
+                cy + min(y - r for _x, y, r in cloud) - _BORDER,
+                cx + max(x + r for x, _y, r in cloud) + _BORDER,
+                cy + max(y + r for _x, y, r in cloud) + _BORDER)]
+        puffs = [(x, y, r) for (x, y), r in zip(trail, cls._TRAIL_R)]
+        out.append((cx + min(x - r for x, _y, r in puffs) - _BORDER,
+                    cy + min(y - r for _x, y, r in puffs) - _BORDER,
+                    cx + max(x + r for x, _y, r in puffs) + _BORDER,
+                    cy + max(y + r for _x, y, r in puffs) + _BORDER))
+        return out
+
+    def show(self, icon, spot=0):
+        """`icon` is (sheet, palette, tile index, tile px), from SceneView.icon();
+        `spot` an index into SPOTS."""
+        (cx, cy), trail = self.SPOTS[spot]
+        self.group.x, self.group.y = cx, cy
+        for i, puff in enumerate(self._trail):
+            puff.x, puff.y = trail[i % 2]
         sheet, palette, tile, size = icon
         if len(self._icon):
             self._icon.pop()
@@ -254,6 +323,40 @@ def _make_ring(width, height):
     return group
 
 
+_NOWHERE = 1 << 20  # a layout that leaves a critter nowhere to dance
+
+
+def _layout_cost(caption, cloud, things):
+    """How bad a caption at `caption` and a thought cloud over `cloud` (rects,
+    either may be missing) are for the scene: what they cover, the cloud most
+    of all. Returns (cost, the rects they cover)."""
+    covers = list(cloud)
+    cost = clearance.covered(caption, things) if caption else 0
+    for rect in cloud:
+        cost += clearance.covered(rect, things)
+    if caption:
+        cost += _THOUGHT_WEIGHT * clearance.covered(caption, cloud)
+        covers.append(caption)
+    return cost, covers
+
+
+def _dance_cost(covers, dancers):
+    """How far the critters out in the open must dance to get out from under
+    `covers` -- _NOWHERE if one has nowhere to go. Never negative."""
+    cost = 0
+    blocked = [clearance.grow(r, clearance.DANCE_MARGIN) for r in covers]
+    for x, y, size in dancers:
+        if not clearance.covered((x, y, x + size, y + size), covers):
+            continue
+        spot = clearance.dance_spot((x, y), size, blocked)
+        if spot is None:
+            return _NOWHERE
+        cost += 8 * (abs(spot[0] - x) + abs(spot[1] - y))
+        swing = clearance.DANCE_SWING
+        blocked.append((spot[0] - swing, spot[1], spot[0] + size + swing, spot[1] + size))
+    return cost
+
+
 class Stage:
     """Everything a beat can show. `shake_target` is the Group a shake moves."""
 
@@ -267,23 +370,63 @@ class Stage:
         self._emanata = _Emanata(self.group)
         self._shake_target = shake_target
         self._shake_started = None
+        self.caption_band = None  # where the caption up now went (BOTTOM, TOP, ...)
 
-    def show(self, beat, now):
+    def show(self, beat, now, things=(), dancers=()):
+        """Show a beat. `things` are the scene's clearance rects, for the caption
+        and thought bubble to keep off; `dancers` the (x, y, size) of critters
+        out in the open, who need somewhere clear to dance (SceneView.avoid).
+        Returns the rects the caption and thought bubble cover.
+
+        Few locals here, and the words drawn before the layout search: drawing
+        text is the deepest call the game makes, so the frames under it must
+        stay small (see _Caption.draw)."""
         self.clear()
         if beat.caption:
-            self._caption.show(beat.caption)
+            self._caption.draw(beat.caption)
         if beat.speech:
             self._balloon.show(beat.speech, beat.tail)
-        if beat.thought:
-            self._thought.show(beat.thought)
         if beat.burst:
             self._burst.show(beat.burst)
         if beat.emanata:
             self._emanata.show(beat.emanata)
         if beat.shake and self._shake_target is not None:
             self._shake_started = now
+        return self._arrange(beat, things, dancers)
+
+    def _arrange(self, beat, things, dancers):
+        """Pick the caption band and thought spot and show them there; returns
+        the rects they cover. Draws no text (see show)."""
+        captions = self._caption.bands() if beat.caption else (None,)
+        spots = range(len(_Thought.SPOTS)) if beat.thought else (None,)
+        layouts = []  # (cost before dancing, order, spot, band, covers)
+        for spot in spots:
+            cloud = _Thought.rects(spot) if spot is not None else []
+            for band, caption in enumerate(captions):
+                cost, covers = _layout_cost(caption, cloud, things)
+                layouts.append((cost, len(layouts), spot, band, covers))
+        layouts.sort()
+        # Dancing only ever adds, so stop once no layout left can beat the best:
+        # most beats settle on the first, the board pays for few dance searches.
+        best, best_cost = None, None
+        for cost, _order, spot, band, covers in layouts:
+            if best_cost is not None and cost >= best_cost:
+                break
+            cost += _dance_cost(covers, dancers) if dancers else 0
+            if best_cost is None or cost < best_cost:
+                best, best_cost = (spot, band), cost
+        spot, band = best
+        covers = []
+        if spot is not None:
+            self._thought.show(beat.thought, spot)
+            covers.extend(_Thought.rects(spot))
+        if band is not None and beat.caption:
+            self.caption_band = self._caption.place(band)
+            covers.append(captions[band])
+        return covers
 
     def clear(self):
+        self.caption_band = None
         for element in (self._caption, self._balloon, self._thought, self._burst,
                         self._emanata):
             element.group.hidden = True

@@ -164,6 +164,9 @@ def scenes():
     yield "07_cat_follows", s.at(0.1)
     s.go(LEFT)
     yield "08_following_in_kitchen", s.at(0.3)
+    s.tap(show_messages=True)  # "Chirpy is with you. Go home!": she dances clear of it
+    yield "08a_follow_reminder", s.at(0.3)
+    s.skip()
     s.go(LEFT, LEFT)
     yield "08b_home_again", s.at(0.5)  # "Chirpy curls up..." with her on her box
     for _ in range(3):
@@ -172,6 +175,15 @@ def scenes():
     for _ in range(7):
         s.next_beat()
     yield "08d_dog_out", s.at(0.3)
+
+    # MEDIUM's hot/cold (cd-342.40): the dog's first step on its way.
+    import episodes
+    s = Session("dog").skip()
+    path = episodes.spine(s.world, s.hunt.episode)
+    step = [d for d, dest in s.world.room.exits.items() if dest == path[1]][0]
+    s.world.move(step)
+    s._refresh(s.hunt.entered())
+    yield "08e_medium_hint", s.at(0.3)
 
     s = Session()
     s.go(RIGHT, RIGHT, RIGHT)

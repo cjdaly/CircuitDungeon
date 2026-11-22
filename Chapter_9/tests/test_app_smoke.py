@@ -58,9 +58,13 @@ class _OnDiskBitmap(_Bitmap):
 
 
 class _TileGrid:
-    def __init__(self, *a, pixel_shader=None, **k):
-        self.x, self.y, self.hidden = 0, 0, False
+    def __init__(self, *a, pixel_shader=None, width=1, height=1, tile_width=16,
+                 tile_height=16, x=0, y=0, **k):
+        self.x, self.y, self.hidden = x, y, False
         self.pixel_shader = pixel_shader
+        self.width, self.height = width, height
+        self.tile_width, self.tile_height = tile_width, tile_height
+        self.flip_x = self.flip_y = False
 
     def __setitem__(self, position, tile):
         pass
@@ -222,7 +226,7 @@ class _Run:
             if isinstance(item, _Group):
                 if not item.hidden:
                     found.extend(self.visible_labels(item))
-            elif isinstance(item, _Label) and item.text:
+            elif isinstance(item, _Label) and item.text and not getattr(item, "hidden", False):
                 found.append(item)
         return found
 
@@ -230,8 +234,11 @@ class _Run:
         return [lb for lb in _labels if lb.anchored_position == (120, 50)][0].text
 
     def message(self):
-        """The caption's text as one line, with wrapping undone."""
-        lines = [lb.text for lb in self.visible_labels() if 146 <= lb.anchored_position[1] <= 198]
+        """The caption's text as one line, with wrapping undone. A caption can sit
+        in any of comic's bands (cd-342.46): anything but the room name and a burst."""
+        lines = [lb.text for lb in self.visible_labels()
+                 if 40 <= lb.anchored_position[1] <= 198
+                 and lb.anchored_position not in ((120, 50), (120, 120))]
         return " ".join(lines)
 
     def burst(self):
@@ -520,7 +527,9 @@ class TestOverlays(unittest.TestCase):
         at = _OPENING_S + (len(to_odd_corner) - 1) * _TAP_SPACING + 0.5  # "Batteries!" is up
         r = _Run(windows=_taps(*to_odd_corner) + [(at, at + 0.2, _CENTER)], seconds=at + 1.0)
         self.assertEqual(r.room(), "ODD CORNER")
-        self.assertEqual(r.message(), "")  # dismissed, and no "So close!" from a real tap
+        # Dismissed (MEDIUM's hot/cold line may follow it), and no "So close!" from a real tap.
+        self.assertNotIn("BATTERIES", r.message())
+        self.assertNotIn("SO CLOSE", r.message())
 
     def test_moving_works_as_soon_as_the_last_caption_is_tapped_away(self):
         beats = 3 + _CUTSCENE_BEATS  # 9 PM, the cutscene, escaped, the clue

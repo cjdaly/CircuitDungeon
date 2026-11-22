@@ -155,8 +155,11 @@ class Escape:
 
 
 class Hunt:
-    def __init__(self, world, roster, order=None, player=None):
+    def __init__(self, world, roster, order=None, player=None,
+                 difficulty=episodes.DEFAULT_DIFFICULTY):
         self._world = world
+        self.difficulty = difficulty  # episodes.EASY / MEDIUM / HARD: how the clues help
+        self._here = world.current  # the room before this move, for MEDIUM's hot/cold
         self._critters = {c.species: c for c in roster.all()}
         species = [c.species for c in roster.all()]
         if order is None:
@@ -287,6 +290,7 @@ class Hunt:
         """The player just moved into the current room."""
         self._quiet()
         room = self._world.current
+        came_from, self._here = self._here, room
         if self.stage == PARADE:
             return self._reached_batteries() if room == episodes.ODD_CORNER else []
         if self.stage == CARRYING:
@@ -302,6 +306,7 @@ class Hunt:
             messages.append("Batteries! Just out of reach")
         if self.stage == HUNTING:
             messages.extend(self._room_clues(room))
+            messages.extend(self._warmth(came_from, room))
             if room == self.episode.lure_room and self.held is None:
                 lure_text = self._lure_text()
                 if lure_text:
@@ -400,8 +405,31 @@ class Hunt:
         ]
         return clues or self._room_clues(room) or ["Nothing here"]
 
+    def _warmth(self, came_from, room):
+        """MEDIUM's hot/cold: did that move take you closer to what you're after
+        (the critter; its lure once found; the critter again, lure in hand)?
+        Nothing on arriving, or at other levels."""
+        episode = self.episode
+        if self.difficulty != episodes.MEDIUM or came_from is None:
+            return []
+        if self._found and self.held is None:
+            goal, voice = episode.lure_room, episode.lure_voice
+        else:
+            goal, voice = episode.hide_room, episode.voice
+        if voice is None or room == goal:
+            return []
+        before = episodes.steps(self._world, episode, came_from, goal)
+        now = episodes.steps(self._world, episode, room, goal)
+        if before is None or now is None or now == before:
+            return []
+        closer, farther = voice
+        return [(closer if now < before else farther).format(name=self.critter.name)]
+
     def _room_clues(self, room):
-        """This room's clues, shown on every visit (and tap) so they can't be missed."""
+        """This room's clues, shown on every visit (and tap) so they can't be missed.
+        EASY only: they say which edge to tap (cd-342.40)."""
+        if self.difficulty != episodes.EASY:
+            return []
         return [
             self._clue_text(clue)
             for clue in self.episode.clues_for(episodes.ON_ENTER, room)

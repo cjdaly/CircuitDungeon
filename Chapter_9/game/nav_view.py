@@ -74,17 +74,23 @@ class _Director:
     """What the beat player shows a beat on: the comic stage for its words, and the
     scene for its cutscene shot. Close-up shots hide the room's chrome."""
 
-    def __init__(self, stage, things, chrome):
-        self._stage, self._things, self._chrome = stage, things, chrome
+    def __init__(self, stage, things, chrome, label):
+        self._stage, self._things, self._chrome, self._label = stage, things, chrome, label
 
     def show(self, beat, now):
-        self._stage.show(beat, now)
         self._things.shot(beat.shot, now)
+        self._things.update(now)  # the shot's things where they'll be, for keep_clear
+        covers = self._stage.show(beat, now, self._things.keep_clear(),
+                                  self._things.dancer_rects())
+        self._things.avoid(covers, now)
+        self._label.make_way(self._stage.caption_band == comic.TOP)
         self._chrome.hidden = beat.shot in escape.CLOSE_SHOTS
 
     def clear(self):
         self._stage.clear()
         self._things.shot(None, 0.0)
+        self._things.avoid(None, 0.0)
+        self._label.make_way(False)
         self._chrome.hidden = False
 
 
@@ -128,7 +134,7 @@ class NavView:
         self._label = RoomLabel(self._chrome, width, comic_fonts.caption(), y=_ROOM_NAME_Y)
         self._stage = comic.Stage(width, height, shake_target=self._scene)
         self.group.append(self._stage.group)
-        self._player = BeatPlayer(_Director(self._stage, self._things, self._chrome))
+        self._player = BeatPlayer(_Director(self._stage, self._things, self._chrome, self._label))
         self._live_exits = set()
 
     def sprite_sheets(self):

@@ -114,6 +114,25 @@ hyphen into a space and drops any other character the fonts lack. Without
 file never reaches the public repo. Don't put the names in beads either, since
 its history can be pushed.
 
+## Clue difficulty
+
+How much the room clues help (`cd-342.40`). Add this to `settings.toml` and reset:
+
+```
+DIFFICULTY = "medium"
+```
+
+| value | on entering a room |
+|---|---|
+| `easy` | the clue says which edge to tap: `PAW PRINTS! TAP THE BOTTOM EDGE` |
+| `medium` *(default)* | hot or cold, in the critter's voice: `WOOF! LOUDER!` or `WOOF... FAINTER` for a step closer or farther; once it's found, the same for its lure (`SQUEAK! WARMER`), then back to it once you hold the lure |
+| `hard` | nothing: find your own way |
+
+Every level keeps the story lines: the critter's habit after it escapes (`LOVES
+THE SNOW!`), why a way is shut, and what a lure room says. Leaving the key out,
+or a value that isn't one of these, means `medium`. The start-up line shows
+`clues=medium`.
+
 ## Review mode: every room open
 
 Each episode opens only part of the house (`doc/EPISODES.md`), so some rooms

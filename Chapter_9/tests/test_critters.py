@@ -143,6 +143,12 @@ class TestCast(unittest.TestCase):
             cat = [c for c in roster.all() if c.species == "cat"][0]
             self.assertEqual(cat.name, "Chirpy")
 
+    def test_the_dog_is_always_dolly(self):
+        for _ in range(20):
+            roster = critters_mod.make_roster()
+            dog = [c for c in roster.all() if c.species == "dog"][0]
+            self.assertEqual((dog.name, dog.sprite), ("Dolly", "dog_3_0"))
+
     def test_cast_sprites_match_their_species_group(self):
         groups = {cid: group for cid, group, _src in critter_candidates.CANDIDATES}
         for species, _lure, _habit, sprites in critters_mod.CAST:
@@ -187,12 +193,12 @@ class TestCast(unittest.TestCase):
 
     def test_make_roster_name_follows_the_sprite_roll(self):
         last = critters_mod.make_roster(choice=lambda seq: seq[-1])
-        self.assertEqual(last.get("Woofer").sprite, "dog_4_0")
+        self.assertEqual(last.get("Jingle").sprite, "elemental_4_0")
         self.assertEqual(last.get("Jingle").preferred_item, "oil can")
         first = critters_mod.make_roster(choice=lambda seq: seq[0])
-        self.assertEqual(first.get("Patch").sprite, "dog_0_0")
+        self.assertEqual(first.get("Rivet").sprite, "elemental_1_1")
         with self.assertRaises(KeyError):
-            first.get("Woofer")
+            first.get("Jingle")
 
     def test_make_roster_default_is_random_and_seedable(self):
         random.seed(7)

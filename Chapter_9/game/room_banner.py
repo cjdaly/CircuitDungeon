@@ -48,6 +48,11 @@ class RoomLabel:
         group.append(self._box)
         group.append(self._label)
 
+    def make_way(self, hide):
+        """Hide the name while a caption sits over it (cd-342.46), or put it back."""
+        self._label.hidden = hide
+        self._box.hidden = hide or not self._label.text
+
     def show(self, name):
         self._label.text = name.upper()
         _, _, w, h = self._label.bounding_box

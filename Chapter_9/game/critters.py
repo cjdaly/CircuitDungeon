@@ -134,8 +134,10 @@ HOME = "Living Room"  # every box sits under the tree here (rooms.make_world sta
 # critter_candidates.CANDIDATES ids; tests check the two stay in step.
 # Squirrel lure is walnuts, not acorns -- one squirrel is *named* Acorn.
 CAST = (
+    # Always Dolly (Chris, 2026-11-21), brown/red: the old red-orange dog
+    # recoloured in tools/build_sprites.EDITS (cd-342.45).
     ("dog", "squeaky ball", "loves the snow",
-     (("dog_0_0", "Patch"), ("dog_3_0", "Sparky"), ("dog_4_0", "Woofer"))),
+     (("dog_3_0", "Dolly"),)),
     # Always Chirpy (Chris, 2026-11-02): episode 1 is written for her.
     ("cat", "ball of yarn", "loves fresh air",
      (("cat_0_1", "Chirpy"),)),
@@ -147,10 +149,12 @@ CAST = (
      (("elemental_1_1", "Rivet"), ("elemental_3_1", "Echo"), ("elemental_4_0", "Jingle"))),
 )
 
-# Named cats not in the game yet, maybe used later.  (sprite id, name).
+# Named cats and dogs not in the game yet, maybe used later.  (sprite id, name).
 SPARE = (
     ("cat_0_2", "Tinsel"),
     ("cat_2_0", "Cinder"),
+    ("dog_0_0", "Patch"),
+    ("dog_4_0", "Woofer"),
 )
 
 # Wild animals: scenery/ambience, never escapees.  (sprite id, name).

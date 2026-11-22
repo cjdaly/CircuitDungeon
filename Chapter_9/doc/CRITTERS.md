@@ -17,7 +17,10 @@ where they've been superseded.
   help fill out an area, never escapees. They still get names.
 - **Pixel-doubled (`nn`) art.** `epx` stays only as a demo toggle.
 - **Dogs:** old #2 is back in (2026-10-17), so there are three. Sparky and
-  Woofer are Chris's names.
+  Woofer are Chris's names. **2026-11-21 (cd-342.45):** the dog is always
+  **Dolly**, like Chirpy for the cat: #2's sprite recoloured brown/red in
+  `tools/build_sprites.EDITS`. Patch and Woofer stay in the sprite sheets as
+  `critters.SPARE`, unused for now.
 - **The cat is always Chirpy** (2026-11-02), not a random roll. Tinsel and
   Cinder are spares, maybe used later.
 
@@ -35,9 +38,9 @@ Rules used:
 
 | # | Sprite | Name | Why | Alternates |
 |---|---|---|---|---|
-| 1 | dog, white with orange patches, perky ears | **Patch** | the patches | Biscuit, Domino |
-| 2 | dog, red-orange all over | **Sparky** *(Chris)* | reddish; electric robot pun | — |
-| 3 | dog, white/tan, the bulkiest dog | **Woofer** *(Chris)* | big, a subwoofer pun | — |
+| 1 | dog, white with orange patches, perky ears | **Patch** *(spare since 2026-11-21)* | the patches | Biscuit, Domino |
+| 2 | dog, recoloured brown/red, red collar or bow | **Dolly** *(Chris, 2026-11-21: always the dog)* | — | was Sparky (red-orange all over) |
+| 3 | dog, white/tan, the bulkiest dog | **Woofer** *(Chris; spare since 2026-11-21)* | big, a subwoofer pun | — |
 | 4 | cat, orange tabby, she/her | **Chirpy** *(Chris)*: likes the Living Room rug better than the Laundry Room, and best of all sniffing fresh outside air at an open window | — | — |
 | 5 | cat, white with icy-blue shading | **Tinsel** | silvery and shiny | Sleet, Chrome |
 | 6 | cat, black, glowing yellow eyes, the biggest cat | **Cinder** | fireplace soot, ember eyes | Static, Inky |

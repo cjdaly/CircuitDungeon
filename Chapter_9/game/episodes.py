@@ -45,6 +45,25 @@ TEXT = "text"
 IMAGE = "image"
 CLUE_FORMS = (TEXT, IMAGE)
 
+# How much help the clues give (settings.toml DIFFICULTY; cd-342.40, Chris
+# 2026-11-21). EASY: the room clues below, which say which edge to tap. MEDIUM:
+# hot or cold instead -- each move says, in the critter's own voice, whether it
+# took you closer (Episode.voice, then .lure_voice once it wants its lure).
+# HARD: no room clues at all. Every level keeps the story's lines: the escape's
+# habit clue, bump reasons, what a lure room says.
+EASY = "easy"
+MEDIUM = "medium"
+HARD = "hard"
+DIFFICULTIES = (EASY, MEDIUM, HARD)
+DEFAULT_DIFFICULTY = MEDIUM
+
+
+def difficulty(setting):
+    """A settings.toml DIFFICULTY value -> one of DIFFICULTIES (the default if
+    it's missing or not one of them)."""
+    setting = (setting or "").strip().lower()
+    return setting if setting in DIFFICULTIES else DEFAULT_DIFFICULTY
+
 
 class Clue:
     def __init__(self, when, room, form, content, lure_trail=False, until_found=False):
@@ -84,8 +103,12 @@ class Episode:
     """One critter's hunt: which rooms are open, and where things are."""
 
     def __init__(self, species, open_rooms, hide_room, lure_room, closed_reasons, clues,
-                 home_text="{name} is home!", unlock=None):
+                 home_text="{name} is home!", unlock=None, voice=None, lure_voice=None):
         self.species = species
+        # MEDIUM's hot/cold lines, (closer, farther): toward the critter, and
+        # toward its lure once it's been found.
+        self.voice = voice
+        self.lure_voice = lure_voice
         self.home_text = home_text
         self.open_rooms = frozenset(open_rooms)
         self.hide_room = hide_room
@@ -130,6 +153,8 @@ EPISODES = {
     # curls up on the Living Room rug.
     "cat": Episode(
         species="cat",
+        voice=("Mew! Louder!", "Mew... fainter"),
+        lure_voice=("Yarn fluff! Warmer", "No fluff. Colder"),
         open_rooms=(
             "Living Room", "Hallway", "Dining Room", "Sewing Nook",
             "Kitchen", ODD_CORNER, "Sun Porch",
@@ -161,6 +186,8 @@ EPISODES = {
     # until the dog, found out in the Yard, tunnels through.
     "dog": Episode(
         species="dog",
+        voice=("Woof! Louder!", "Woof... fainter"),
+        lure_voice=("Squeak! Warmer", "Squeak... colder"),
         open_rooms=(
             "Living Room", "Entryway", "Bedroom", "Front Porch", "Snow Fort",
             "Front Walk", ODD_CORNER, "Yard",
@@ -197,6 +224,8 @@ EPISODES = {
     # found. Nothing is blocked: the room is open, you just can't find anything.
     "robot": Episode(
         species="robot",
+        voice=("Beep! Louder!", "Beep... fainter"),
+        lure_voice=("Oil drips! Warmer", "No oil. Colder"),
         open_rooms=(
             "Living Room", "Hallway", "Bedroom", "Back Door", "Garage",
             "Cellar Door", ODD_CORNER, "Basement",
@@ -232,6 +261,8 @@ EPISODES = {
     # Flurry the owl, wild, points the way near the end.
     "squirrel": Episode(
         species="squirrel",
+        voice=("Chitter! Louder!", "Chitter... fainter"),
+        lure_voice=("Nutty smell! Warmer", "Nutty smell fades"),
         open_rooms=(
             "Living Room", "Dining Room", "Entryway", "Bedroom", "Front Porch",
             "Snow Fort", "Front Walk", ODD_CORNER, "Tree House",
@@ -266,6 +297,8 @@ EPISODES = {
     # snowman in the Yard, which frees his carrot nose. Nothing later needs him.
     "reindeer": Episode(
         species="reindeer",
+        voice=("Clomp! Louder!", "Clomp... fainter"),
+        lure_voice=("Cold air! Warmer", "Cozy here. Colder"),
         open_rooms=(
             "Living Room", "Hallway", "Back Door", "Yard", "Bedroom", "Kids' Bedroom",
             "Attic", ODD_CORNER, "Roof",
@@ -301,6 +334,29 @@ EPISODES = {
         ),
     ),
 }
+
+
+def steps(world, episode, start, goal):
+    """Moves from room `start` to room `goal` through the episode's open rooms,
+    or None if `goal` can't be reached. Episodes have no loops, so every move
+    is one step closer or one farther: what MEDIUM's hot/cold says."""
+    if start == goal:
+        return 0
+    seen = {start}
+    frontier = [start]
+    distance = 0
+    while frontier:
+        distance += 1
+        nxt = []
+        for name in frontier:
+            for dest in world.get(name).exits.values():
+                if dest in episode.open_rooms and dest not in seen:
+                    if dest == goal:
+                        return distance
+                    seen.add(dest)
+                    nxt.append(dest)
+        frontier = nxt
+    return None
 
 
 def spine(world, episode):

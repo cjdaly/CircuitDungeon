@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "game"))
 
 import critters  # noqa: E402
 import episodes  # noqa: E402
+from episodes import EASY  # noqa: E402
 import finale  # noqa: E402
 import hunt  # noqa: E402
 import rooms  # noqa: E402
@@ -48,7 +49,7 @@ class HuntCase(unittest.TestCase):
     def setUp(self):
         self.world = rooms.make_world()
         self.roster = critters.make_roster(choice=first_choice)
-        self.hunt = hunt.Hunt(self.world, self.roster, order=["cat"])
+        self.hunt = hunt.Hunt(self.world, self.roster, order=["cat"], difficulty=EASY)
         self.opening = self.hunt.start()
         self.cat = self.hunt.critter
 
@@ -116,7 +117,8 @@ class TestStuckDoor(HuntCase):
         self.addCleanup(setattr, cat, "unlock", cat.unlock)
         cat.unlock = None
         world = rooms.make_world()
-        game = hunt.Hunt(world, critters.make_roster(choice=first_choice), order=["cat"])
+        game = hunt.Hunt(world, critters.make_roster(choice=first_choice), order=["cat"],
+                         difficulty=EASY)
         game.start()
         world.move(RIGHT)
         self.assertIn(UP, world.live_exits())
@@ -338,7 +340,7 @@ class TestEpisodeSequence(unittest.TestCase):
 
         self.assertEqual(
             messages,
-            ["Chirpy curls up on the rug", "10 PM", "Patch escaped!", "Patch loves the snow!"],
+            ["Chirpy curls up on the rug", "10 PM", "Dolly escaped!", "Dolly loves the snow!"],
         )
         self.assertIs(game.episode, episodes.EPISODES["dog"])
         dog = game.episode
@@ -380,6 +382,120 @@ def _route(world, goal):
     return None
 
 
+class TestDifficulty(unittest.TestCase):
+    """cd-342.40: EASY says which edge, MEDIUM says hot or cold, HARD says nothing."""
+
+    def start(self, difficulty, species="dog"):
+        self.world = rooms.make_world()
+        self.game = hunt.Hunt(self.world, critters.make_roster(choice=first_choice),
+                              order=[species], difficulty=difficulty)
+        self.opening = self.game.start()
+        self.episode = episodes.EPISODES[species]
+        return self.episode
+
+    def walk(self, goal):
+        """Walk to `goal`; the messages from every room on the way, in order."""
+        said = []
+        for direction in _route(self.world, goal):
+            self.assertTrue(self.world.move(direction))
+            said.append(self.game.entered())
+        return said
+
+    def test_the_setting_reads_any_case_and_defaults_to_medium(self):
+        self.assertEqual(episodes.difficulty("Hard"), episodes.HARD)
+        self.assertEqual(episodes.difficulty(" easy "), episodes.EASY)
+        self.assertEqual(episodes.difficulty(None), episodes.MEDIUM)
+        self.assertEqual(episodes.difficulty("brutal"), episodes.MEDIUM)
+        self.assertEqual(episodes.DEFAULT_DIFFICULTY, episodes.MEDIUM)
+
+    def test_every_episode_has_both_voices(self):
+        for species, episode in episodes.EPISODES.items():
+            for voice in (episode.voice, episode.lure_voice):
+                self.assertEqual(len(voice), 2, species)
+                self.assertNotEqual(voice[0], voice[1], species)
+
+    def test_easy_names_the_edge(self):
+        self.start(EASY)
+        said = self.walk(self.episode.hide_room)
+        self.assertTrue(any("edge" in m.lower() for ms in said for m in ms), said)
+
+    def test_medium_never_names_an_edge(self):
+        for species in episodes.EPISODES:
+            episode = self.start(episodes.MEDIUM, species)
+            said = self.walk(episode.hide_room)
+            self.game.tapped()
+            said += self.walk(episode.lure_room)
+            self.game.tapped()
+            said += self.walk(episode.hide_room)
+            for ms in said:
+                for m in ms:
+                    self.assertNotIn("edge", m.lower(), (species, m))
+
+    def side_step(self, episode):
+        """(room on the critter's path, direction) off it into an open side branch."""
+        path = episodes.spine(self.world, episode)
+        for room in path[:-1]:
+            for direction, dest in sorted(self.world.get(room).exits.items()):
+                if dest in episode.open_rooms and dest not in path and self.world.is_open(dest):
+                    return room, direction
+        self.fail("no side branch")
+
+    def test_medium_says_louder_on_the_way_and_fainter_down_a_side_branch(self):
+        episode = self.start(episodes.MEDIUM)
+        closer, farther = episode.voice
+        said = self.walk(episode.hide_room)
+        for ms in said[:-1]:  # every room on the way but the last
+            self.assertIn(closer, ms)
+        self.assertNotIn(closer, said[-1])  # arriving: it's right there, drawn
+        self.assertNotIn(farther, said[-1])
+        start = self.start(episodes.MEDIUM)
+        room, direction = self.side_step(start)
+        self.walk(room)
+        self.assertTrue(self.world.move(direction))
+        self.assertIn(farther, self.game.entered())
+
+    def test_medium_every_move_is_closer_or_farther(self):
+        episode = self.start(episodes.MEDIUM)
+        closer, farther = episode.voice
+        for room in sorted(episode.open_rooms - {episode.hide_room}):
+            for direction, dest in self.world.get(room).exits.items():
+                if dest not in episode.open_rooms or dest == episode.hide_room:
+                    continue
+                if not self.world.is_open(dest):
+                    continue
+                self.world.current = room
+                self.game._here = room
+                self.world.current = dest
+                with self.subTest(frm=room, to=dest):
+                    messages = self.game.entered()
+                    self.assertEqual(sum(m in (closer, farther) for m in messages), 1, messages)
+                    before = episodes.steps(self.world, episode, room, episode.hide_room)
+                    after = episodes.steps(self.world, episode, dest, episode.hide_room)
+                    self.assertIn(closer if after < before else farther, messages)
+
+    def test_medium_points_at_the_lure_once_found_and_back_once_held(self):
+        episode = self.start(episodes.MEDIUM)
+        self.walk(episode.hide_room)
+        self.game.tapped()  # found
+        said = self.walk(episode.lure_room)
+        self.assertIn(episode.lure_voice[0], said[0])
+        self.game.tapped()  # took it
+        said = self.walk(episode.hide_room)
+        self.assertIn(episode.voice[0], said[0])
+
+    def test_hard_has_no_room_clues_but_keeps_the_story(self):
+        episode = self.start(episodes.HARD)
+        self.assertIn("{} loves the snow!".format(self.game.critter.name), self.opening)
+        said = self.walk(episode.hide_room)
+        for ms in said:
+            self.assertEqual(ms, [], said)
+        room, direction = self.side_step(self.start(episodes.HARD))
+        self.walk(room)
+        self.assertTrue(self.world.move(direction))
+        self.assertEqual(self.game.entered(), [])
+        self.assertEqual(self.game.tapped(), ["Nothing here"])
+
+
 class TestWholeGame(unittest.TestCase):
     """Plays every episode the way a player has to, in any order."""
 
@@ -391,7 +507,8 @@ class TestWholeGame(unittest.TestCase):
 
     def setUp(self):
         self.world = rooms.make_world()
-        self.game = hunt.Hunt(self.world, critters.make_roster(choice=first_choice))
+        self.game = hunt.Hunt(self.world, critters.make_roster(choice=first_choice),
+                              difficulty=EASY)
 
     def go(self, goal):
         steps = _route(self.world, goal)
@@ -550,7 +667,8 @@ class TestLockedLures(unittest.TestCase):
     def start(self, species):
         self.world = rooms.make_world()
         self.game = hunt.Hunt(
-            self.world, critters.make_roster(choice=first_choice), order=[species])
+            self.world, critters.make_roster(choice=first_choice), order=[species],
+            difficulty=EASY)
         self.game.start()
         return episodes.EPISODES[species]
 
@@ -670,6 +788,7 @@ class TestWrap(unittest.TestCase):
             texts = list(episode.closed_reasons.values())
             texts += [c.content for c in episode.clues if c.form == episodes.TEXT]
             texts += [unlock.reveal, unlock.blocked_text, unlock.locked_text, unlock.ready_text]
+            texts += list(episode.voice) + list(episode.lure_voice)  # MEDIUM's hot/cold
             return tuple(text for text in texts if text)
 
         for species, item, habit, sprites in critters.CAST:

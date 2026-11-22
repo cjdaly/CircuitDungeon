@@ -177,6 +177,15 @@ def lock_to_original(sprite_id):
     return draw
 
 
+def recolour(mapping):
+    """Swap palette indices, old -> new, everywhere in the tile."""
+    def draw(t):
+        for row in t.px:
+            for x, v in enumerate(row):
+                row[x] = mapping.get(v, v)
+    return draw
+
+
 def both(*edits):
     def draw(t):
         for edit in edits:
@@ -184,11 +193,22 @@ def both(*edits):
     return draw
 
 
+# Dolly (Chris, 2026-11-21: brown/red): the old red-orange dog with its orange
+# coat turned brown, the brown shading turned plum, tan picked out in orange,
+# and any green (sdxl's collar) turned red.  Indices are scene_art.COLORS.
+DOLLY = recolour({10: 5, 5: 2, 13: 10, 6: 7, 12: 7})
+
 EDITS = {  # (set, sprite file stem) -> touches applied after loading, in order
     # Chirpy: kept to her original's colours, then a bow under her chin (the
     # model left it off); frame 1 is the 1px breathing bob, so the bow drops too.
     ("sdxl-repaint", "cat_0_1"): both(lock_to_original("cat_0_1"), bow(11, 23)),
     ("sdxl-repaint", "cat_0_1_f1"): both(lock_to_original("cat_0_1"), bow(11, 24)),
+    # Dolly: sdxl's own collar goes red; drawn's DawnLike dog gets a bow under
+    # its chin (frame 1 is its own frame, head 2px lower).
+    ("sdxl-repaint", "dog_3_0"): DOLLY,
+    ("sdxl-repaint", "dog_3_0_f1"): DOLLY,
+    ("drawn", "dog_3_0"): both(DOLLY, bow(12, 19)),
+    ("drawn", "dog_3_0_f1"): both(DOLLY, bow(12, 21)),
 }
 
 
@@ -261,12 +281,18 @@ def load_sprite(path):
 def build(name, objects, critters):
     """Put a set's own sprites into copies of drawn's tiles; write its two sheets."""
     sprites = os.path.join(art_set.SETS_DIR, name, "sprites")
-    if name != "drawn":
+    ids = [c[0] for c in critter_candidates.CANDIDATES]
+    if name == "drawn":
+        critters = [Tile([r[:] for r in t.px]) for t in critters]
+        for (set_name, stem), edit in EDITS.items():
+            if set_name == name:
+                base = stem[:-3] if stem.endswith("_f1") else stem
+                edit(critters[2 * ids.index(base) + (1 if stem.endswith("_f1") else 0)])
+    else:
         if not os.path.isdir(sprites):
             return None
         objects = [Tile([r[:] for r in t.px]) for t in objects]
         critters = [Tile([r[:] for r in t.px]) for t in critters]
-        ids = [c[0] for c in critter_candidates.CANDIDATES]
         for f in sorted(os.listdir(sprites)):
             if not f.endswith(".png"):
                 continue
