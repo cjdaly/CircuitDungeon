@@ -9,7 +9,9 @@ prototypes -- sprite scales, edge-gesture navigation, room banners, room
 graph, ornament mode -- verified on real hardware 2026-09-13). Tracked in
 beads under `cd-zw2` (the building blocks, done) and `cd-342` (the playable
 build); design notes will land in `doc/` as they solidify. To run it on a
-board see [`doc/DEPLOY.md`](doc/DEPLOY.md).
+board see [`doc/DEPLOY.md`](doc/DEPLOY.md). How the code fits together, and
+the board's limits it must stay inside, is in
+[`doc/ARCHITECTURE.md`](doc/ARCHITECTURE.md).
 
 ## What's here
 
@@ -136,7 +138,7 @@ game/      deployed to CIRCUITPY by tools/deploy.sh; mostly plain Python
 tools/     deploy.sh (see doc/DEPLOY.md; `--demo NAME` runs a *_demo.py as
            main.py), build_critter_candidates.py (desktop, Pillow),
            preview.py + fake_display.py (desktop, Pillow: game screens -> PNG)
-doc/       DEPLOY.md, CRITTERS.md (roster + art plan), candidate previews
+doc/       ARCHITECTURE.md, DEPLOY.md, CRITTERS.md (roster + art plan), candidate previews
 tests/     off-device unit tests -- `python3 tests/test_<name>.py`, no
            hardware or CircuitPython needed
 ```
