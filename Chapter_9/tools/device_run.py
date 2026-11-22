@@ -27,8 +27,17 @@ import order (a module before the ones that import it).
 
 Exit status 1 if the board printed a traceback. The board is reset again at
 the end, so it goes back to running main.py.
+
+Before each reset the board's drive (found by the UID in its boot_out.txt)
+is unmounted: a reset with the drive still mounted is, to macOS, a USB stick
+pulled out, and on 2026-11-22 a run of those left the Mac's disk service
+(diskarbitrationd) stuck until a restart. If the unmount fails, nothing is
+reset.
 """
 import argparse
+import glob
+import os
+import subprocess
 import sys
 import time
 
@@ -92,7 +101,28 @@ def _port(serial_number):
     return None
 
 
-def _reset(conn):
+def _unmount(serial_number):
+    """Unmount the board's drive, if macOS has it mounted."""
+    for volume in glob.glob("/Volumes/CIRCUITPY*"):
+        try:
+            with open(os.path.join(volume, "boot_out.txt")) as f:
+                if "UID:" + serial_number not in f.read():
+                    continue
+        except OSError:
+            continue  # not mounted (a leftover folder), or not readable
+        try:
+            done = subprocess.run(["diskutil", "unmount", volume], capture_output=True,
+                                  text=True, timeout=20)
+        except subprocess.TimeoutExpired:
+            raise SystemExit("diskutil unmount {} hung: the Mac's disk service is stuck, "
+                             "so the board is left alone (doc/ARCHITECTURE.md sec 5)"
+                             .format(volume))
+        if done.returncode != 0:
+            raise SystemExit("couldn't unmount {}: {}".format(volume, done.stderr.strip()))
+
+
+def _reset(conn, serial_number):
+    _unmount(serial_number)
     conn.write(b"\x03\x03")
     time.sleep(1.0)
     conn.write(b"\r\nimport microcontroller; microcontroller.reset()\r\n")
@@ -193,7 +223,7 @@ def main():
                   if p.serial_number]
         raise SystemExit("no board {}; plugged in: {}".format(args.serial_number, boards))
 
-    _reset(serial.Serial(device, 115200, timeout=0.5))
+    _reset(serial.Serial(device, 115200, timeout=0.5), args.serial_number)
     time.sleep(10)  # the game starts again; stop it at the REPL
     conn = _reopen(args.serial_number)
     conn.write(b"\x03\x03")
@@ -216,7 +246,7 @@ def main():
         print(stderr)
     conn.write(b"\x02")  # back to the normal REPL
     text = stdout + stderr
-    _reset(conn)
+    _reset(conn, args.serial_number)
     failed = "Traceback" in text
     print("device_run: {} (depth {})".format("TRACEBACK" if failed else "clean", args.depth))
     return 1 if failed else 0

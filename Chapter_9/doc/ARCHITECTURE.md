@@ -216,6 +216,9 @@ on a board:
   - `--push FILE...` loads changed modules over serial instead of from the
     board's flash, so a change can be tried without deploying (or when macOS
     won't mount the drive). A reset puts the board back on what's deployed.
+  - It unmounts the board's drive before each reset. A reset with the
+    drive mounted is a surprise removal to macOS, and a run of those left
+    the Mac's disk service stuck until a restart (2026-11-22).
   - It talks to the REPL over serial and never writes files to the drive:
     macOS caches writes to the CIRCUITPY drive, and a reset can read a
     half-written file. It doesn't `import main`, because `main.py` starts the
