@@ -39,16 +39,6 @@ the board's limits it must stay inside, is in
   is a poor way to answer "what room am I in". Transient messages are the comic
   overlay kit's job (`game/comic.py`, `beats.py`, `cd-342.9`). Fonts come from
   `game/comic_fonts.py` (`cd-bp3.13`): Luckiest Guy for room names, Bangers for messages, all caps.
-* **Mixed sprite-scale rendering** (`game/sprite_scale.py`, `cd-zw2.2`) --
-  generic helpers for a 16x16 scenery `TileGrid` from a tile sheet + layout,
-  and free-positioned 32x32 actor sprites kept clear of the round bezel
-  (`clamp_actor_position`). Generalized from Chapter 8's `cd-45v.1`
-  prototype (which hardcoded one demo scene) into reusable building blocks
-  -- no room content or actual hero/critter art lives here, that's separate
-  content/art work. `clamp_actor_position` is pure arithmetic and unit
-  tested; the `TileGrid`-building functions need displayio (lazy-imported,
-  same trick as `touch.py`'s `adafruit_cst8xx`) so they're desk-checked
-  only.
 * **Ornament mode** (`game/ornament.py`, `game/stillness.py`,
   `game/screen_blanker.py`, `cd-zw2.7`) -- a non-interactive ambient scene
   (tree, pulsing star, twinkling ornaments, drifting snow) for hanging the
@@ -129,10 +119,10 @@ the board's limits it must stay inside, is in
 ```
 game/      deployed to CIRCUITPY by tools/deploy.sh; mostly plain Python
            modules testable off-device (rooms.py, touch.py's
-           GestureTracker, edge_gesture.py, sprite_scale.py's
-           clamp_actor_position, stillness.py, screen_blanker.py,
+           GestureTracker, edge_gesture.py, clearance.py, story.py,
+           storyboard.py, stillness.py, screen_blanker.py,
            critters.py, modes.py, walk.py); room_banner.py, nav_view.py,
-           sprite_scale.py's TileGrid builders, and ornament.py need
+           and ornament.py need
            displayio so they're desk-checked only (app.py is exercised
            against stubbed displayio by tests/test_app_smoke.py)
 tools/     deploy.sh (see doc/DEPLOY.md; `--demo NAME` runs a *_demo.py as

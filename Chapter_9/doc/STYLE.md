@@ -226,10 +226,11 @@ lives in flash (38KB of 16MB) and costs almost no RAM.
 - **Edge-exit markers** (`nav_view`, colour-coded, confirmed on device)
   stay. They're the "which exits are live" answer from the original
   design. They and the location caption must share the top of the panel.
-- **Actor placement** (`sprite_scale.clamp_actor_position`, 20px bezel
-  margin) still applies to critters. The tableau art at 2x–3x is built
-  with the existing `make_scenery_grid` (16x16 tiles), just on a scaled
-  `Group`.
+- **Actor placement**: critters stand in the middle of the panel, where a
+  tap lands on them (`scene_view`), and one that dances clear of a popup
+  stays on the round panel at both ends of its sway
+  (`clearance.dance_spot`). The art is 32px tiles shown at 2x on scaled
+  `Group`s.
 - **Not yet on hardware:** the Ch9 entry point (`cd-342.1`/`.2`) and the
   critter walk mode (`cd-342.3`) have only been run off-device. Run them
   on ws-1 before stacking the comic layer on top, so we don't debug both

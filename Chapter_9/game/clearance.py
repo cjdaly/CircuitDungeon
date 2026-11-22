@@ -1,15 +1,22 @@
 # SPDX-License-Identifier: MIT
-"""Keeping popups off what matters -- cd-342.46.
+"""Where popups go, and keeping them off what matters -- cd-342.46, gathered
+here in cd-342.47.6.
 
 Playtest (Chris, 2026-11-21): a caption kept landing on the critter or the
-thing you were meant to look at. Two fixes, both plain geometry here so they
-run under desktop Python (tests/test_clearance.py):
+thing you were meant to look at. Two fixes, both decided here as plain
+geometry, so they run under desktop Python (tests/test_clearance.py):
 
-- a caption goes in whichever band (bottom, top, middle) covers the least of
-  what's drawn in the scene right now (things_in() walks the scene's group);
+- a caption goes in whichever band (bottom, top, middle), and a thought
+  bubble in whichever spot, covers the least of what's drawn in the scene
+  right now (layout(); things_in() walks the scene's group);
 - a critter standing out in the open doesn't count, because it moves instead:
-  it dances, hopping side to side in the nearest clear spot (dance_spot()),
-  never under a popup.
+  it dances, hopping side to side in the nearest clear spot, never under a
+  popup (plan_dance(), dance_spot()). layout() counts how far it would have
+  to go.
+
+comic.Stage shows the popups where layout() says and SceneView moves the
+dancers where plan_dance() says; nav_view._Director passes one's answer to the
+other.
 
 Rects are (x0, y0, x1, y1) in screen pixels, x1/y1 exclusive.
 """
@@ -24,6 +31,95 @@ _CORNER_INSET = 12
 # DANCE_MARGIN px between itself and a popup.
 DANCE_SWING = 10
 DANCE_MARGIN = 3
+# Covering the thought bubble is worse than covering a thing.
+_THOUGHT_WEIGHT = 4
+NOWHERE = 1 << 20  # what layout() charges for leaving a critter nowhere to dance
+_DANCE_STEP_COST = 8  # ...and for each px a critter dances
+
+
+def layout(captions, clouds, things, dancers=()):
+    """The best place for a beat's caption and thought bubble.
+
+    captions: the caption's rect in each band, best first, or [None] for no caption
+    clouds: the bubble's rects at each spot, best first, or [None] for no bubble
+    things: what's drawn in the scene (rects), to keep off
+    dancers: (x, y, size) of each critter out in the open, who dances clear
+
+    Returns (spot, band, covers): indices into clouds and captions (None for
+    one that isn't there) and the rects the chosen two cover. Most beats
+    settle on the first layout tried: dancing only ever adds cost, so the
+    dance plans (the slow part, on the board) stop once none left can win.
+    """
+    tried = []  # (cost before dancing, order, spot, band, covers)
+    for spot, cloud in enumerate(clouds):
+        for band, caption in enumerate(captions):
+            cost, covers = _layout_cost(caption, cloud or (), things)
+            tried.append((cost, len(tried), spot, band, covers))
+    tried.sort()
+    best, best_cost = None, None
+    for cost, _order, spot, band, covers in tried:
+        if best_cost is not None and cost >= best_cost:
+            break
+        cost += _dance_cost(covers, dancers) if dancers else 0
+        if best_cost is None or cost < best_cost:
+            best, best_cost = (spot, band, covers), cost
+    spot, band, covers = best
+    return (None if clouds[spot] is None else spot,
+            None if captions[band] is None else band, covers)
+
+
+def _layout_cost(caption, cloud, things):
+    """How bad a caption at `caption` and a thought bubble over `cloud` (rects;
+    either may be missing) are: what they cover, the bubble most of all.
+    Returns (cost, the rects they cover)."""
+    covers = list(cloud)
+    cost = covered(caption, things) if caption else 0
+    for rect in cloud:
+        cost += covered(rect, things)
+    if caption:
+        cost += _THOUGHT_WEIGHT * covered(caption, cloud)
+        covers.append(caption)
+    return cost, covers
+
+
+def _dance_cost(covers, dancers):
+    """How far the critters must dance to get out from under `covers`;
+    NOWHERE if one has nowhere to go."""
+    spots, stuck = plan_dance(dancers, covers)
+    if stuck:
+        return NOWHERE
+    cost = 0
+    for (x, y, _size), spot in zip(dancers, spots):
+        if spot is not None:
+            cost += _DANCE_STEP_COST * (abs(spot[0] - x) + abs(spot[1] - y))
+    return cost
+
+
+def plan_dance(dancers, covers):
+    """Where each critter out in the open dances while popups cover `covers`.
+
+    dancers: (x, y, size): each one's usual top-left, and its size
+    Returns (spots, stuck). spots has one entry per dancer: the top-left it
+    dances round, keeping DANCE_MARGIN px clear of every popup and of the
+    dancers before it (its usual one, if that's clear: it dances on the
+    spot), or None if it stays put -- nothing is over it, or it has nowhere
+    clear to go. stuck: one had nowhere.
+    """
+    near = [grow(r, DANCE_MARGIN) for r in covers]
+    blocked = list(near)
+    spots = []
+    stuck = False
+    for x, y, size in dancers:
+        spot = None
+        if covered((x, y, x + size, y + size), near):
+            spot = dance_spot((x, y), size, blocked)
+            if spot is None:
+                stuck = True
+            else:
+                blocked.append((spot[0] - DANCE_SWING, spot[1],
+                                spot[0] + size + DANCE_SWING, spot[1] + size))
+        spots.append(spot)
+    return spots, stuck
 
 
 def overlap(a, b):
@@ -47,17 +143,6 @@ def covered(rect, things):
 
 def grow(rect, by):
     return (rect[0] - by, rect[1] - by, rect[2] + by, rect[3] + by)
-
-
-def pick(candidates, things):
-    """The candidate rect covering least of `things`; the earliest wins a tie.
-    Returns its index."""
-    best, best_cost = 0, None
-    for i, rect in enumerate(candidates):
-        cost = covered(rect, things)
-        if best_cost is None or cost < best_cost:
-            best, best_cost = i, cost
-    return best
 
 
 def on_panel(rect):

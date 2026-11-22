@@ -30,7 +30,6 @@ _CAPTION_Y = 172
 # the middle. Each caption takes the one covering least of the scene (cd-342.46).
 BOTTOM, TOP, MIDDLE = "bottom", "top", "middle"
 _CAPTION_BANDS = ((BOTTOM, _CAPTION_Y, _CAPTION_Y), (TOP, 66, 76), (MIDDLE, 120, 120))
-_THOUGHT_WEIGHT = 4  # covering the thought bubble is worse than covering a thing
 _BORDER = 2
 _CAPTION_PAD_X = 6
 _CAPTION_PAD_Y = 2
@@ -267,11 +266,7 @@ class _Emanata:
         self.group = _hidden_group(parent, scale=_EMANATA_SCALE)
         names = list(comic_shapes.EMANATA)
         self._tile_of = {name: i for i, name in enumerate(names)}
-        sheet = displayio.Bitmap(_TILE * len(names), _TILE, len(comic_shapes.COLORS))
-        for i, name in enumerate(names):
-            draw_rows(sheet, comic_shapes.EMANATA[name], i * _TILE)
-        palette = _palette(*comic_shapes.COLORS)
-        palette.make_transparent(0)
+        sheet, palette = glyph_sheet(names)
         self._grids = []
         for _ in range(MAX_EMANATA):
             grid = displayio.TileGrid(
@@ -290,6 +285,17 @@ class _Emanata:
                 grid[0] = self._tile_of[name]
                 grid.x, grid.y = x // _EMANATA_SCALE, y // _EMANATA_SCALE
         self.group.hidden = False
+
+
+def glyph_sheet(names):
+    """comic_shapes.EMANATA glyphs as one sheet of 16px tiles, in `names`
+    order, and its palette (index 0 see-through): (bitmap, palette)."""
+    sheet = displayio.Bitmap(_TILE * len(names), _TILE, len(comic_shapes.COLORS))
+    for i, name in enumerate(names):
+        draw_rows(sheet, comic_shapes.EMANATA[name], i * _TILE)
+    palette = _palette(*comic_shapes.COLORS)
+    palette.make_transparent(0)
+    return sheet, palette
 
 
 def draw_rows(bitmap, rows, x=0):
@@ -321,40 +327,6 @@ def _make_ring(width, height):
             grid.flip_y = flip_y
             group.append(grid)
     return group
-
-
-_NOWHERE = 1 << 20  # a layout that leaves a critter nowhere to dance
-
-
-def _layout_cost(caption, cloud, things):
-    """How bad a caption at `caption` and a thought cloud over `cloud` (rects,
-    either may be missing) are for the scene: what they cover, the cloud most
-    of all. Returns (cost, the rects they cover)."""
-    covers = list(cloud)
-    cost = clearance.covered(caption, things) if caption else 0
-    for rect in cloud:
-        cost += clearance.covered(rect, things)
-    if caption:
-        cost += _THOUGHT_WEIGHT * clearance.covered(caption, cloud)
-        covers.append(caption)
-    return cost, covers
-
-
-def _dance_cost(covers, dancers):
-    """How far the critters out in the open must dance to get out from under
-    `covers` -- _NOWHERE if one has nowhere to go. Never negative."""
-    cost = 0
-    blocked = [clearance.grow(r, clearance.DANCE_MARGIN) for r in covers]
-    for x, y, size in dancers:
-        if not clearance.covered((x, y, x + size, y + size), covers):
-            continue
-        spot = clearance.dance_spot((x, y), size, blocked)
-        if spot is None:
-            return _NOWHERE
-        cost += 8 * (abs(spot[0] - x) + abs(spot[1] - y))
-        swing = clearance.DANCE_SWING
-        blocked.append((spot[0] - swing, spot[1], spot[0] + size + swing, spot[1] + size))
-    return cost
 
 
 class Stage:
@@ -395,34 +367,16 @@ class Stage:
         return self._arrange(beat, things, dancers)
 
     def _arrange(self, beat, things, dancers):
-        """Pick the caption band and thought spot and show them there; returns
-        the rects they cover. Draws no text (see show)."""
-        captions = self._caption.bands() if beat.caption else (None,)
-        spots = range(len(_Thought.SPOTS)) if beat.thought else (None,)
-        layouts = []  # (cost before dancing, order, spot, band, covers)
-        for spot in spots:
-            cloud = _Thought.rects(spot) if spot is not None else []
-            for band, caption in enumerate(captions):
-                cost, covers = _layout_cost(caption, cloud, things)
-                layouts.append((cost, len(layouts), spot, band, covers))
-        layouts.sort()
-        # Dancing only ever adds, so stop once no layout left can beat the best:
-        # most beats settle on the first, the board pays for few dance searches.
-        best, best_cost = None, None
-        for cost, _order, spot, band, covers in layouts:
-            if best_cost is not None and cost >= best_cost:
-                break
-            cost += _dance_cost(covers, dancers) if dancers else 0
-            if best_cost is None or cost < best_cost:
-                best, best_cost = (spot, band), cost
-        spot, band = best
-        covers = []
+        """Show the caption and thought bubble where clearance.layout() says;
+        returns the rects they cover. Draws no text (see show)."""
+        captions = self._caption.bands() if beat.caption else [None]
+        clouds = ([_Thought.rects(spot) for spot in range(len(_Thought.SPOTS))]
+                  if beat.thought else [None])
+        spot, band, covers = clearance.layout(captions, clouds, things, dancers)
         if spot is not None:
             self._thought.show(beat.thought, spot)
-            covers.extend(_Thought.rects(spot))
-        if band is not None and beat.caption:
+        if band is not None:
             self.caption_band = self._caption.place(band)
-            covers.append(captions[band])
         return covers
 
     def clear(self):

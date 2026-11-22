@@ -54,6 +54,7 @@ _NEW_LABEL = 320
 # Every path starts at main() and runs down the loop.
 _LOOP = ("main:main", "app:run", "app:Game.tick", "app:Game._play",
          "screens:GameScreen.update", "nav_view:NavView.update")
+_START = ("main:main", "app:run", "app:Game.__init__")
 _BEAT = _LOOP + ("beats:BeatPlayer.update", "beats:BeatPlayer._next",
                  "nav_view:_Director.show")
 
@@ -70,11 +71,19 @@ PATHS = {
                               "home_view:HomeView._set_title"), _SET_TEXT),
     # The room's name, on arriving.
     "room name": (_LOOP + ("room_banner:RoomLabel.show",), _SET_TEXT),
-    # Start-up: the gift tag's words, built under Game.__init__.
-    "gift tag": (("main:main", "app:run", "app:Game.__init__", "app:Game._gift_tag",
-                  "gift_tag:GiftTag.__init__", "gift_tag:GiftTag._words",
-                  "gift_tag:GiftTag._name_labels",
-                  "gift_tag:GiftTag._name_labels.<listcomp>"), _NEW_LABEL),
+    # Start-up: the labels built under Game.__init__ -- the gift tag's words,
+    # the title's, and the game screen's own (built empty, to reuse).
+    "gift tag": (_START + ("app:Game._gift_tag", "gift_tag:GiftTag.__init__",
+                           "gift_tag:GiftTag._words", "gift_tag:GiftTag._name_labels",
+                           "gift_tag:GiftTag._name_labels.<listcomp>"), _NEW_LABEL),
+    "title": (_START + ("app:Game._screens", "title_view:TitleView.__init__",
+                        "title_view:TitleView.__init__.<listcomp>"), _NEW_LABEL),
+    "comic stage": (_START + ("nav_view:NavView.__init__", "comic:Stage.__init__",
+                              "comic:_Caption.__init__", "comic:_Lines.__init__"), _NEW_LABEL),
+    "escape title label": (_START + ("nav_view:NavView.__init__", "scene_view:SceneView.__init__",
+                                     "home_view:HomeView.__init__"), _NEW_LABEL),
+    "room name label": (_START + ("nav_view:NavView.__init__", "room_banner:RoomLabel.__init__"),
+                        _NEW_LABEL),
 }
 
 

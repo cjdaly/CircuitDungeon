@@ -41,15 +41,54 @@ class TestGeometry(unittest.TestCase):
         things = [(0, 0, 10, 10), ((0, 0, 10, 10), 4)]
         self.assertEqual(clearance.covered((0, 0, 5, 5), things), 25 + 4 * 25)
 
-    def test_pick_takes_the_least_covered_and_the_first_on_a_tie(self):
-        things = [(0, 150, 240, 200)]
-        self.assertEqual(clearance.pick([(0, 160, 240, 190), (0, 50, 240, 80)], things), 1)
-        self.assertEqual(clearance.pick([(0, 50, 240, 80), (0, 60, 240, 90)], things), 0)
 
     def test_on_panel_allows_see_through_corners_only(self):
         self.assertTrue(clearance.on_panel((88, 88, 152, 152)))
         self.assertTrue(clearance.on_panel((0, 88, 64, 152)))  # edge, corners in
         self.assertFalse(clearance.on_panel((0, 0, 64, 64)))  # off the round panel
+
+
+BOTTOM, TOP = (60, 160, 180, 190), (60, 50, 180, 80)  # two caption bands
+CLOUD_A, CLOUD_B = [(80, 50, 160, 120)], [(150, 120, 200, 170)]  # two bubble spots
+
+
+class TestLayout(unittest.TestCase):
+    def test_the_caption_takes_the_band_covering_least(self):
+        spot, band, covers = clearance.layout([BOTTOM, TOP], [None], [(0, 150, 240, 200)])
+        self.assertEqual((spot, band, covers), (None, 1, [TOP]))
+
+    def test_a_tie_goes_to_the_first_band(self):
+        self.assertEqual(clearance.layout([BOTTOM, TOP], [None], [])[1], 0)
+
+    def test_no_caption_or_bubble_covers_nothing(self):
+        self.assertEqual(clearance.layout([None], [None], [(0, 0, 240, 240)]), (None, None, []))
+
+    def test_the_caption_keeps_off_the_bubble_most_of_all(self):
+        # The bubble's first spot sits on the top band: the caption goes low.
+        spot, band, covers = clearance.layout([TOP, BOTTOM], [CLOUD_A], [])
+        self.assertEqual((spot, band), (0, 1))
+        self.assertEqual(covers, CLOUD_A + [BOTTOM])
+
+    def test_a_band_that_makes_a_critter_dance_costs_more(self):
+        # The standing critter's feet are under the bottom band: the top one
+        # leaves it where it is, so it wins though the bottom comes first.
+        dancers = [(HOME[0], HOME[1], SIZE)]
+        self.assertEqual(clearance.layout([BOTTOM, TOP], [None], [], dancers)[1], 1)
+        self.assertEqual(clearance.layout([BOTTOM, TOP], [None], [])[1], 0)
+
+    def test_the_dance_plan_moves_only_whoever_is_covered(self):
+        under = (HOME[0], HOME[1], SIZE)
+        clear = (0, 0, SIZE)  # off in a corner, nothing over it
+        spots, stuck = clearance.plan_dance([under, clear], [BOTTOM])
+        self.assertFalse(stuck)
+        self.assertIsNone(spots[1])
+        x, y = spots[0]
+        swept = (x - clearance.DANCE_SWING, y, x + SIZE + clearance.DANCE_SWING, y + SIZE)
+        self.assertEqual(clearance.overlap(swept, clearance.grow(BOTTOM, clearance.DANCE_MARGIN)), 0)
+
+    def test_a_dancer_with_nowhere_to_go_is_stuck(self):
+        spots, stuck = clearance.plan_dance([(HOME[0], HOME[1], SIZE)], [(0, 0, 240, 240)])
+        self.assertEqual((spots, stuck), ([None], True))
 
 
 class TestDanceSpot(unittest.TestCase):

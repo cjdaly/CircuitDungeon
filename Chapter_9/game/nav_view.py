@@ -1,27 +1,20 @@
 # SPDX-License-Identifier: MIT
-"""Interactive-mode display group: room label, edge-exit markers, comic overlays
+"""The game screen's drawing: the room, what's in it, and the comic over it
 -- cd-342.2.
 
-Lifted from Chapter_8/game/room_nav_demo.py (cd-45v.4's prototype, feel-tested
-on real hardware 2026-09-13) and turned into a reusable view instead of a
-standalone script. A small circle near the outer end of each direction's tap wedge
-shows, live, whether that direction is a real exit from the current room
-(pulsing green if so, dim/static if not); touching a zone snaps its dot to
-gold (live exit) or red (blocked) immediately, so the margin feel and the
-room graph can both be judged by eye. The room's name sits persistently at
-the top (room_banner.RoomLabel); the middle is for what's in the room to see
-and tap (scene_view.SceneView, cd-342.26). Messages and bump feedback are comic overlays
-(comic.py, beats.py); while one is up the app suspends navigation, because a tap
-on a caption in an edge zone must not walk you out of the room (doc/STYLE.md sec 9).
+Back to front: the room's art (backdrop.py); what's in the room to see and
+tap (scene_view.SceneView, cd-342.26); the chrome -- the room's name at the
+top (room_banner.RoomLabel) and a small circle near the outer end of each
+direction's tap wedge, pulsing green for a live exit and dim for none,
+snapping gold or red under a finger; and the comic overlays (comic.Stage),
+played as beats (beats.py) that storyboard.py builds from the hunt's news.
+While a beat is up the game screen holds navigation, because a tap on a
+caption in an edge zone must not walk you out of the room (doc/STYLE.md
+sec 9).
 
-This is the navigation chrome only -- room scenery/actor art layers under it
-later (sprite_scale.py), which is why the markers/label are appended after
-the background rather than owning the whole group.
-
-STATUS: desk-checked only (displayio isn't importable under plain desktop
-Python); the underlying pattern is the one already proven on-device in
-Chapter 8. tests/test_app_smoke.py drives it through app.run() against
-stubbed displayio, which catches wiring bugs but not how it looks.
+show_room, show_scene, tell, bonk and tap_overlay only record what's changed;
+update(), once a tick, draws it (doc/ARCHITECTURE.md sec 1). tools/preview.py
+renders it on the desktop; tests/test_app_smoke.py drives it through app.run().
 """
 import math
 

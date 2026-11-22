@@ -27,7 +27,7 @@ import displayio
 
 import backdrop
 import clearance
-import comic_shapes
+import comic
 import critter_candidates
 import finale
 import scene_art
@@ -80,7 +80,6 @@ _FOLLOW_HOP_PX = 3
 _DANCE_SWING_PX = clearance.DANCE_SWING
 _DANCE_PERIOD = 1.2  # s for one sway there and back
 _DANCE_HOP_PX = 4
-_DANCE_MARGIN = clearance.DANCE_MARGIN  # px kept between a dancer and a popup
 
 
 def _palette():
@@ -159,14 +158,7 @@ class SceneView:
         self._spot_layer.append(self._spot)
         self._wiggles = displayio.Group(scale=2)
         self._wiggle_grids = []
-        wiggle_sheet = displayio.Bitmap(16, 16, len(comic_shapes.COLORS))
-        for y, row in enumerate(comic_shapes.EMANATA["wiggle"]):
-            for x, ch in enumerate(row):
-                wiggle_sheet[x, y] = comic_shapes.INK_INDEX[ch]
-        wiggle_palette = displayio.Palette(len(comic_shapes.COLORS))
-        for i, color in enumerate(comic_shapes.COLORS):
-            wiggle_palette[i] = color
-        wiggle_palette.make_transparent(0)
+        wiggle_sheet, wiggle_palette = comic.glyph_sheet(("wiggle",))
         for x in _WIGGLE_X:
             grid = displayio.TileGrid(wiggle_sheet, pixel_shader=wiggle_palette,
                                       x=x // 2, y=_WIGGLE_Y // 2)
@@ -286,29 +278,24 @@ class SceneView:
     def avoid(self, covers, now):
         """Popups are up over `covers` (rects), or none (None): a critter out in
         the open under one dances clear of it until they're gone."""
-        self._covers = [clearance.grow(r, _DANCE_MARGIN) for r in covers] if covers else None
+        self._covers = list(covers) if covers else None
         self._dance_at = now
         self._plan_dance()
 
     def _plan_dance(self):
-        self._dance = []
+        """Where each dancer goes while popups are up (clearance.plan_dance)."""
+        dancers = self._dancers()
         if not self._covers:
-            for layer, (x, y) in self._dancers():
+            self._dance = []
+            for layer, (x, y) in dancers:
                 layer.x, layer.y = x, y
                 layer[0].flip_x = False
             return
-        blocked = list(self._covers)
         size = scene_art.TILE * _CRITTER_SCALE
-        for layer, home in self._dancers():
-            if not clearance.covered((home[0], home[1], home[0] + size, home[1] + size),
-                                     self._covers):
-                continue  # nothing over it: it stays put
-            spot = clearance.dance_spot(home, size, blocked, _DANCE_SWING_PX)
-            if spot is None:
-                continue  # nowhere clear to go
-            self._dance.append((layer, spot))
-            blocked.append((spot[0] - _DANCE_SWING_PX, spot[1],
-                            spot[0] + size + _DANCE_SWING_PX, spot[1] + size))
+        homes = [(x, y, size) for _layer, (x, y) in dancers]
+        spots, _stuck = clearance.plan_dance(homes, self._covers)
+        self._dance = [(layer, spot) for (layer, _home), spot in zip(dancers, spots)
+                       if spot is not None]
 
     def sheets(self):
         """(objects, its palette, critters, its palette, tile index by name), to share."""

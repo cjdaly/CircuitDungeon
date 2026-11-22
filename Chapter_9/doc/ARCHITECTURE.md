@@ -83,7 +83,9 @@ scene_view.py  SceneView    what's in the room: critters, lures, props, cutscene
 room_banner.py              the room name
 comic.py  Stage             caption, balloon, thought bubble, burst, emanata, ink ring
   comic_shapes.py, comic_fonts.py
-clearance.py                keeping popups off the scene (cd-342.46)
+clearance.py                where popups go: layout() picks the caption band and
+                            thought spot, plan_dance() moves critters clear (cd-342.46,
+                            gathered in cd-342.47.6); Stage and SceneView apply them
 beats.py  BeatPlayer        plays comic beats in order, on taps or timers
 escape.py, finale.py        cutscenes, written as beats (storyboard.py splices them in)
 
@@ -91,7 +93,6 @@ escape.py, finale.py        cutscenes, written as beats (storyboard.py splices t
 critter_demo.py, overlay_demo.py   look-tests (deploy.sh --demo)
 touch_log.py                       diagnostic, TOUCH_LOG = "1"
 critter_candidates.py              GENERATED sprite index (tools/build_critter_candidates.py)
-sprite_scale.py                    unused: nothing imports it, but it is deployed
 ```
 
 The model layer is in good shape: small, testable, no displayio. Since step 4
@@ -107,7 +108,9 @@ now drawn from `run → Game.tick → _play → GameScreen.update → NavView.up
 BeatPlayer.update`, about 880 bytes deep before the library, against 1150 in
 the chain below. Step 4 (`cd-342.47.4`) untangled story and screen:
 `GameScreen` hands `NavView.tell` the hunt's `News`, and `storyboard.beats`
-builds the beats. What follows is how it was before.*
+builds the beats. Step 5 (`cd-342.47.5`) added the checks in §5, and step 6
+(`cd-342.47.6`) gathered popup placement into `clearance.py`. What follows is
+how it was before.*
 
 **`app.run` does everything.** It is one 340-line function with 68 locals and
 4 nested helper functions. It covers:
@@ -156,7 +159,9 @@ budget, so nothing protects it.
 - The views import `hunt`.
 
 **Popup placement is spread out** over `comic.Stage`, `SceneView` and
-`nav_view._Director` (`cd-342.46`).
+`nav_view._Director` (`cd-342.46`). The stage's layout search and the scene's
+dancing each worked out where critters would dance, by slightly different
+rules.
 
 **The budgets in §1 were written down nowhere and checked nowhere.**
 

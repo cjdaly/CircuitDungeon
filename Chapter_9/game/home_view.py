@@ -28,8 +28,8 @@ import displayio
 import vectorio
 from adafruit_display_text.bitmap_label import Label
 
+import comic
 import comic_fonts
-import comic_shapes
 import critter_candidates
 import scene_art
 import story
@@ -92,6 +92,9 @@ def box_palette(base, species):
     return palette
 
 
+_GLYPHS = ("speed", "wiggle")  # the comic glyphs the escape uses (comic.glyph_sheet)
+
+
 class _Grid:
     """One tile of a sheet in its own scaled Group, so it can be moved and swapped."""
 
@@ -136,8 +139,10 @@ class HomeView:
         for _ in SLOTS:
             self._sitters.append(_Grid(self._wide, critters, critter_palette, tile, 1))
         self._runner = _Grid(self._wide, critters, critter_palette, tile, 1)
-        self._speed = self._emanata("speed")
-        self._wiggles = (self._emanata("wiggle"), self._emanata("wiggle"))
+        glyphs, glyph_palette = comic.glyph_sheet(_GLYPHS)
+        self._speed = self._emanata(glyphs, glyph_palette, "speed")
+        self._wiggles = (self._emanata(glyphs, glyph_palette, "wiggle"),
+                         self._emanata(glyphs, glyph_palette, "wiggle"))
 
         # The close-ups, over a plain backdrop.
         self._close = displayio.Group()
@@ -160,16 +165,11 @@ class HomeView:
         self._shot = None
         self._shot_at = 0.0
 
-    def _emanata(self, name):
-        sheet = displayio.Bitmap(16, 16, len(comic_shapes.COLORS))
-        for y, row in enumerate(comic_shapes.EMANATA[name]):
-            for x, ch in enumerate(row):
-                sheet[x, y] = comic_shapes.INK_INDEX[ch]
-        palette = displayio.Palette(len(comic_shapes.COLORS))
-        for i, color in enumerate(comic_shapes.COLORS):
-            palette[i] = color
-        palette.make_transparent(0)
-        return _Grid(self._wide, sheet, palette, 16, 2)
+    def _emanata(self, sheet, palette, name):
+        """One of _GLYPHS, at 2x, from the shared sheet."""
+        grid = _Grid(self._wide, sheet, palette, 16, 2)
+        grid.grid[0] = _GLYPHS.index(name)
+        return grid
 
     # ------------------------------------------------------------------ #
 
