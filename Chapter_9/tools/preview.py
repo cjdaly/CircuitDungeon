@@ -72,6 +72,7 @@ class Session:
         want = self.hunt.critter.preferred_item if self.hunt.critter else None
         self.nav.say(list(messages), self.now, event, want, self.hunt.escape,
                      self.hunt.escape_at, self.hunt.cutscenes)
+        self.nav.update(self.now, None)  # the game's tick draws it straight away
 
     def arrive(self, room):
         """Teleport, playing whatever arriving there sets off (a finale cutscene)."""
@@ -112,8 +113,10 @@ class Session:
         return messages
 
     def next_beat(self):
-        """A tap while a caption or cutscene beat is up: on to the next."""
+        """A tap while a caption or cutscene beat is up: on to the next (drawn,
+        like in the game, by the update that follows)."""
         self.nav.tap_overlay(self.now)
+        self.nav.update(self.now, None)
         return self
 
     def at(self, seconds, zone=None):

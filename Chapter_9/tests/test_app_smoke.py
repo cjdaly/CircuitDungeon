@@ -594,10 +594,13 @@ class TestAppSmoke(unittest.TestCase):
 
         nav = nav_view.NavView(240, 240)
         nav.say(["one two three four five six seven eight"], 0.0)  # three lines
+        nav.update(0.0, None)
         self.assertTrue(nav.overlay_up)
         nav.tap_overlay(0.1)
+        nav.update(0.1, None)
         self.assertTrue(nav.overlay_up)  # the text didn't fit in one caption
         nav.tap_overlay(0.2)
+        nav.update(0.2, None)
         self.assertFalse(nav.overlay_up)
 
     def test_the_overlay_demos_beats_all_draw(self):

@@ -47,31 +47,47 @@ class Beat:
 
 
 class BeatPlayer:
-    """Shows beats on a stage, which needs .show(beat, now) and .clear()."""
+    """Shows beats on a stage, which needs .show(beat, now) and .clear().
+
+    play() and tap() only say what should happen; update() does it, so the
+    stage only ever draws from the loop's update pass (doc/ARCHITECTURE.md
+    sec 1: drawing text is deep, so it happens at one known depth).
+    """
 
     def __init__(self, stage):
         self._stage = stage
         self._waiting = []
         self._ends_at = None
+        self._restart = False  # play() was called: start over at update()
+        self._tapped = False  # tap() was called: on a beat at update()
         self.current = None  # the beat on screen
 
     @property
     def active(self):
+        """A beat is up, or about to be (and not about to be cleared)."""
+        if self._restart:
+            return bool(self._waiting)
         return self._ends_at is not None
 
     def play(self, beats, now):
-        """Start `beats`, replacing whatever is playing. No beats clears the stage."""
+        """Queue `beats`, replacing whatever is playing; update() shows the
+        first. No beats clears the stage."""
         self._waiting = list(beats)
-        self._next(now)
+        self._restart = True
+        self._tapped = False
 
     def tap(self, now):
-        """The player tapped: on to the next beat."""
+        """The player tapped: on to the next beat, at update()."""
         if self.active:
-            self._next(now)
+            self._tapped = True
 
     def update(self, now):
-        """Call once per frame."""
-        if self.active and now >= self._ends_at:
+        """Call once per frame: the only place beats are drawn."""
+        if self._restart:
+            self._restart = self._tapped = False
+            self._next(now)
+        elif self._ends_at is not None and (self._tapped or now >= self._ends_at):
+            self._tapped = False
             self._next(now)
 
     def _next(self, now):

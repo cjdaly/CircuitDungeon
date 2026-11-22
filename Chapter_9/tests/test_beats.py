@@ -52,8 +52,22 @@ class TestBeatPlayer(unittest.TestCase):
     def test_starts_idle(self):
         self.assertFalse(self.player.active)
 
+    def test_nothing_is_drawn_until_update(self):
+        # play() and tap() run under input handling; drawing waits for the
+        # update pass, at one known stack depth (doc/ARCHITECTURE.md sec 1).
+        self.player.play([self.first, self.second], 10)
+        self.assertTrue(self.player.active)
+        self.assertIsNone(self.stage.showing)
+        self.player.update(10)
+        self.assertIs(self.stage.showing, self.first)
+        self.player.tap(10.5)
+        self.assertIs(self.stage.showing, self.first)
+        self.player.update(10.5)
+        self.assertIs(self.stage.showing, self.second)
+
     def test_plays_beats_in_order_on_their_timers(self):
         self.player.play([self.first, self.second], 10)
+        self.player.update(10)
         self.assertIs(self.stage.showing, self.first)
         self.player.update(11.9)
         self.assertIs(self.stage.showing, self.first)
@@ -66,7 +80,9 @@ class TestBeatPlayer(unittest.TestCase):
 
     def test_tap_moves_to_the_next_beat_and_restarts_its_timer(self):
         self.player.play([self.first, self.second], 10)
+        self.player.update(10)
         self.player.tap(10.5)
+        self.player.update(10.5)
         self.assertIs(self.stage.showing, self.second)
         self.player.update(13.4)
         self.assertIs(self.stage.showing, self.second)
@@ -75,26 +91,41 @@ class TestBeatPlayer(unittest.TestCase):
 
     def test_tap_on_the_last_beat_clears_it(self):
         self.player.play([self.first], 10)
+        self.player.update(10)
         self.player.tap(10.5)
+        self.player.update(10.5)
         self.assertFalse(self.player.active)
         self.assertIsNone(self.stage.showing)
 
     def test_play_replaces_what_is_playing(self):
         self.player.play([self.first, self.second], 10)
+        self.player.update(10)
         replacement = Beat(burst="Bonk!")
         self.player.play([replacement], 10.5)
+        self.player.update(10.5)
         self.assertIs(self.stage.showing, replacement)
         self.player.update(20)
         self.assertFalse(self.player.active)
 
     def test_playing_nothing_clears_the_stage(self):
         self.player.play([self.first], 10)
+        self.player.update(10)
         self.player.play([], 10.5)
         self.assertFalse(self.player.active)
+        self.player.update(10.5)
         self.assertIsNone(self.stage.showing)
+
+    def test_a_tap_just_before_new_beats_does_not_skip_the_first(self):
+        self.player.play([self.first], 10)
+        self.player.update(10)
+        self.player.tap(10.5)
+        self.player.play([self.second], 10.5)
+        self.player.update(10.5)
+        self.assertIs(self.stage.showing, self.second)
 
     def test_tap_while_idle_does_nothing(self):
         self.player.tap(10)
+        self.player.update(10)
         self.assertEqual(self.stage.clears, 0)
 
 

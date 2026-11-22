@@ -136,6 +136,13 @@ class NavView:
         self.group.append(self._stage.group)
         self._player = BeatPlayer(_Director(self._stage, self._things, self._chrome, self._label))
         self._live_exits = set()
+        # What update() is to draw next (cd-342.47.3): the calls below only say
+        # what's changed, so nothing is drawn under input handling.
+        self._room_name = None
+        self._new_room = False
+        self._new_backdrop = False
+        self._new_scene = None
+        self._scene_at = 0.0
 
     def sprite_sheets(self):
         """The props and critter sheets and palettes, for the title screen to share."""
@@ -143,19 +150,18 @@ class NavView:
 
     def refresh_backdrop(self):
         """Put the room's art back after another screen used the shared bitmap."""
-        if getattr(self, "_room_name", None) is not None:
-            self._backdrop.show(self._room_name)
+        self._new_backdrop = self._room_name is not None
 
     def show_room(self, name, live_exits):
         """Call on entering a room (and once at startup)."""
-        self._backdrop.show(name)
         self._room_name = name
-        self._label.show(name)
         self._live_exits = set(live_exits)
+        self._new_room = True
 
     def show_scene(self, scene, now):
         """Draw what's in the room (a hunt.Scene). Call after anything changes it."""
-        self._things.show(scene, now)
+        self._new_scene = scene
+        self._scene_at = now
 
     @property
     def overlay_up(self):
@@ -168,12 +174,12 @@ class NavView:
         return beat is not None and beat.shot is not None
 
     def tap_overlay(self, now):
-        """A tap while an overlay is up: on to the next beat."""
+        """A tap while an overlay is up: on to the next beat, at update()."""
         self._player.tap(now)
 
     def say(self, messages, now, event=None, want=None, escaped=None, escape_at=0,
             cutscenes=()):
-        """Show `messages` as captions, one after another.
+        """Show `messages` as captions, one after another, from update().
 
         `event` is what just happened (hunt.Hunt.event): finding a critter
         shouts FOUND! first and puts `want`, the scene_art name of its lure, in a
@@ -222,8 +228,17 @@ class NavView:
         self._player.play([Beat(burst="Bonk!", shake=True)], now)
 
     def update(self, now, active_zone):
-        """Call once per frame. `active_zone` = edge_gesture.edge_of() of the
-        current touch point, or None."""
+        """Call once per frame: the only place this screen draws. `active_zone` =
+        edge_gesture.edge_of() of the current touch point, or None."""
+        if self._new_room:
+            self._backdrop.show(self._room_name)
+            self._label.show(self._room_name)
+        elif self._new_backdrop:
+            self._backdrop.show(self._room_name)
+        self._new_room = self._new_backdrop = False
+        if self._new_scene is not None:
+            self._things.show(self._new_scene, self._scene_at)
+            self._new_scene = None
         phase = (now % _PULSE_PERIOD) / _PULSE_PERIOD
         pulse = 0.5 + 0.5 * math.sin(2 * math.pi * phase)
         available_idle = _blend(_AVAILABLE_DIM, _AVAILABLE_BRIGHT, pulse)

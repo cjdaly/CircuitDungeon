@@ -70,7 +70,7 @@ touch = Tapper(hardware.init_touch(i2c), {every})
 
 def go():
     app.run(display, backlight, touch, imu_gestures.ImuGestures(imu), hardware.WIDTH,
-            hardware.HEIGHT, max_ticks={ticks})
+            hardware.HEIGHT, max_ticks={ticks}, title={title})
 
 
 def deeper(n):
@@ -175,6 +175,9 @@ def main():
     parser.add_argument("--seconds", type=float, default=60.0)
     parser.add_argument("--tap-every", type=int, default=43, help="polls between taps")
     parser.add_argument("--depth", type=int, default=0, help="extra nested calls")
+    parser.add_argument("--no-title", action="store_true",
+                        help="straight into the game: no gift tag or title (to measure the "
+                             "game's own stack headroom when start-up runs out first)")
     parser.add_argument("--push", nargs="+", default=[], metavar="FILE",
                         help="game modules to load over serial first, in import order")
     args = parser.parse_args()
@@ -207,7 +210,7 @@ def main():
     for path in args.push:
         _push(conn, path)
     script = _SCRIPT.format(every=args.tap_every, depth=args.depth,
-                            ticks=int(args.seconds / 0.05))
+                            ticks=int(args.seconds / 0.05), title=not args.no_title)
     stdout, stderr = _raw_exec(conn, script, args.seconds * 2 + 30, echo=True)
     if stderr.strip():
         print(stderr)

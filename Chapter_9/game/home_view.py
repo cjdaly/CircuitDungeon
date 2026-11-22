@@ -212,7 +212,20 @@ class HomeView:
         """Start drawing an escape shot; None goes back to the plain room."""
         self._shot = name
         self._shot_at = now
+        # The shot's words, here and not in the per-frame drawing below: a
+        # label is the deepest thing drawn (doc/ARCHITECTURE.md sec 1).
+        self._set_title(*self._title_for(name))
         self._draw_shot(0.0)
+
+    def _title_for(self, shot):
+        """(text, y) of the words over a shot: ZOOM! as it bolts, its name."""
+        if not self._shown or self._escape is None:
+            return "", _TITLE_Y
+        if shot == BOLT and self._escape_slot() is not None:
+            return "ZOOM!", _ZOOM_Y
+        if shot == NAME:
+            return self._escape.name.upper() + "!", _TITLE_Y
+        return "", _TITLE_Y
 
     def update(self, now):
         if self.group.hidden:
@@ -248,8 +261,6 @@ class HomeView:
         self._wide.hidden = close
         for grid in (self._runner, self._speed) + self._wiggles:
             grid.hide()
-        if shot not in (BOLT, NAME):
-            self._set_title("")
         if slot is not None:
             x, y = SLOTS[slot]
             box = self._boxes[slot]
@@ -278,7 +289,6 @@ class HomeView:
         self._runner.grid.flip_x = dx > 0  # the sprites face left
         if t < _BOLT_S:
             self._speed.place(rx - dx * 34, ry - dy * 34)
-        self._set_title("ZOOM!", _ZOOM_Y)
 
     def _draw_close(self, shot, t):
         escape = self._escape
@@ -311,4 +321,3 @@ class HomeView:
                               frame + int(t / _FRAME_S) % 2)
         elif shot == NAME:
             big.place(_NAME_X, _NAME_Y, frame + int(t / _FRAME_S) % 2)
-            self._set_title(escape.name.upper() + "!")

@@ -13,7 +13,7 @@ touches these on a board (§5 has the tool).
 | budget | what we have | notes |
 |---|---|---|
 | **Python call stack** (pystack) | 1536 bytes, CircuitPython's default `CIRCUITPY_PYSTACK_SIZE` | Every active call holds a frame: about 28 bytes of overhead plus 4 bytes per local variable and per stack slot. Run out and the call raises `RuntimeError: pystack exhausted`. |
-| **Deepest call: drawing text** | `bitmap_label`'s `text` setter goes 5 calls deep inside the library | This is the call that runs out first. On 2026-11-22 the escape cutscene died here (`cd-342.46`). Headroom, measured with `tools/device_run.py --depth` (extra small calls the game survives): 3 after the first fix, **7 after step 2** (`cd-342.47.2`). |
+| **Deepest call: drawing text** | `bitmap_label`'s `text` setter goes 5 calls deep inside the library | This is the call that runs out first. On 2026-11-22 the escape cutscene died here (`cd-342.46`). Headroom, measured with `tools/device_run.py --depth` (extra small calls the game survives): 3 after the first fix, 7 after step 2 (`cd-342.47.2`), **11 after step 3** (`cd-342.47.3`; `--no-title`). Start-up, which builds the gift tag's labels, survives 8. |
 | **RAM** | about 150 KB headroom, largest free block at least 128 KB (ws-10, `cd-342.38`) | `gc.mem_free()` misleads on CircuitPython 10, because the heap grows on demand. Measure `gc.mem_alloc()` differences instead. |
 | **Frame time** | loop sleeps `_TICK` = 50 ms; about 18 fps in play | |
 | **Drawing a caption's words** | about 570 ms on the board | This is `bitmap_label` rendering the text. Nothing else per beat comes close. Keep captions to what the story needs. |
@@ -22,9 +22,16 @@ touches these on a board (§5 has the tool).
 
 What follows from these:
 
-- **Draw only from the update pass** (target, `cd-342.47.3`). Input handlers
-  change state and queue what to show. The loop's update pass does the
-  drawing, so text is always drawn at one known, shallow depth.
+- **Draw only from the update pass** (`cd-342.47.3`). Input handlers
+  change state and say what to show: `NavView.show_room`, `show_scene`,
+  `say`, `bonk`, `tap_overlay` and `BeatPlayer.play` / `tap` only record it.
+  `NavView.update` (from the loop's `GameScreen.update`) does the drawing,
+  so text is always drawn at one known, shallow depth. Anything that drives
+  a `NavView` outside the game (`tools/preview.py`) calls `update()` after
+  each event, as the loop does.
+- **Set words once, not every frame.** A label's text is the deepest thing
+  drawn: set it when a shot or beat starts (`HomeView.shot`), not in the
+  per-frame drawing under it.
 - **Keep frames small on the drawing path.** A function that draws text, or
   calls something that does, keeps few locals. Put heavy work (layout
   searches, big loops) in its own function, called before or after the
@@ -85,8 +92,11 @@ problems are in how the loop and the screens are wired together.
 
 ## 3. What's wrong with the wiring
 
-*Step 2 (`cd-342.47.2`) has since split `app.run` into the parts in §2; the
-frame sizes below are from before it.*
+*Step 2 (`cd-342.47.2`) has since split `app.run` into the parts in §2, and
+step 3 (`cd-342.47.3`) moved drawing out of input handling: every caption is
+now drawn from `run → Game.tick → _play → GameScreen.update → NavView.update →
+BeatPlayer.update`, about 880 bytes deep before the library, against 1150 in
+the chain below. The frame sizes below are from before both.*
 
 **`app.run` does everything.** It is one 340-line function with 68 locals and
 4 nested helper functions. It covers:
