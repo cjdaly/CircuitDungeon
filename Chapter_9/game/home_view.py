@@ -17,9 +17,10 @@ draws, while the comic kit draws their words on top:
   pop      its lid flies off (POP!)
   peek     two eyes come up over the rim
   name     the critter big, and its name
-  bolt     back to the wide shot: it runs a Z around the room out of the
-           tipped box, stops to look back, then dashes off the way it went,
-           speed lines behind it (escape.bolt_at, cd-342.49)
+  bolt     back to the wide shot: it hops out of the tipped box and back and
+           forth across the floor, stops to look back, then dashes off the way
+           it went (behind the tree, for the way up), speed lines behind it
+           (escape.bolt_at, cd-342.49/51)
 
 The close-up shots cover the room with a plain backdrop; nav_view hides the
 edge markers and room name under them (escape.CLOSE_SHOTS). Everything is built once
@@ -34,8 +35,8 @@ import comic_fonts
 import critter_candidates
 import scene_art
 import story
-from escape import (BOLT, CALM, CLOSE_SHOTS, CLOSEUP, DASH, NAME, PAUSE, PEEK, POP, RATTLE,
-                    bolt_at)
+from escape import (BOLT, CALM, CLOSE_SHOTS, CLOSEUP, DASH, GONE, NAME, PAUSE, PEEK, POP,
+                    RATTLE, bolt_at)
 
 _BACKDROP = 0x101018  # nav_view's background, so a cut reads as the same panel
 _TITLE_COLOR = 0xDAD45E
@@ -65,7 +66,6 @@ _NAME_SCALE = 3  # the critter big: 96px
 _NAME_X, _NAME_Y = 72, 64
 _FRAME_S = 0.3
 
-_HOP_PX = 2  # the runner bobs with its stride
 _SPEED_GAP_PX = 34  # speed lines this far behind it
 
 
@@ -283,12 +283,14 @@ class HomeView:
 
     def _draw_bolt(self, t, x, y):
         rx, ry, ux, uy, leg = bolt_at((x, y - 8), self._escape.direction, t)
-        stride = int(t / 0.1) % 2 if leg != PAUSE else 0
-        self._runner.place(rx, ry - _HOP_PX * stride, first_frame(self._escape.sprite) + stride)
-        self._runner.grid.flip_x = ux > 0  # the sprites face left
-        if leg not in (0, PAUSE):
-            self._speed.place(int(rx - ux * _SPEED_GAP_PX), int(ry - uy * _SPEED_GAP_PX))
         self._title.hidden = leg != DASH  # ZOOM! as it takes off
+        if leg == GONE:  # off the panel, or behind the tree
+            return
+        stride = int(t / 0.1) % 2 if leg != PAUSE else 0
+        self._runner.place(rx, ry, first_frame(self._escape.sprite) + stride)
+        self._runner.grid.flip_x = ux > 0  # the sprites face left
+        if leg == DASH:
+            self._speed.place(int(rx - ux * _SPEED_GAP_PX), int(ry - uy * _SPEED_GAP_PX))
 
     def _draw_close(self, shot, t):
         escape = self._escape

@@ -99,6 +99,15 @@ that side still gets a walkabout. Speed varies: it eases into each corner,
 stops to look back, then `ZOOM!` appears and it speeds up all the way out
 through the exit's edge. Speed lines trail it while it runs.
 
+**On the ground, 2026-11-25 (`cd-342.51`, Chris: the Z "looks like flying",
+and flying is the reindeer's moment in the finale):** critters keep their feet
+on the floor. The bolt hops out of the box onto the rug, hops to the far side
+of the room and back, stops to look back, then dashes out the side; the way
+up (into the back of the house) is a dash behind the tree. A critter following
+you home walks on the floor (feet at y 186: every room's floor or ground is
+above that), coming in by the side you came through, or forward from the back
+wall when you came in by the top.
+
 Each beat is a panel. Taps skip ahead; otherwise it plays through
 (~8–10s total).
 

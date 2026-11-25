@@ -74,11 +74,13 @@ class Patrol:
         return int(round(self._x)), int(round(self._y)), moving, self.facing_right
 
 
-def come_in(edge, home, t, seconds, size=64, width=240):
+def come_in(edge, home, t, seconds, size=64, width=240, back=None):
     """Where a critter coming in by `edge` (rooms.LEFT, ...) is, `t` s after
     the room appeared, on its way to `home` (its top-left): from just off the
-    panel at that edge, slowing as it arrives, there at `seconds`.
-    Returns (x, y, moving)."""
+    panel at that edge, slowing as it arrives, there at `seconds`. `back`, if
+    given, is the top y to come in from by UP instead -- the back of the room,
+    where the floor meets the wall, so it walks forward rather than dropping
+    in from the sky (cd-342.51). Returns (x, y, moving)."""
     hx, hy = home
     sx, sy = hx, hy  # no allocation per frame: this runs every tick
     if edge == LEFT:
@@ -86,7 +88,7 @@ def come_in(edge, home, t, seconds, size=64, width=240):
     elif edge == RIGHT:
         sx = width
     elif edge == UP:
-        sy = -size
+        sy = -size if back is None else back
     elif edge == DOWN:
         sy = width
     u = min(max(t / seconds, 0.0), 1.0)

@@ -111,6 +111,11 @@ class TestComeIn(unittest.TestCase):
             self.assertEqual(come_in(edge, self.HOME, 5.0, 1.2), (88, 104, False))
             self.assertTrue(come_in(edge, self.HOME, 0.6, 1.2)[2])
 
+    def test_by_the_top_it_can_walk_forward_from_the_back(self):
+        # cd-342.51: no dropping in from the sky.
+        self.assertEqual(come_in(UP, self.HOME, 0.0, 1.2, back=40)[:2], (88, 40))
+        self.assertEqual(come_in(LEFT, self.HOME, 0.0, 1.2, size=32, back=40)[:2], (-32, 104))
+
     def test_it_slows_as_it_arrives(self):
         xs = [come_in(LEFT, self.HOME, t / 10, 1.2)[0] for t in range(13)]
         steps = [b - a for a, b in zip(xs, xs[1:])]

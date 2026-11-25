@@ -41,12 +41,13 @@ class TestCutscene(unittest.TestCase):
 
 
 class TestBolt(unittest.TestCase):
-    """cd-342.49: the bolt is a show -- a Z around the room, not a straight dash."""
+    """cd-342.49/51: the bolt is a show -- back and forth across the floor, hopping."""
 
     BOXES = ((40, 160), (72, 152), (104, 164), (136, 152), (168, 160))  # home_view.SLOTS, -8 up
     WAYS = (escape.LEFT, escape.RIGHT, escape.UP, escape.DOWN)
+    FLOOR = 162  # the Living Room's plank floor starts here (living_room.bmp at 2x)
 
-    def path(self, start, direction, step=0.05):
+    def path(self, start, direction, step=0.02):
         t, out = 0.0, []
         while t <= escape.BOLT_S:
             out.append(escape.bolt_at(start, direction, t))
@@ -56,55 +57,75 @@ class TestBolt(unittest.TestCase):
     def test_it_starts_at_the_box(self):
         for way in self.WAYS:
             x, y, _ux, _uy, leg = escape.bolt_at((40, 160), way, 0.0)
-            self.assertEqual((x, y, leg), (40, 160, 0))
+            self.assertEqual((x, y, leg), (40, 160, escape.OUT))
 
-    def test_it_ends_off_the_panel_past_its_exit(self):
-        for way in self.WAYS:
-            x, y, _ux, _uy, leg = escape.bolt_at((104, 164), way, escape.BOLT_S)
-            with self.subTest(way=way):
-                self.assertEqual(leg, escape.DASH)
-                cx, cy = x + 16, y + 16
-                self.assertGreater(abs(cx - 120) + abs(cy - 120), 150)
-                self.assertTrue({escape.LEFT: cx < 0, escape.RIGHT: cx > 240,
-                                 escape.UP: cy < 0, escape.DOWN: cy > 240}[way])
+    def test_it_ends_out_of_sight_the_way_it_went(self):
+        for start in self.BOXES:
+            for way in self.WAYS:
+                x, y, _ux, _uy, leg = escape.bolt_at(start, way, escape.BOLT_S)
+                with self.subTest(start=start, way=way):
+                    self.assertEqual(leg, escape.GONE)
+                    cx, cy = x + 16, y + 16
+                    self.assertTrue({escape.LEFT: cx < 0, escape.RIGHT: cx > 240,
+                                     escape.UP: abs(cx - 120) < 12 and y + 31 <= self.FLOOR,
+                                     escape.DOWN: cy > 240}[way])
 
-    def test_its_turns_are_on_the_panel(self):
-        for way, route in escape._ROUTES.items():
-            for x, y in route[:-1]:
-                with self.subTest(way=way, at=(x, y)):
-                    self.assertLess(math.hypot(x + 16 - 120, y + 16 - 120), 100)
+    def test_it_stays_on_the_floor_but_for_hops(self):
+        for start in self.BOXES:
+            for way in self.WAYS:
+                for x, y, _ux, _uy, leg in self.path(start, way):
+                    if leg in (escape.OUT, escape.GONE):
+                        continue  # out of the box: one big hop
+                    feet = y + 31
+                    with self.subTest(start=start, way=way, leg=leg):
+                        self.assertGreaterEqual(feet, self.FLOOR - 10)  # a 9px hop at most
+                        if not (way == escape.DOWN and leg == escape.DASH):  # forward, off it
+                            self.assertLessEqual(feet, 214)
 
-    def test_it_runs_away_from_its_exit_first(self):
+    def test_its_turns_are_on_the_rug_and_on_the_panel(self):
+        for start in self.BOXES:
+            for way in self.WAYS:
+                for x, feet in escape._route(start, way)[1:4]:
+                    with self.subTest(start=start, way=way, at=(x, feet)):
+                        self.assertGreaterEqual(feet, 190)
+                        self.assertLess(math.hypot(x + 16 - 120, feet - 16 - 120), 110)
+
+    def test_it_runs_away_from_its_box_first(self):
         # A box on the side it leaves by still gets a walkabout.
         for way, (sx, sy) in ((escape.LEFT, self.BOXES[0]), (escape.RIGHT, self.BOXES[4])):
-            xs = [x for x, _y, _ux, _uy, _leg in self.path((sx, sy), way)]
+            xs = [x for x, _y, _ux, _uy, leg in self.path((sx, sy), way) if leg != escape.GONE]
             with self.subTest(way=way):
                 if way == escape.LEFT:
                     self.assertGreater(max(xs), 150)
                 else:
                     self.assertLess(min(xs), 60)
 
-    def test_it_stays_on_screen_while_it_looks_back(self):
+    def test_it_goes_back_and_forth(self):
+        for start in self.BOXES:
+            for way in (escape.LEFT, escape.RIGHT):
+                route = escape._route(start, way)
+                legs = [route[i + 1][0] - route[i][0] for i in (1, 2, 3)]
+                with self.subTest(start=start, way=way):
+                    self.assertTrue(legs[0] * legs[1] < 0, route)  # turns round
+
+    def test_it_stands_still_while_it_looks_back(self):
         for way in self.WAYS:
-            t = sum(seconds for seconds, _e in escape._LEGS[:escape.PAUSE]) + 0.2
-            x, y, ux, _uy, leg = escape.bolt_at((104, 164), way, t)
+            t0 = sum(leg[0] for leg in escape._LEGS[:escape.PAUSE])
+            spots = {escape.bolt_at((104, 164), way, t0 + d)[:2] for d in (0.05, 0.2, 0.4)}
             with self.subTest(way=way):
-                self.assertEqual(leg, escape.PAUSE)
-                self.assertEqual((x, y), escape._ROUTES[way][2])
+                self.assertEqual(len(spots), 1)
 
     def test_its_speed_changes(self):
-        path = self.path((104, 164), escape.RIGHT, step=0.05)
-        speeds = [math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(path, path[1:])
-                  if b[4] != escape.DASH or a[4] != escape.DASH or b[0] < 240]
+        path = self.path((72, 152), escape.RIGHT, step=0.05)
+        xs = [p[0] for p in path if p[4] not in (escape.PAUSE, escape.GONE)]
+        speeds = [abs(b - a) for a, b in zip(xs, xs[1:])]
         moving = [v for v in speeds if v > 0]
         self.assertGreater(max(moving), 3 * min(moving))
-        self.assertIn(0.0, speeds)  # it stops to look back
 
     def test_it_is_slow_enough_to_watch(self):
         self.assertGreaterEqual(escape.BOLT_S, 3.0)
         bolt = [b for b in escape.cutscene() if b.shot == escape.BOLT][0]
         self.assertEqual(bolt.duration, escape.BOLT_S)
-
 
 if __name__ == "__main__":
     unittest.main()

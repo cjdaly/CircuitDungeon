@@ -75,11 +75,18 @@ _HELD_SCALE = 1
 _HELD_X, _HELD_Y = 46, 158
 _HELD_BACK = 0x241C2C
 _HELD_BACK_RADIUS = 22
-# A critter following you home: in the middle, where a found one waited.
-_FOLLOW_X, _FOLLOW_Y = _MIDDLE_X, _WAIT_Y
+# A critter following you home, at 1x: on the floor in the middle of the room
+# (cd-342.51). Its feet (art row 31) at y 186 stand on every room's ground: the
+# indoor floors start at y 162 (build_backdrops.FLOOR_Y 78, at 2x), the outdoor
+# ground higher still. In by the top, it walks forward from where the floor
+# meets the wall (feet at 162) rather than dropping out of the sky.
+_FOLLOW_SIZE = critter_candidates.TILE
+_FOLLOW_X = 120 - _FOLLOW_SIZE // 2
+_FOLLOW_Y = 186 - 31
+_FOLLOW_BACK_Y = 162 - 31
 _FOLLOW_HOP_PX = 3  # each step on the way in
 _COME_IN_S = 1.2  # from the edge to the middle
-_WANDER_PX = 22  # then side to side about the middle...
+_WANDER_PX = 18  # then side to side about the middle (clear of the held item)...
 _WANDER_PERIOD = 2.4
 _WANDER_HOP_PX = 7  # ...in bounces
 
@@ -267,18 +274,18 @@ class SceneView:
         self.update(now)
 
     def _dancers(self):
-        """(layer, its usual top-left) of each critter out in the open, showing."""
+        """(layer, (x, y, size)): each critter out in the open and showing, at
+        its usual top-left, and how big it's drawn."""
         out = []
         if self._pose is not None and self._pose != HIDING:
-            out.append((self._front, (_MIDDLE_X, _WAIT_Y)))
+            out.append((self._front, (_MIDDLE_X, _WAIT_Y, scene_art.TILE * _CRITTER_SCALE)))
         if not self._follow_layer.hidden:
-            out.append((self._follow_layer, (_FOLLOW_X, _FOLLOW_Y)))
+            out.append((self._follow_layer, (_FOLLOW_X, _FOLLOW_Y, _FOLLOW_SIZE)))
         return out
 
     def dancer_rects(self):
         """(x, y, size) of each critter out in the open, at home, for comic.Stage."""
-        size = scene_art.TILE * _CRITTER_SCALE
-        return [(x, y, size) for _layer, (x, y) in self._dancers()]
+        return [home for _layer, home in self._dancers()]
 
     def keep_clear(self):
         """Screen rects of what's drawn that a caption should keep off -- all of
@@ -297,13 +304,11 @@ class SceneView:
         dancers = self._dancers()
         if not self._covers:
             self._dance = []
-            for layer, (x, y) in dancers:
+            for layer, (x, y, _size) in dancers:
                 layer.x, layer.y = x, y
                 layer[0].flip_x = False
             return
-        size = scene_art.TILE * _CRITTER_SCALE
-        homes = [(x, y, size) for _layer, (x, y) in dancers]
-        spots, _stuck = clearance.plan_dance(homes, self._covers)
+        spots, _stuck = clearance.plan_dance([home for _layer, home in dancers], self._covers)
         self._dance = [(layer, spot) for (layer, _home), spot in zip(dancers, spots)
                        if spot is not None]
 
@@ -312,9 +317,10 @@ class SceneView:
         about the middle; a popup over it sends it dancing instead (update)."""
         layer = self._follow_layer
         if self._follow_from is not None and t < _COME_IN_S:
-            x, y, _moving = come_in(self._follow_from, (_FOLLOW_X, _FOLLOW_Y), t, _COME_IN_S)
+            x, y, _moving = come_in(self._follow_from, (_FOLLOW_X, _FOLLOW_Y), t, _COME_IN_S,
+                                    size=_FOLLOW_SIZE, back=_FOLLOW_BACK_Y)
             layer.x, layer.y = x, y - bob(t, _HOP_FRAME_S, _FOLLOW_HOP_PX)
-            self._follower.flip_x = x < _FOLLOW_X  # the sprites face left
+            self._follower.flip_x = x < _FOLLOW_X  # the sprites face left (and stay so)
             return
         if any(dancer is layer for dancer, _spot in self._dance):
             return
