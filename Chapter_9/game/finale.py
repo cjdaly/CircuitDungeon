@@ -11,8 +11,14 @@ glyphs the comic kit puts over it. hunt.Hunt.cutscenes says which cutscene
 plays before which of its messages; CUTSCENES says, for each, its beats and the
 shot under the captions just before and just after it.
 
-Pure data, so it runs under desktop Python (see tests/test_finale.py).
+Where the critters are in the shots that move them about on the floor -- the
+chaos and the parade -- is here too, as plain functions (cd-342.52): feet on
+the floor, hopping, never flying; that's the reindeer's moment, in the lap.
+
+Pure, so it runs under desktop Python (see tests/test_finale.py).
 """
+import math
+
 from beats import Beat
 
 ALL_HOME = "all_home"  # everyone on their boxes, the calm before it
@@ -36,7 +42,49 @@ SHOTS = (ALL_HOME, BURST, CHAOS, GRAB, TOP, HOP, LIFTOFF) + tuple(
 
 # Hearts either side of the boxes as they land (screen px, glyph top-left at 2x).
 _HEARTS = (("heart", 40, 120), ("heart", 168, 120))
-_GLITCH = (("question", 48, 64), ("bang", 164, 72))
+_GLITCH = (("question", 36, 128), ("bang", 172, 124))  # on the wall, over the hoppers
+# HUP! to the left of the tower (finale_view's _TOWER_X 104), not over it: the
+# word clears it; only the star's spike tips reach its edge (the panel's round).
+_HUP_AT = (60, 120)
+
+# Screen px: a critter's top-left x and its FEET y (32px at 1x; art to row 31).
+# Every room's floor or ground is above feet y 186 (cd-342.51).
+_FEET = 31
+# The parade's spots, leader first: on the floor, right of the item in hand
+# (bottom left, to x 84), the first ones clear of the Odd Corner's tower too.
+_PARADE = ((178, 192), (150, 204), (122, 190), (94, 202), (164, 214))
+_WANDER_PX = 18
+_MIN_X = 88  # ...even wandering
+# The chaos: each hops back and forth across the rug at its own pace.
+_CHAOS_X, _CHAOS_MID = 104, 78
+_CHAOS_FEET, _CHAOS_DEPTH = 198, 10
+
+
+def parade_place(i):
+    """Top-left of the i-th critter in the parade, standing still."""
+    x, feet = _PARADE[i % len(_PARADE)]
+    return x, feet - _FEET
+
+
+def parade_at(i, t):
+    """The i-th critter of the parade, `t` s into a room: wandering about its
+    spot, hopping. (x, y top-left, heading right)."""
+    x, y = parade_place(i)
+    w = 1.6 + 0.35 * i
+    a = w * t + 1.1 * i
+    hop = (6 + 2 * (i % 3)) * abs(math.sin(math.pi * t / (0.32 + 0.04 * i)))
+    return max(_MIN_X, int(x + _WANDER_PX * math.sin(a))), int(y - hop), math.cos(a) > 0
+
+
+def chaos_place(i, t):
+    """Top-left of critter i, t seconds into the chaos; and whether it's heading
+    right. Back and forth across the rug, hopping, a little nearer or deeper."""
+    wx, wy = 1.9 + 0.37 * i, 1.3 + 0.29 * i
+    a = wx * t + 1.3 * i
+    x = _CHAOS_X + _CHAOS_MID * math.sin(a)
+    feet = _CHAOS_FEET + _CHAOS_DEPTH * math.sin(wy * t + 2.1 * i)
+    hop = (10 + 2 * i) * abs(math.sin(math.pi * t / (0.3 + 0.05 * i)))
+    return int(x), int(feet - _FEET - hop), math.cos(a) > 0
 
 
 def burst():
@@ -48,7 +96,8 @@ def burst():
 
 
 def tower(n=MAX_TOWER):
-    beats = [Beat(shot=tower_shot(i), burst="Hup!", duration=0.9) for i in range(1, n + 1)]
+    beats = [Beat(shot=tower_shot(i), burst="Hup!", burst_at=_HUP_AT, duration=0.9)
+             for i in range(1, n + 1)]
     beats.append(Beat(shot=GRAB, duration=1.2))
     return beats
 

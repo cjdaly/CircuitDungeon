@@ -175,7 +175,8 @@ def scenes():
     yield "08a_follow_reminder", s.at(0.3)
     s.skip()
     s.go(LEFT, LEFT)
-    yield "08b_home_again", s.at(0.5)  # "Chirpy curls up..." with her on her box
+    for i, t in enumerate((0.3, 0.6, 0.6, 0.6, 0.6, 0.7)):  # cd-342.52: in, about, onto her box
+        yield "08b_home_{}".format(i), s.at(t)
     for _ in range(3):
         s.next_beat()
     yield "08c_next_rattle", s.at(0.3)
@@ -223,6 +224,7 @@ def scenes():
 
 def finale_scenes():
     """The finale (cd-342.6): every critter home, then the burst."""
+    from rooms import LEFT
     s = Session()
     for critter in s.hunt._critters.values():
         critter.escape("Yard")
@@ -238,6 +240,9 @@ def finale_scenes():
     yield "f05_running_flat", s.next_beat().at(0.3)
     yield "f06_parade_home", s.skip().at(0.3)
     yield "f07_parade_kitchen", s.jump("Kitchen").at(0.3)
+    s.go(LEFT)  # Dining Room: they come in behind you, by its right edge (cd-342.52)
+    for i, t in enumerate((0.3, 0.4, 0.5, 0.8)):
+        yield "f07_parade_in_{}".format(i), s.at(t)
     s.arrive("Odd Corner")
     yield "f08_odd_corner", s.at(0.3)
     yield "f09_tower1", s.next_beat().at(0.1)

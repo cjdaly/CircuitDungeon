@@ -230,7 +230,9 @@ class SceneView:
         self._shown_at = now
         self._boxes = scene.boxes
         self._home.show(scene.boxes)
-        self._finale.show(scene.parade)
+        if scene.homecoming is not None:
+            self._home.come_home(scene.homecoming[0], scene.homecoming[1], now)
+        self._finale.show(scene.parade, scene.follower_from, now)
         self._spot_layer.hidden = scene.spot is None
         if scene.spot is not None:
             self._spot[0] = self._tile_of[scene.spot]

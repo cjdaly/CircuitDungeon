@@ -108,6 +108,15 @@ you home walks on the floor (feet at y 186: every room's floor or ground is
 above that), coming in by the side you came through, or forward from the back
 wall when you came in by the top.
 
+**Homecoming and the finale, 2026-11-25 (`cd-342.52`):** a critter you bring
+home comes in by the way you came, hops back and forth on the rug, and hops up
+onto its box: the bolt played backwards (`escape.home_at`). In the finale only
+the reindeer leaves the ground (its lap): the burst lands everyone on the
+floor, the chaos is hopping back and forth across the rug, and the parade
+comes into each room behind you one by one, then wanders and hops about on the
+floor (`finale.chaos_place`, `finale.parade_at`). `HUP!` sits left of the tower
+(`Beat.burst_at`).
+
 Each beat is a panel. Taps skip ahead; otherwise it plays through
 (~8–10s total).
 

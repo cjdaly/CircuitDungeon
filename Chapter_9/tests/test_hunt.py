@@ -700,6 +700,18 @@ class TestScene(HuntCase):
         self.hunt.tapped()
         self.assertIsNone(self.hunt.scene().follower_from)  # no walking in twice
 
+    def test_home_she_comes_in_by_the_way_you_came(self):
+        # cd-342.52: the Living Room shows her coming home, then not again.
+        self.find_cat()
+        self.walk(UP)
+        self.hunt.tapped()
+        self.walk(DOWN, RIGHT, RIGHT)
+        self.hunt.tapped()
+        self.walk(LEFT, LEFT, LEFT)
+        self.assertEqual(self.hunt.scene().homecoming, ("cat", RIGHT))
+        self.hunt.tapped()
+        self.assertIsNone(self.hunt.scene().homecoming)
+
     def test_the_batteries_are_always_in_the_odd_corner(self):
         self.walk(RIGHT, RIGHT, UP)
         self.assertEqual(self.hunt.scene().lure, "batteries")

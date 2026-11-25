@@ -18,12 +18,13 @@ _PICTURE_S = 2.0
 
 class Beat:
     def __init__(self, caption=None, speech=None, tail=None, thought=None, burst=None,
-                 emanata=(), shake=False, duration=None, shot=None):
+                 emanata=(), shake=False, duration=None, shot=None, burst_at=None):
         """
         caption: text, a newline between its two lines at most
         speech, tail: balloon text, and the (x, y) its tail points at
         thought: the (bitmap, palette) of a 16x16 icon
         burst: one shouted word
+        burst_at: the (x, y) middle of its star; None for the middle of the panel
         emanata: (glyph name, x, y) tuples, at most comic.MAX_EMANATA
         shake: jolt the scene under the overlay
         duration: seconds; None picks one from the content
@@ -34,6 +35,7 @@ class Beat:
         self.tail = tail
         self.thought = thought
         self.burst = burst
+        self.burst_at = burst_at
         self.emanata = emanata
         self.shake = shake
         self.shot = shot

@@ -53,7 +53,9 @@ class Scene:
     follower: sprite id of a critter following you home
     follower_from: the edge it comes in by (rooms.LEFT, ...): the one you just
         came through, so it walks in behind you (cd-342.50); None when it's
-        already in the room
+        already in the room. The finale's parade comes in the same way.
+    homecoming: (species, edge): the critter you just brought home, coming in
+        by that edge to hop onto its box (cd-342.52), or None
     parade: the finale's critters following you, ((species, sprite id), ...),
         bottom of the tower first
     held: the item in hand
@@ -61,7 +63,8 @@ class Scene:
     """
 
     def __init__(self, spot=None, critter=None, pose=None, lure=None, follower=None,
-                 held=None, boxes=None, lure_at=None, parade=None, follower_from=None):
+                 held=None, boxes=None, lure_at=None, parade=None, follower_from=None,
+                 homecoming=None):
         self.spot = spot
         self.critter = critter
         self.pose = pose
@@ -70,6 +73,7 @@ class Scene:
         self.parade = parade
         self.follower = follower
         self.follower_from = follower_from
+        self.homecoming = homecoming
         self.held = held
         self.boxes = boxes
 

@@ -50,7 +50,8 @@ _EXITS = {LEFT: (-48, 204), RIGHT: (260, 204), DOWN: (104, 290), UP: _TREE}
 _LEGS = ((0.45, 24, 1), (0.9, 9, 4), (0.85, 9, 4), (0.45, 0, 0), (0.7, 5, 5))
 _SEGMENTS = ((0, 1), (1, 2), (2, 3), (3, 3), (3, 4))
 OUT, PAUSE, DASH, GONE = 0, 3, 4, 5  # leg indexes; GONE: done (behind the tree, or off)
-BOLT_S = sum(leg[0] for leg in _LEGS) + 0.3  # a moment after it's gone
+RUN_S = sum(leg[0] for leg in _LEGS)  # from the box to out of sight
+BOLT_S = RUN_S + 0.3  # a moment after it's gone
 
 
 def _route(start, direction):
@@ -101,6 +102,18 @@ def bolt_at(start, direction, t):
     x = int(x0 + dx * u)
     y = int(f0 + dy * u - hop_px * hop) - _FEET
     return x, y, dx / size, dy / size, leg
+
+
+def home_at(start, direction, t):
+    """Coming home (cd-342.52): the bolt played backwards. In by `direction`
+    (the edge you came in by), a stop, back and forth across the rug, and a
+    hop up to `start` -- where it sits on its box -- by RUN_S. Same return as
+    bolt_at, facing the way it's going; leg GONE before it's in sight (behind
+    the tree, coming in by the top) and once it's sitting."""
+    if t >= RUN_S:
+        return start[0], start[1], 0.0, 0.0, GONE
+    x, y, ux, uy, leg = bolt_at(start, direction, RUN_S - t)
+    return x, y, -ux, -uy, leg
 
 
 def cutscene():

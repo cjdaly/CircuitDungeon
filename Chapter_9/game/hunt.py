@@ -65,6 +65,7 @@ class Hunt:
         self.difficulty = difficulty  # episodes.EASY / MEDIUM / HARD: how the clues help
         self._here = world.current  # the room before this move
         self._came_by = None  # the edge the last move came in by, for a follower
+        self._homecoming = None  # (species, edge): who you just brought home, and how
         self._critters = {c.species: c for c in roster.all()}
         species = [c.species for c in roster.all()]
         if order is None:
@@ -151,6 +152,7 @@ class Hunt:
             critter.burst()
         self.stage = PARADE
         self.held = None
+        self._came_by = None  # they burst out of their boxes: nobody walks in
         self.event = BURST
         self.cutscenes = ((lead + 1, finale.BURST_SCENE),)  # after "All home!"
         return ["All home!", "Uh oh! They're running flat!",
@@ -205,7 +207,7 @@ class Hunt:
         self._quiet()
         room = self._world.current
         came_from, self._here = self._here, room
-        self._came_by = None
+        self._came_by = self._homecoming = None
         for direction, dest in self._world.get(room).exits.items():
             if dest == came_from:
                 self._came_by = direction
@@ -214,6 +216,7 @@ class Hunt:
         if self.stage == CARRYING:
             return self._ending() if room == HOME else []
         if self.stage == GOING_HOME and room == HOME:
+            self._homecoming = (self.critter.species, self._came_by)
             home = self.episode.home_text.format(name=self.critter.name)
             return [home] + self._start_next_episode(lead=1)
 
@@ -246,13 +249,15 @@ class Hunt:
         boxes = self._boxes() if room == HOME else None
         if self.stage == DONE:
             return Scene(boxes=boxes)
+        homecoming = self._homecoming if room == HOME else None
         if self.stage in (PARADE, CARRYING):
-            scene = Scene(held=self.held, boxes=boxes, parade=self._parade())
+            scene = Scene(held=self.held, boxes=boxes, parade=self._parade(),
+                          follower_from=self._came_by, homecoming=homecoming)
             if room == episodes.ODD_CORNER and self.stage == PARADE:
                 scene.lure, scene.lure_at = "batteries", SHELF
             return scene
         episode = self.episode
-        scene = Scene(held=self.held, boxes=boxes)
+        scene = Scene(held=self.held, boxes=boxes, homecoming=homecoming)
         if room == episodes.ODD_CORNER:
             scene.lure = "batteries"
             scene.lure_at = SHELF
@@ -298,7 +303,7 @@ class Hunt:
     def tapped(self):
         """The player tapped the middle of the screen."""
         self._quiet()
-        self._came_by = None  # anyone following is already in the room
+        self._came_by = self._homecoming = None  # anyone following is already in the room
         room = self._world.current
         if self.stage == DONE:
             return self._merry_christmas()

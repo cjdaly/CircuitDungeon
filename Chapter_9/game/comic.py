@@ -241,7 +241,8 @@ class _Thought:
 
 
 class _Burst:
-    """A shouted sound: one word on a jagged yellow star, across the middle."""
+    """A shouted sound: one word on a jagged yellow star, across the middle
+    unless the beat says where."""
 
     def __init__(self, parent, width, height):
         self._x, self._y = width // 2, height // 2
@@ -257,11 +258,14 @@ class _Burst:
                             anchor_point=(0.5, 0.5), anchored_position=(self._x, self._y))
         self.group.append(self._label)
 
-    def show(self, word):
+    def show(self, word, at=None):
+        """`at`: the star's middle, if not the panel's (Beat.burst_at)."""
+        x, y = at if at is not None else (self._x, self._y)
+        self._label.anchored_position = (x, y)
         self._label.text = word.upper()
         rx, ry = comic_shapes.burst_radii(self._label.bounding_box[2])
-        self._outline.points = comic_shapes.burst_points(self._x, self._y, rx, ry, grow=3)
-        self._fill.points = comic_shapes.burst_points(self._x, self._y, rx, ry)
+        self._outline.points = comic_shapes.burst_points(x, y, rx, ry, grow=3)
+        self._fill.points = comic_shapes.burst_points(x, y, rx, ry)
         self.group.hidden = False
 
 
@@ -371,7 +375,7 @@ class Stage:
         if beat.speech:
             self._balloon.show(beat.speech, beat.tail)
         if beat.burst:
-            self._burst.show(beat.burst)
+            self._burst.show(beat.burst, beat.burst_at)
         if beat.emanata:
             self._emanata.show(beat.emanata)
         if beat.shake and self._shake_target is not None:

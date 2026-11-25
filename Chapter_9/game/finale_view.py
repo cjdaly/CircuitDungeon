@@ -3,8 +3,8 @@
 
 Out of the shots (finale.py) it draws:
 
-  burst     every critter springs up out of its box
-  chaos     ...and bounces round the panel, glitching (flickering out)
+  burst     every critter springs up out of its box, landing on the floor
+  chaos     ...and hops back and forth across the rug, glitching (flickering out)
   tower<n>  in the Odd Corner, n critters stacked under the shelf, the newest
             dropping on; the batteries still up on the shelf
   grab      the top one takes the batteries
@@ -12,8 +12,9 @@ Out of the shots (finale.py) it draws:
   hop       home: each critter, in turn, hops from the parade onto its box
   liftoff   the reindeer's lap round the tree, then back onto its box
 
-and, with no shot, the parade: every loose critter trailing round the bottom
-of the panel, hopping, in whatever room you're in. ("all_home", everyone on
+and, with no shot, the parade: every loose critter on the floor, coming in
+behind you by the edge you came through, then wandering and hopping about,
+in whatever room you're in (cd-342.52). ("all_home", everyone on
 their boxes before the burst, is just the presents: SceneView draws it.)
 
 The critters are 1x (32px), like the one following you home in the hunt, and
@@ -27,16 +28,17 @@ import displayio
 import critter_candidates
 import finale
 import scene_art
+from finale import chaos_place, parade_at, parade_place
 from home_view import SLOTS, first_frame
+from walk import come_in
 
 _ON_BOX = 24  # home_view's: a critter at home sits this far up from its box's top
 _FRAME_S = 0.2
 
-# The parade: an arc round the bottom right of the panel (the item in hand is
-# bottom left), leader first.
-_PARADE_R = 78
-_PARADE_DEG = (20, 42, 64, 86, 108)
-_PARADE_HOP_PX = 3
+# The parade comes in one after another, by the edge you came through; by the
+# top, forward from the back wall (feet at 162), not out of the sky.
+_COME_IN_S, _COME_IN_GAP_S = 1.0, 0.18
+_BACK_Y = 162 - 31
 
 # The tower in the Odd Corner, under the shelf (scene_view's _SHELF_*).
 _TOWER_X, _TOWER_Y = 104, 150  # the bottom critter's top-left
@@ -46,9 +48,8 @@ _SHELF_X, _SHELF_Y = 138, 68  # the batteries, up on it
 _GRAB_X, _GRAB_Y = 116, 66  # ...and in the top critter's paws
 _GRAB_S = 0.5
 
-# The burst and the chaos: every critter on its own wobbly loop round the panel.
+# The burst: up out of its box, landing on the floor for the chaos (finale.py).
 _BURST_S = 0.8
-_CHAOS_X, _CHAOS_Y = 70, 56  # how far each loop swings
 _GLITCH_EVERY, _GLITCH_S = 1.7, 0.15  # each flickers out now and then: running flat
 
 # Home: each critter hops onto its box in turn; then the reindeer's lap.
@@ -58,24 +59,9 @@ _LAP_CX, _LAP_CY = 104, 100  # round the tree (the sprite's top-left), under the
 _LAP_RX, _LAP_RY = 76, 38
 
 
-def parade_place(i):
-    """Top-left of the i-th critter in the parade."""
-    a = math.radians(_PARADE_DEG[i % len(_PARADE_DEG)])
-    return (int(120 + _PARADE_R * math.cos(a)) - 16, int(120 + _PARADE_R * math.sin(a)) - 16)
-
-
 def tower_place(k):
     """Top-left of the k-th critter up the tower (0 at the bottom)."""
     return _TOWER_X, _TOWER_Y - k * _TOWER_STEP
-
-
-def chaos_place(i, t):
-    """Top-left of critter i, t seconds into the chaos; and whether it's heading right."""
-    wx, wy = 1.9 + 0.37 * i, 2.6 + 0.29 * i
-    px, py = 1.3 * i, 0.7 + 2.1 * i
-    x = 104 + _CHAOS_X * math.sin(wx * t + px)
-    y = 100 + _CHAOS_Y * math.sin(wy * t + py)
-    return int(x), int(y), math.cos(wx * t + px) > 0
 
 
 def lap_place(t):
@@ -114,13 +100,18 @@ class FinaleView:
         self._parade = ()
         self._frames = ()
         self._walking = False
+        self._came_by = None  # the edge the parade is coming in by
+        self._shown_at = 0.0
         self._shot = None
         self._shot_at = 0.0
 
-    def show(self, parade):
-        """The critters following you (story.Scene.parade), or None. The last
-        parade is kept: the ending's shots play after they're all home."""
+    def show(self, parade, came_by=None, now=0.0):
+        """The critters following you (story.Scene.parade), or None, and the
+        edge they're coming in by (Scene.follower_from). The last parade is
+        kept: the ending's shots play after they're all home."""
         self._walking = bool(parade)
+        self._came_by = came_by
+        self._shown_at = now
         if parade:
             self._parade = tuple(parade)[:len(self._grids)]
             self._frames = tuple(first_frame(sprite) for _, sprite in self._parade)
@@ -170,10 +161,16 @@ class FinaleView:
         return slot, (x, y - _ON_BOX)
 
     def _draw_parade(self, now, step):
+        t = now - self._shown_at
         for i, frame in enumerate(self._frames):
-            x, y = parade_place(i)
-            hop = int(_PARADE_HOP_PX * abs(math.sin(math.pi * (now + 0.13 * i) / 0.4)))
-            self._place(i, x, y - hop, frame + step)
+            late = t - i * _COME_IN_GAP_S  # one after another
+            if self._came_by is not None and late < _COME_IN_S:
+                x, y, _moving = come_in(self._came_by, parade_place(i), late, _COME_IN_S,
+                                        size=critter_candidates.TILE, back=_BACK_Y)
+                self._place(i, x, y, frame + step, x < parade_place(i)[0])
+            else:
+                x, y, right = parade_at(i, t)
+                self._place(i, x, y, frame + step, right)
 
     def _draw_burst(self, t, step):
         u = _ease(t / _BURST_S)

@@ -122,6 +122,22 @@ class TestBolt(unittest.TestCase):
         moving = [v for v in speeds if v > 0]
         self.assertGreater(max(moving), 3 * min(moving))
 
+    def test_coming_home_is_the_bolt_backwards_ending_on_its_box(self):
+        # cd-342.52: in by the way it left, about the rug, up onto its box.
+        sit = (72, 136)  # its top-left, sitting on its box
+        for way in self.WAYS:
+            with self.subTest(way=way):
+                self.assertEqual(escape.home_at(sit, way, escape.RUN_S)[:2], sit)
+                self.assertEqual(escape.home_at(sit, way, escape.RUN_S + 5)[4], escape.GONE)
+                x, y, ux, _uy, leg = escape.home_at(sit, way, 0.05)
+                self.assertEqual(leg, escape.DASH)  # coming in fast, by its edge
+                # In by the left edge it's heading right, and so on.
+                self.assertGreater({escape.LEFT: ux, escape.RIGHT: -ux,
+                                    escape.UP: 1, escape.DOWN: 1}[way], 0)
+        mid = [escape.home_at(sit, escape.RIGHT, t / 10) for t in range(5, 30)]
+        self.assertTrue(all(y + 31 >= self.FLOOR - 10 for _x, y, _ux, _uy, leg in mid
+                            if leg != escape.OUT))
+
     def test_it_is_slow_enough_to_watch(self):
         self.assertGreaterEqual(escape.BOLT_S, 3.0)
         bolt = [b for b in escape.cutscene() if b.shot == escape.BOLT][0]

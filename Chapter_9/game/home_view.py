@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: MIT
 """The Living Room's presents and the escape cutscene -- cd-342.27, cd-342.10.
 
+A critter you've just brought home comes in by the way you came, hops about
+the rug and up onto its box (come_home, escape.home_at -- cd-342.52).
+
 The wide shot is drawn at 2x (doc/STYLE.md sec 1, "Wide"): a present for every
 critter under the tree, each in its own colours. The tree itself is part of the
 room's backdrop (living_room.bmp, tools/build_backdrops.py), like
@@ -36,7 +39,7 @@ import critter_candidates
 import scene_art
 import story
 from escape import (BOLT, CALM, CLOSE_SHOTS, CLOSEUP, DASH, GONE, NAME, PAUSE, PEEK, POP,
-                    RATTLE, bolt_at)
+                    RATTLE, RUN_S, bolt_at, home_at)
 
 _BACKDROP = 0x101018  # nav_view's background, so a cut reads as the same panel
 _TITLE_COLOR = 0xDAD45E
@@ -165,6 +168,7 @@ class HomeView:
         self._escape = None
         self._shot = None
         self._shot_at = 0.0
+        self._homecoming = None  # (species, edge, since): hopping home (come_home)
 
     def _emanata(self, sheet, palette, name):
         """One of _GLYPHS, at 2x, from the shared sheet."""
@@ -178,6 +182,8 @@ class HomeView:
         """The presents, as story.Scene.boxes; None hides the whole room."""
 
         self.group.hidden = boxes is None
+        if boxes is None:
+            self._homecoming = None
         self._shown = boxes or ()
         self._normal_tile = []
         self._species_slot = {}
@@ -204,6 +210,11 @@ class HomeView:
     def sitter_visible(self, slot, visible):
         """Show or hide the critter sitting on a present (the finale's hops)."""
         self._sitters[slot].group.hidden = not visible
+
+    def come_home(self, species, edge, now):
+        """The critter you just brought home comes in by `edge`, hops about the
+        rug and up onto its box (escape.home_at, cd-342.52)."""
+        self._homecoming = (species, edge, now)
 
     def set_escape(self, escape):
         """The critter the next escape cutscene is about (a story.Escape)."""
@@ -236,10 +247,32 @@ class HomeView:
         for i, sitter in enumerate(self._sitters):
             if not sitter.group.hidden:
                 sitter.grid[0] = self._sitter_frame[i] + step
+        if self._homecoming is not None:
+            self._draw_homecoming(now)
         if self._shot is not None:
             self._draw_shot(t)
 
     # ------------------------------------------------------------------ #
+
+    def _draw_homecoming(self, now):
+        species, edge, since = self._homecoming
+        slot = self._species_slot.get(species)
+        if slot is None:
+            self._homecoming = None
+            return
+        x, y = SLOTS[slot]
+        sitter = self._sitters[slot]
+        t = now - since
+        rx, ry, ux, _uy, leg = home_at((x, y - _ON_BOX), edge, t)
+        if t >= RUN_S:  # sitting on its box
+            self._homecoming = None
+            sitter.grid.flip_x = False
+            sitter.place(x, y - _ON_BOX, self._sitter_frame[slot])
+        elif leg == GONE:  # still behind the tree
+            sitter.hide()
+        else:
+            sitter.place(rx, ry, self._sitter_frame[slot] + int(t / 0.1) % 2)
+            sitter.grid.flip_x = ux > 0  # the sprites face left
 
     def _set_title(self, text, y=_TITLE_Y):
         """Change the title only when it changes: each new text rebuilds its bitmap."""
