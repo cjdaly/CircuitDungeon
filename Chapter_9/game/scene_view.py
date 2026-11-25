@@ -9,7 +9,10 @@ disk):
   spot rustles with wiggle lines -- you see something and want to tap it
 - once found, it stands in front of the spot, waiting for its lure
 - a lure (or what hides it: a snowman, a dark room) sits in its room, bobbing
-- the item in hand shows bottom left; a critter following you home, bottom right
+- the item in hand shows bottom left
+- a critter following you home walks in behind you, by the edge you came in
+  through, to the middle of the room, and hops about there till you move on
+  (cd-342.50)
 - in the finale, the whole parade of critters trailing round the bottom, and
   the finale's cutscene shots (finale_view.py)
 
@@ -34,7 +37,7 @@ import scene_art
 from finale_view import FinaleView
 from home_view import HomeView
 from story import BOX_HOME, HIDING, SHELF
-from walk import bob
+from walk import bob, come_in
 
 OBJECTS = scene_art.OBJECTS
 CRITTERS = scene_art.CRITTERS
@@ -67,13 +70,18 @@ _SHELF_X, _SHELF_Y, _SHELF_SCALE = 138, 68, 1
 _IDLE_FRAME_S = 0.5  # critter frame flip at rest
 _HOP_FRAME_S = 0.2  # ...and while hopping along behind you
 
-# Bottom corners: the item in hand (left), a critter following you home (right).
+# The item in hand, bottom left.
 _HELD_SCALE = 1
 _HELD_X, _HELD_Y = 46, 158
 _HELD_BACK = 0x241C2C
 _HELD_BACK_RADIUS = 22
-_FOLLOW_X, _FOLLOW_Y = 162, 156
-_FOLLOW_HOP_PX = 3
+# A critter following you home: in the middle, where a found one waited.
+_FOLLOW_X, _FOLLOW_Y = _MIDDLE_X, _WAIT_Y
+_FOLLOW_HOP_PX = 3  # each step on the way in
+_COME_IN_S = 1.2  # from the edge to the middle
+_WANDER_PX = 22  # then side to side about the middle...
+_WANDER_PERIOD = 2.4
+_WANDER_HOP_PX = 7  # ...in bounces
 
 # A critter out in the open dances clear of a caption or thought bubble rather
 # than sit under it (cd-342.46): side to side, a hop on each step.
@@ -203,6 +211,7 @@ class SceneView:
         self._lure_high = False
         self._critter_frame = 0
         self._follower_frame = 0
+        self._follow_from = None  # the edge a follower is walking in by
         self._spot_top = 0
         self._shown_at = 0.0
         self._covers = None  # popup rects to keep out from under (avoid())
@@ -252,6 +261,7 @@ class SceneView:
         self._follow_layer.hidden = scene.follower is None
         if scene.follower is not None:
             self._follower_frame = _first_frame(scene.follower)
+        self._follow_from = scene.follower_from
         self._critter.flip_x = self._follower.flip_x = False
         self._plan_dance()
         self.update(now)
@@ -296,6 +306,22 @@ class SceneView:
         spots, _stuck = clearance.plan_dance(homes, self._covers)
         self._dance = [(layer, spot) for (layer, _home), spot in zip(dancers, spots)
                        if spot is not None]
+
+    def _follow(self, t):
+        """The follower walks in by the edge you came through, then bounces
+        about the middle; a popup over it sends it dancing instead (update)."""
+        layer = self._follow_layer
+        if self._follow_from is not None and t < _COME_IN_S:
+            x, y, _moving = come_in(self._follow_from, (_FOLLOW_X, _FOLLOW_Y), t, _COME_IN_S)
+            layer.x, layer.y = x, y - bob(t, _HOP_FRAME_S, _FOLLOW_HOP_PX)
+            self._follower.flip_x = x < _FOLLOW_X  # the sprites face left
+            return
+        if any(dancer is layer for dancer, _spot in self._dance):
+            return
+        u = 2 * math.pi * t / _WANDER_PERIOD
+        layer.x = _FOLLOW_X + int(_WANDER_PX * math.sin(u))
+        layer.y = _FOLLOW_Y - bob(t, _WANDER_PERIOD / 4, _WANDER_HOP_PX)
+        self._follower.flip_x = math.cos(u) > 0
 
     def sheets(self):
         """(objects, its palette, critters, its palette, tile index by name), to share."""
@@ -347,7 +373,7 @@ class SceneView:
             self._lure_layer.y = _LURE_Y - bob(t, _LURE_BOB_PERIOD, _LURE_BOB_PX)
         if not self._follow_layer.hidden:
             self._follower[0] = self._follower_frame + int(t / _HOP_FRAME_S) % 2
-            self._follow_layer.y = _FOLLOW_Y - bob(t, _HOP_FRAME_S, _FOLLOW_HOP_PX)
+            self._follow(t)
         for layer, (x, y) in self._dance:
             u = 2 * math.pi * (now - self._dance_at) / _DANCE_PERIOD
             layer.x = x + int(_DANCE_SWING_PX * math.sin(u))

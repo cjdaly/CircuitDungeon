@@ -174,6 +174,24 @@ class TestShapes(unittest.TestCase):
             comic_shapes.balloon_points(120, 168, 176, 60, (120, 40), grow=2)
         ))
 
+    def test_a_side_tail_reaches_its_target(self):
+        left = comic_shapes.balloon_points(90, 120, 70, 34, (34, 120))
+        right = comic_shapes.balloon_points(150, 120, 70, 34, (206, 120))
+        self.assertIn((34, 120), left)
+        self.assertIn((206, 120), right)
+
+    def test_a_call_at_any_exit_stays_on_the_panel(self):
+        # cd-342.48: the widest call word, in a balloon by each exit.
+        import storyboard
+        words = [e.call for e in __import__("episodes").EPISODES.values()]
+        width = max(storyboard.text_px(w) for w in words) + 16  # comic._BALLOON_PAD x2
+        for tail in storyboard._CALL_TAILS.values():
+            x, y = comic_shapes.balloon_middle(tail, width, 34, 20)
+            with self.subTest(tail=tail):
+                points = comic_shapes.balloon_points(x, y, width, 34, tail, grow=2)
+                self.assertTrue(_on_panel(points))
+                self.assertIn(tail, comic_shapes.balloon_points(x, y, width, 34, tail))
+
     def test_the_ring_is_solid_at_the_rim_and_clear_in_the_middle(self):
         spans = comic_shapes.ring_spans(240, 6)
         rows = {}

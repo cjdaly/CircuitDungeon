@@ -97,6 +97,14 @@ The map has no loops, so every move is exactly one or the other. Once the
 critter is found, the hints point to its lure (`SQUEAK! WARMER`), then back
 to the critter once you hold it. **Hard** has no room clues at all. Every
 level keeps the story lines (habit, bump reasons, lure-room text).
+
+**REVISED (Chris, 2026-11-24, `cd-342.48`): medium was still too easy.** Now
+you only hear the critter from a room next to where it hides: one word
+(`MEW!`, `WOOF!`, `BEEP!`, `CHITTER!`, `CLOMP!`) in a speech balloon whose tail
+points at the exit that leads to it. Tapping the middle there listens again.
+Everywhere else is quiet, so you have to explore to get in earshot. **Lures
+make no sound**: the found critter's "wants the yarn" (and its thought bubble)
+is the clue, and the lure fits its room.
 `settings.toml DIFFICULTY`, see `DEPLOY.md`.
 
 A clue has three parts: **when** it shows, **what form** it takes, and

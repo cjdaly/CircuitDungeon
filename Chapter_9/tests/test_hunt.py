@@ -383,8 +383,18 @@ def _route(world, goal):
     return None
 
 
+def _rooms_on_the_way(world, goal):
+    """Every room walked through from the current one to `goal`, in order."""
+    rooms_seen = []
+    for direction in _route(world, goal):
+        world.move(direction)
+        rooms_seen.append(world.current)
+    return rooms_seen
+
+
 class TestDifficulty(unittest.TestCase):
-    """cd-342.40: EASY says which edge, MEDIUM says hot or cold, HARD says nothing."""
+    """cd-342.40: EASY says which edge; MEDIUM lets you hear the critter from the
+    next room over (cd-342.48); HARD says nothing."""
 
     def start(self, difficulty, species="dog"):
         self.world = rooms.make_world()
@@ -409,11 +419,11 @@ class TestDifficulty(unittest.TestCase):
         self.assertEqual(episodes.difficulty("brutal"), episodes.MEDIUM)
         self.assertEqual(episodes.DEFAULT_DIFFICULTY, episodes.MEDIUM)
 
-    def test_every_episode_has_both_voices(self):
+    def test_every_episode_has_a_one_word_call(self):
         for species, episode in episodes.EPISODES.items():
-            for voice in (episode.voice, episode.lure_voice):
-                self.assertEqual(len(voice), 2, species)
-                self.assertNotEqual(voice[0], voice[1], species)
+            self.assertTrue(episode.call, species)
+            self.assertNotIn(" ", episode.call, species)
+            self.assertLessEqual(len(episode.call), 15, species)
 
     def test_easy_names_the_edge(self):
         self.start(EASY)
@@ -441,48 +451,77 @@ class TestDifficulty(unittest.TestCase):
                     return room, direction
         self.fail("no side branch")
 
-    def test_medium_says_louder_on_the_way_and_fainter_down_a_side_branch(self):
-        episode = self.start(episodes.MEDIUM)
-        closer, farther = episode.voice
-        said = self.walk(episode.hide_room)
-        for ms in said[:-1]:  # every room on the way but the last
-            self.assertIn(closer, ms)
-        self.assertNotIn(closer, said[-1])  # arriving: it's right there, drawn
-        self.assertNotIn(farther, said[-1])
-        start = self.start(episodes.MEDIUM)
-        room, direction = self.side_step(start)
-        self.walk(room)
-        self.assertTrue(self.world.move(direction))
-        self.assertIn(farther, self.game.entered())
+    def next_door(self, episode, room):
+        """The direction from `room` into the hiding room, or None."""
+        for direction, dest in self.world.get(room).exits.items():
+            if dest == episode.hide_room:
+                return direction
+        return None
 
-    def test_medium_every_move_is_closer_or_farther(self):
-        episode = self.start(episodes.MEDIUM)
-        closer, farther = episode.voice
-        for room in sorted(episode.open_rooms - {episode.hide_room}):
-            for direction, dest in self.world.get(room).exits.items():
-                if dest not in episode.open_rooms or dest == episode.hide_room:
-                    continue
-                if not self.world.is_open(dest):
+    def test_medium_hears_the_critter_only_from_the_next_room(self):
+        for species in episodes.EPISODES:
+            episode = self.start(episodes.MEDIUM, species)
+            heard = 0
+            for room in sorted(episode.open_rooms - {episode.hide_room}):
+                if not self.world.is_open(room):
                     continue
                 self.world.current = room
-                self.game._here = room
-                self.world.current = dest
-                with self.subTest(frm=room, to=dest):
+                with self.subTest(species=species, room=room):
                     messages = self.game.entered()
-                    self.assertEqual(sum(m in (closer, farther) for m in messages), 1, messages)
-                    before = episodes.steps(self.world, episode, room, episode.hide_room)
-                    after = episodes.steps(self.world, episode, dest, episode.hide_room)
-                    self.assertIn(closer if after < before else farther, messages)
+                    door = self.next_door(episode, room)
+                    if door is None:
+                        self.assertIsNone(self.game.call)
+                    else:
+                        heard += 1
+                        self.assertEqual(self.game.call, (episode.call, door))
+                        self.assertEqual(self.game.news(messages).call, self.game.call)
+                    for m in messages:
+                        self.assertNotIn(episode.call.lower(), m.lower())  # never a caption
+            self.assertGreaterEqual(heard, 1, species)
 
-    def test_medium_points_at_the_lure_once_found_and_back_once_held(self):
+    def test_medium_says_nothing_on_the_way_until_in_earshot(self):
         episode = self.start(episodes.MEDIUM)
-        self.walk(episode.hide_room)
-        self.game.tapped()  # found
-        said = self.walk(episode.lure_room)
-        self.assertIn(episode.lure_voice[0], said[0])
-        self.game.tapped()  # took it
-        said = self.walk(episode.hide_room)
-        self.assertIn(episode.voice[0], said[0])
+        path = episodes.spine(self.world, episode)
+        self.walk(path[-3])
+        self.assertIsNone(self.game.call)  # two rooms away: not a sound
+        self.walk(path[-2])
+        self.assertEqual(self.game.call[0], episode.call)
+        self.walk(path[-1])
+        self.assertIsNone(self.game.call)  # there: it's drawn, you don't need to hear it
+
+    def test_medium_tapping_listens_again(self):
+        episode = self.start(episodes.MEDIUM)
+        path = episodes.spine(self.world, episode)
+        self.walk(path[-2])
+        self.assertEqual(self.game.tapped(), [])
+        self.assertEqual(self.game.call[0], episode.call)
+        room, direction = self.side_step(self.start(episodes.MEDIUM))
+        self.walk(room)
+        self.assertTrue(self.world.move(direction))
+        if self.next_door(self.episode, self.world.current) is None:
+            self.assertEqual(self.game.tapped(), ["Nothing here"])
+            self.assertIsNone(self.game.call)
+
+    def test_medium_lures_make_no_sound(self):
+        for species in episodes.EPISODES:
+            episode = self.start(episodes.MEDIUM, species)
+            self.walk(episode.hide_room)
+            self.game.tapped()  # found: now it wants its lure
+            for room in _rooms_on_the_way(self.world, episode.lure_room):
+                self.world.current = room
+                self.game.entered()
+                with self.subTest(species=species, room=room):
+                    door = self.next_door(episode, room)
+                    self.assertEqual(self.game.call, None if door is None else (episode.call, door))
+
+    def test_easy_and_hard_never_hear_it(self):
+        for difficulty in (EASY, episodes.HARD):
+            episode = self.start(difficulty)
+            path = episodes.spine(self.world, episode)
+            self.walk(path[-2])
+            self.assertIsNone(self.game.call, difficulty)
+            self.game.tapped()
+            self.assertIsNone(self.game.call, difficulty)
 
     def test_hard_has_no_room_clues_but_keeps_the_story(self):
         episode = self.start(episodes.HARD)
@@ -648,6 +687,19 @@ class TestScene(HuntCase):
         self.walk(LEFT)
         self.assertEqual(self.hunt.scene().follower, self.cat.sprite)
 
+    def test_she_walks_in_behind_you_by_the_edge_you_came_in(self):
+        # cd-342.50
+        self.find_cat()
+        self.walk(UP)
+        self.hunt.tapped()
+        self.walk(DOWN, RIGHT, RIGHT)
+        self.hunt.tapped()
+        self.assertIsNone(self.hunt.scene().follower_from)  # she's right here already
+        self.walk(LEFT)  # you go left, so you came in by the right edge
+        self.assertEqual(self.hunt.scene().follower_from, RIGHT)
+        self.hunt.tapped()
+        self.assertIsNone(self.hunt.scene().follower_from)  # no walking in twice
+
     def test_the_batteries_are_always_in_the_odd_corner(self):
         self.walk(RIGHT, RIGHT, UP)
         self.assertEqual(self.hunt.scene().lure, "batteries")
@@ -791,7 +843,7 @@ class TestWrap(unittest.TestCase):
             texts = list(episode.closed_reasons.values())
             texts += [c.content for c in episode.clues if c.form == episodes.TEXT]
             texts += [unlock.reveal, unlock.blocked_text, unlock.locked_text, unlock.ready_text]
-            texts += list(episode.voice) + list(episode.lure_voice)  # MEDIUM's hot/cold
+            texts.append(episode.call)  # MEDIUM's word, in a balloon
             return tuple(text for text in texts if text)
 
         for species, item, habit, sprites in critters.CAST:

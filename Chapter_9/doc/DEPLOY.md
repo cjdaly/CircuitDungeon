@@ -129,11 +129,11 @@ DIFFICULTY = "medium"
 | value | on entering a room |
 |---|---|
 | `easy` | the clue says which edge to tap: `PAW PRINTS! TAP THE BOTTOM EDGE` |
-| `medium` *(default)* | hot or cold, in the critter's voice: `WOOF! LOUDER!` or `WOOF... FAINTER` for a step closer or farther; once it's found, the same for its lure (`SQUEAK! WARMER`), then back to it once you hold the lure |
+| `medium` *(default)* | only in a room next to the critter's: you hear it, one word (`WOOF!`) in a balloon by the way in. Tap the middle to listen again. Lures make no sound |
 | `hard` | nothing: find your own way |
 
 Every level keeps the story lines: the critter's habit after it escapes (`LOVES
-THE SNOW!`), why a way is shut, and what a lure room says. Leaving the key out,
+THE SNOW!`), why a way is shut, what a lure room says, and what a found critter wants. Leaving the key out,
 or a value that isn't one of these, means `medium`. The start-up line shows
 `clues=medium`.
 

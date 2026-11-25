@@ -37,6 +37,16 @@ class TestCaptions(unittest.TestCase):
     def test_no_messages_no_beats(self):
         self.assertEqual(storyboard.beats(News([])), [])
 
+    def test_a_call_is_a_balloon_at_its_exit_after_the_captions(self):
+        # cd-342.48: MEDIUM's critter, heard from the next room.
+        beats = storyboard.beats(News(["So close!"], call=("Mew!", rooms.RIGHT)))
+        self.assertEqual(_captions(beats), ["So close!"])
+        self.assertEqual(beats[-1].speech, "Mew!")
+        self.assertGreater(beats[-1].tail[0], 180)  # by the right edge
+        alone = storyboard.beats(News([], call=("Woof!", rooms.UP)))
+        self.assertEqual([b.speech for b in alone], ["Woof!"])
+        self.assertLess(alone[0].tail[1], 60)
+
 
 class TestEvents(unittest.TestCase):
     def test_finding_shouts_first_and_thinks_of_the_lure(self):

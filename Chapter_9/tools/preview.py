@@ -145,7 +145,9 @@ def scenes():
     yield "e4_pop", s.next_beat().at(0.3)
     yield "e5_peek", s.next_beat().at(0.8)
     yield "e6_name", s.next_beat().at(0.4)
-    yield "e7_bolt", s.next_beat().at(0.45)
+    s.next_beat()
+    for i, t in enumerate((0.3, 0.6, 0.6, 0.4, 0.4, 0.35, 0.4, 0.3, 0.2)):  # cd-342.49's Z
+        yield "e7_bolt_{}".format(i), s.at(t)
     yield "e8_escaped", s.next_beat().at(0.3)
 
     s = Session()
@@ -167,6 +169,8 @@ def scenes():
     yield "07_cat_follows", s.at(0.1)
     s.go(LEFT)
     yield "08_following_in_kitchen", s.at(0.3)
+    for i, t in enumerate((0.3, 0.4, 0.5, 0.6, 0.6)):  # cd-342.50: in to the middle, then bouncing
+        yield "08_follow_{}".format(i), s.at(t)
     s.tap(show_messages=True)  # "Chirpy is with you. Go home!": she dances clear of it
     yield "08a_follow_reminder", s.at(0.3)
     s.skip()
@@ -179,14 +183,14 @@ def scenes():
         s.next_beat()
     yield "08d_dog_out", s.at(0.3)
 
-    # MEDIUM's hot/cold (cd-342.40): the dog's first step on its way.
+    # MEDIUM (cd-342.48): each critter heard from the room next to its own.
     import episodes
-    s = Session("dog").skip()
-    path = episodes.spine(s.world, s.hunt.episode)
-    step = [d for d, dest in s.world.room.exits.items() if dest == path[1]][0]
-    s.world.move(step)
-    s._refresh(s.hunt.entered())
-    yield "08e_medium_hint", s.at(0.3)
+    for species in ORDER:
+        s = Session(species).skip()
+        path = episodes.spine(s.world, s.hunt.episode)
+        s.world.current = path[-2]
+        s._refresh(s.hunt.entered())
+        yield "08e_medium_{}".format(species), s.at(0.3)
 
     s = Session()
     s.go(RIGHT, RIGHT, RIGHT)

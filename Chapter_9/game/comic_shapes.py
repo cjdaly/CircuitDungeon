@@ -32,12 +32,17 @@ def burst_radii(word_width):
 
 
 def balloon_points(cx, cy, width, height, tail, grow=0, chamfer=6):
-    """A speech balloon's corners: a box with cut corners and a tail to `tail`."""
+    """A speech balloon's corners: a box with cut corners and a tail to `tail`,
+    from whichever side faces it (below, above, then left or right)."""
     left, right = cx - width // 2 - grow, cx + width // 2 + grow
     top, bottom = cy - height // 2 - grow, cy + height // 2 + grow
     tip_x, tip_y = tail
-    base = max(left + chamfer + 8, min(tip_x, right - chamfer - 8))
-    if tip_y > cy:  # tail hangs from the bottom edge
+    if tip_y > bottom or tip_y < top:
+        base = max(left + chamfer + 8, min(tip_x, right - chamfer - 8))
+    else:
+        base = max(top + chamfer + 4, min(tip_y, bottom - chamfer - 4))
+        half = min(8, (bottom - top) // 2 - chamfer - 1)
+    if tip_y > bottom:  # tail hangs from the bottom edge
         tip = (tip_x, tip_y + grow)
         return [
             (left + chamfer, top), (right - chamfer, top),
@@ -45,13 +50,41 @@ def balloon_points(cx, cy, width, height, tail, grow=0, chamfer=6):
             (right - chamfer, bottom), (base + 8, bottom), tip, (base - 8, bottom),
             (left + chamfer, bottom), (left, bottom - chamfer), (left, top + chamfer),
         ]
-    tip = (tip_x, tip_y - grow)
+    if tip_y < top:
+        tip = (tip_x, tip_y - grow)
+        return [
+            (left + chamfer, top), (base - 8, top), tip, (base + 8, top),
+            (right - chamfer, top), (right, top + chamfer), (right, bottom - chamfer),
+            (right - chamfer, bottom), (left + chamfer, bottom), (left, bottom - chamfer),
+            (left, top + chamfer),
+        ]
+    if tip_x < left:
+        tip = (tip_x - grow, tip_y)
+        return [
+            (left + chamfer, top), (right - chamfer, top), (right, top + chamfer),
+            (right, bottom - chamfer), (right - chamfer, bottom), (left + chamfer, bottom),
+            (left, bottom - chamfer), (left, base + half), tip, (left, base - half),
+            (left, top + chamfer),
+        ]
+    tip = (tip_x + grow, tip_y)
     return [
-        (left + chamfer, top), (base - 8, top), tip, (base + 8, top),
-        (right - chamfer, top), (right, top + chamfer), (right, bottom - chamfer),
+        (left + chamfer, top), (right - chamfer, top), (right, top + chamfer),
+        (right, base - half), tip, (right, base + half), (right, bottom - chamfer),
         (right - chamfer, bottom), (left + chamfer, bottom), (left, bottom - chamfer),
         (left, top + chamfer),
     ]
+
+
+def balloon_middle(tail, width, height, gap, middle=120):
+    """Where a balloon `width` x `height` goes so its tail reaches `tail`:
+    beside the tip, `gap` px off, on the side toward the panel's `middle`."""
+    tip_x, tip_y = tail
+    dx, dy = tip_x - middle, tip_y - middle
+    if abs(dx) > abs(dy):
+        side = width // 2 + gap
+        return (tip_x - side if dx > 0 else tip_x + side), tip_y
+    side = height // 2 + gap
+    return tip_x, (tip_y - side if dy > 0 else tip_y + side)
 
 
 def ring_spans(size, thickness):

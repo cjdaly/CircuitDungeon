@@ -15,9 +15,12 @@ three cheap things layered together (see doc/CRITTERS.md, *Showing movement*):
 
 Pure logic, no displayio/board imports -- runs under plain desktop Python
 (see tests/test_walk.py). Used by critter_demo.py's walk mode now; meant to
-be reused when critters really move around rooms.
+be reused when critters really move around rooms. come_in() is a follower
+walking in behind you (scene_view, cd-342.50).
 """
 import math
+
+from rooms import DOWN, LEFT, RIGHT, UP
 
 DEFAULT_SPEED = 40.0  # px / second
 DEFAULT_PAUSE = 0.6  # seconds standing still at each waypoint
@@ -69,6 +72,26 @@ class Patrol:
                 self._y += dy / dist * step
                 moving = True
         return int(round(self._x)), int(round(self._y)), moving, self.facing_right
+
+
+def come_in(edge, home, t, seconds, size=64, width=240):
+    """Where a critter coming in by `edge` (rooms.LEFT, ...) is, `t` s after
+    the room appeared, on its way to `home` (its top-left): from just off the
+    panel at that edge, slowing as it arrives, there at `seconds`.
+    Returns (x, y, moving)."""
+    hx, hy = home
+    sx, sy = hx, hy  # no allocation per frame: this runs every tick
+    if edge == LEFT:
+        sx = -size
+    elif edge == RIGHT:
+        sx = width
+    elif edge == UP:
+        sy = -size
+    elif edge == DOWN:
+        sy = width
+    u = min(max(t / seconds, 0.0), 1.0)
+    u = 1 - (1 - u) * (1 - u)
+    return int(sx + (hx - sx) * u), int(sy + (hy - sy) * u), t < seconds
 
 
 def bob(now, step_period, px):

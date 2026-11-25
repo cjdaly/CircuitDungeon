@@ -72,14 +72,15 @@ scene_art.py                names of lures, hiding spots and props
 
 -- from what happened to what's shown --
 storyboard.py               News -> comic beats: captions, FOUND!, hearts, cutscenes
-                            spliced in (cd-342.47.4); caption wrapping
+                            spliced in (cd-342.47.4), a call's balloon at its exit
+                            (cd-342.48); caption wrapping
 
 -- the game screen's drawing --
 backdrop.py                 the room's art
 scene_view.py  SceneView    what's in the room: critters, lures, props, cutscene shots
   home_view.py              the Living Room's presents, the escape shots
   finale_view.py            the finale's shots
-  walk.py                   critter walking motion
+  walk.py                   critter walking motion; a follower coming in (cd-342.50)
 room_banner.py              the room name
 comic.py  Stage             caption, balloon, thought bubble, burst, emanata, ink ring
   comic_shapes.py, comic_fonts.py
@@ -87,7 +88,8 @@ clearance.py                where popups go: layout() picks the caption band and
                             thought spot, plan_dance() moves critters clear (cd-342.46,
                             gathered in cd-342.47.6); Stage and SceneView apply them
 beats.py  BeatPlayer        plays comic beats in order, on taps or timers
-escape.py, finale.py        cutscenes, written as beats (storyboard.py splices them in)
+escape.py, finale.py        cutscenes, written as beats (storyboard.py splices them in);
+                            escape.bolt_at() is the bolt's route (cd-342.49)
 
 -- not the game --
 critter_demo.py, overlay_demo.py   look-tests (deploy.sh --demo)

@@ -34,8 +34,7 @@ _BORDER = 2
 _CAPTION_PAD_X = 6
 _CAPTION_PAD_Y = 2
 _BALLOON_PAD = 8
-_BALLOON_Y_ABOVE = 72  # balloon's middle when its tail points down the screen
-_BALLOON_Y_BELOW = 168
+_TAIL_PX = 18  # from a balloon's side to its tail's tip
 _RING_THICKNESS = 6
 _THOUGHT_X = 120
 _THOUGHT_Y = 88
@@ -143,10 +142,15 @@ class _Caption:
 
 
 class _Balloon:
-    """A critter talking: black words in a white balloon with a tail."""
+    """A critter talking: black words in a white balloon with a tail.
+
+    The balloon sits beside its tail's tip, toward the middle of the panel: a
+    tip near the left edge puts it to the tip's right, one near the top below
+    it, and so on -- so a tail at an exit reads as a voice from beyond it."""
 
     def __init__(self, parent, width):
         self._middle = width // 2
+        self.top = False  # the balloon is up over the room name
         self.group = _hidden_group(parent)
         placeholder = [(0, 0), (1, 0), (0, 1)]
         self._outline = vectorio.Polygon(
@@ -158,13 +162,15 @@ class _Balloon:
         self._lines = _Lines(self.group, comic_fonts.caption(), _INK)
 
     def show(self, text, tail):
-        y = _BALLOON_Y_ABOVE if tail[1] > 120 else _BALLOON_Y_BELOW
-        widest, count = self._lines.show(text, self._middle, y)
+        widest, count = self._lines.show(text, self._middle, self._middle)
         width = widest + 2 * _BALLOON_PAD
         height = count * _LINE_HEIGHT + _BALLOON_PAD
+        x, y = comic_shapes.balloon_middle(tail, width, height, _BORDER + _TAIL_PX)
+        self._lines.move(x, y, count)
+        self.top = y < self._middle
         self._outline.points = comic_shapes.balloon_points(
-            self._middle, y, width, height, tail, grow=_BORDER)
-        self._fill.points = comic_shapes.balloon_points(self._middle, y, width, height, tail)
+            x, y, width, height, tail, grow=_BORDER)
+        self._fill.points = comic_shapes.balloon_points(x, y, width, height, tail)
         self.group.hidden = False
 
 
@@ -343,6 +349,12 @@ class Stage:
         self._shake_target = shake_target
         self._shake_started = None
         self.caption_band = None  # where the caption up now went (BOTTOM, TOP, ...)
+
+    @property
+    def over_name(self):
+        """A caption or balloon is up where the room name is: hide the name."""
+        return self.caption_band == TOP or (
+            not self._balloon.group.hidden and self._balloon.top)
 
     def show(self, beat, now, things=(), dancers=()):
         """Show a beat. `things` are the scene's clearance rects, for the caption

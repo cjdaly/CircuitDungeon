@@ -71,7 +71,7 @@ class _Director:
         covers = self._stage.show(beat, now, self._things.keep_clear(),
                                   self._things.dancer_rects())
         self._things.avoid(covers, now)
-        self._label.make_way(self._stage.caption_band == comic.TOP)
+        self._label.make_way(self._stage.over_name)
         self._chrome.hidden = beat.shot in escape.CLOSE_SHOTS
 
     def clear(self):

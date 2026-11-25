@@ -92,6 +92,13 @@ at 3x with its name → it bolts from the tipped box toward its first step, with
 box doesn't tip mid-shot (it's simply tipped in the bolt), and there's no dust
 puff yet.
 
+**Bolt reworked 2026-11-24 (`cd-342.49`, Chris: "almost too fast to see"):**
+the bolt is a show, about 3 s instead of 0.9 s. The critter runs a Z around the
+room (`escape._ROUTES`, one per exit), starting *away* from its exit so a box on
+that side still gets a walkabout. Speed varies: it eases into each corner,
+stops to look back, then `ZOOM!` appears and it speeds up all the way out
+through the exit's edge. Speed lines trail it while it runs.
+
 Each beat is a panel. Taps skip ahead; otherwise it plays through
 (~8–10s total).
 

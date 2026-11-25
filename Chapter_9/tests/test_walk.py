@@ -9,7 +9,8 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "game"))
 
-from walk import Patrol, bob  # noqa: E402
+from rooms import DOWN, LEFT, RIGHT, UP  # noqa: E402
+from walk import Patrol, bob, come_in  # noqa: E402
 
 
 def run(patrol, seconds, tick=0.05, start=0.0):
@@ -91,6 +92,30 @@ class TestBob(unittest.TestCase):
         self.assertEqual(bob(0.1, 0.2, 2), 2)  # peak mid-step
         self.assertEqual(bob(0.2, 0.2, 2), 0)
 
+
+
+class TestComeIn(unittest.TestCase):
+    """cd-342.50: a follower walks in from the edge you came through."""
+
+    HOME = (88, 104)
+
+    def test_it_starts_just_off_its_edge(self):
+        starts = {edge: come_in(edge, self.HOME, 0.0, 1.2)[:2]
+                  for edge in (LEFT, RIGHT, UP, DOWN)}
+        self.assertEqual(starts, {LEFT: (-64, 104), RIGHT: (240, 104),
+                                  UP: (88, -64), DOWN: (88, 240)})
+
+    def test_it_arrives_and_stops(self):
+        for edge in (LEFT, RIGHT, UP, DOWN):
+            self.assertEqual(come_in(edge, self.HOME, 1.2, 1.2), (88, 104, False))
+            self.assertEqual(come_in(edge, self.HOME, 5.0, 1.2), (88, 104, False))
+            self.assertTrue(come_in(edge, self.HOME, 0.6, 1.2)[2])
+
+    def test_it_slows_as_it_arrives(self):
+        xs = [come_in(LEFT, self.HOME, t / 10, 1.2)[0] for t in range(13)]
+        steps = [b - a for a, b in zip(xs, xs[1:])]
+        self.assertGreater(steps[0], steps[-1])
+        self.assertTrue(all(step >= 0 for step in steps))
 
 if __name__ == "__main__":
     unittest.main()

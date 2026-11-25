@@ -51,6 +51,9 @@ class Scene:
     lure: scene_art name of what's at the lure spot (the lure, or what hides it)
     lure_at: None for the middle of the room, or SHELF
     follower: sprite id of a critter following you home
+    follower_from: the edge it comes in by (rooms.LEFT, ...): the one you just
+        came through, so it walks in behind you (cd-342.50); None when it's
+        already in the room
     parade: the finale's critters following you, ((species, sprite id), ...),
         bottom of the tower first
     held: the item in hand
@@ -58,7 +61,7 @@ class Scene:
     """
 
     def __init__(self, spot=None, critter=None, pose=None, lure=None, follower=None,
-                 held=None, boxes=None, lure_at=None, parade=None):
+                 held=None, boxes=None, lure_at=None, parade=None, follower_from=None):
         self.spot = spot
         self.critter = critter
         self.pose = pose
@@ -66,6 +69,7 @@ class Scene:
         self.lure_at = lure_at
         self.parade = parade
         self.follower = follower
+        self.follower_from = follower_from
         self.held = held
         self.boxes = boxes
 
@@ -94,9 +98,13 @@ class News:
     escape: an Escape, when the escape cutscene is among them
     want: scene_art name of the lure, pictured in a thought bubble on FOUND
     parade: how many critters the finale has (the tower's height)
+    call: (word, direction): the critter heard through that exit, from the
+        next room over (MEDIUM, cd-342.48), or None
     """
 
-    def __init__(self, messages, event=None, cutscenes=(), escape=None, want=None, parade=0):
+    def __init__(self, messages, event=None, cutscenes=(), escape=None, want=None, parade=0,
+                 call=None):
+        self.call = call
         self.messages = list(messages)
         self.event = event
         self.cutscenes = tuple(cutscenes)

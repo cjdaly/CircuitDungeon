@@ -11,7 +11,9 @@ turns it into the beats the BeatPlayer plays (beats.py):
   finale's (finale.CUTSCENES), with their own shots under the captions before
   and after;
 - finding a critter shouts FOUND! first, with what it wants in a thought
-  bubble over the first caption; bringing one home adds hearts.
+  bubble over the first caption; bringing one home adds hearts;
+- a critter heard from the next room (News.call) says its word last, in a
+  balloon whose tail points at the exit it's through.
 
 Pure data, no displayio, so it runs under desktop Python
 (tests/test_storyboard.py).
@@ -19,12 +21,17 @@ Pure data, no displayio, so it runs under desktop Python
 import escape
 import finale
 from beats import Beat
+from rooms import DOWN, LEFT, RIGHT, UP
 from story import ESCAPE_SCENE, FOUND, RETRIEVED
 
 _FOUND_BURST = "Found!"
 _BONK_BURST = "Bonk!"
 # Hearts either side of a critter that's coming home with you (screen px).
 _HEARTS = (("heart", 56, 92), ("heart", 152, 92))
+
+# Where a call's balloon tail points: just inside each exit's edge marker
+# (nav_view), so the word sits by the way in.
+_CALL_TAILS = {UP: (120, 34), DOWN: (120, 206), LEFT: (34, 120), RIGHT: (206, 120)}
 
 _BANNER_CHARS = 15  # Bangers on the round panel; tests check the real pixel widths
 
@@ -86,6 +93,9 @@ def beats(news, icon=None):
         shown.insert(0, Beat(burst=_FOUND_BURST))
     elif news.event == RETRIEVED and shown:
         shown[0].emanata = _HEARTS
+    if news.call is not None:
+        word, direction = news.call
+        shown.append(Beat(speech=word, tail=_CALL_TAILS[direction]))
     return shown
 
 

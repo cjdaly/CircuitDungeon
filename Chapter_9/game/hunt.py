@@ -63,7 +63,8 @@ class Hunt:
                  difficulty=episodes.DEFAULT_DIFFICULTY):
         self._world = world
         self.difficulty = difficulty  # episodes.EASY / MEDIUM / HARD: how the clues help
-        self._here = world.current  # the room before this move, for MEDIUM's hot/cold
+        self._here = world.current  # the room before this move
+        self._came_by = None  # the edge the last move came in by, for a follower
         self._critters = {c.species: c for c in roster.all()}
         species = [c.species for c in roster.all()]
         if order is None:
@@ -79,6 +80,7 @@ class Hunt:
         self._player = player  # who this board is for, if it says
         self.event = None  # FOUND / TOOK / RETRIEVED / ESCAPED
         self.escape = None  # Escape, the last critter to get out
+        self.call = None  # (word, direction): MEDIUM's critter, heard through that exit
         self.cutscenes = ()  # ((message index, cutscene name), ...) for the last messages
 
     def start(self):
@@ -89,6 +91,7 @@ class Hunt:
     def _quiet(self):
         self.event = None
         self.cutscenes = ()
+        self.call = None
 
     def news(self, messages):
         """`messages`, just returned by start(), entered() or tapped(), with
@@ -97,7 +100,7 @@ class Hunt:
         return News(messages, self.event, self.cutscenes,
                     escape=self.escape if escaping else None,
                     want=self.critter.preferred_item if self.critter else None,
-                    parade=len(self._parade()))
+                    parade=len(self._parade()), call=self.call)
 
     def _start_next_episode(self, lead):
         """`lead`: how many messages the caller puts ahead of these."""
@@ -202,6 +205,10 @@ class Hunt:
         self._quiet()
         room = self._world.current
         came_from, self._here = self._here, room
+        self._came_by = None
+        for direction, dest in self._world.get(room).exits.items():
+            if dest == came_from:
+                self._came_by = direction
         if self.stage == PARADE:
             return self._reached_batteries() if room == episodes.ODD_CORNER else []
         if self.stage == CARRYING:
@@ -217,7 +224,7 @@ class Hunt:
             messages.append("Batteries! Just out of reach")
         if self.stage == HUNTING:
             messages.extend(self._room_clues(room))
-            messages.extend(self._warmth(came_from, room))
+            self.call = self._earshot(room)
             if room == self.episode.lure_room and self.held is None:
                 lure_text = self._lure_text()
                 if lure_text:
@@ -258,6 +265,7 @@ class Hunt:
             scene.lure = episode.unlock.locked_art if self._locked else self.critter.preferred_item
         if self.stage == GOING_HOME:
             scene.follower = self.critter.sprite
+            scene.follower_from = self._came_by
         return scene
 
     def _short_item(self):
@@ -290,6 +298,7 @@ class Hunt:
     def tapped(self):
         """The player tapped the middle of the screen."""
         self._quiet()
+        self._came_by = None  # anyone following is already in the room
         room = self._world.current
         if self.stage == DONE:
             return self._merry_christmas()
@@ -314,27 +323,24 @@ class Hunt:
         clues = [
             self._clue_text(clue) for clue in self.episode.clues_for(episodes.ON_TAP, room)
         ]
+        self.call = self._earshot(room)  # listening again
+        if self.call is not None:
+            return clues
         return clues or self._room_clues(room) or ["Nothing here"]
 
-    def _warmth(self, came_from, room):
-        """MEDIUM's hot/cold: did that move take you closer to what you're after
-        (the critter; its lure once found; the critter again, lure in hand)?
-        Nothing on arriving, or at other levels."""
+    def _earshot(self, room):
+        """MEDIUM's clue (cd-342.48): from a room next to the critter's, you
+        hear it -- its call and the exit it's through. None from anywhere
+        else, or at other levels."""
         episode = self.episode
-        if self.difficulty != episodes.MEDIUM or came_from is None:
-            return []
-        if self._found and self.held is None:
-            goal, voice = episode.lure_room, episode.lure_voice
-        else:
-            goal, voice = episode.hide_room, episode.voice
-        if voice is None or room == goal:
-            return []
-        before = episodes.steps(self._world, episode, came_from, goal)
-        now = episodes.steps(self._world, episode, room, goal)
-        if before is None or now is None or now == before:
-            return []
-        closer, farther = voice
-        return [(closer if now < before else farther).format(name=self.critter.name)]
+        if self.difficulty != episodes.MEDIUM or not episode.call:
+            return None
+        if self.stage != HUNTING or room == episode.hide_room:
+            return None
+        for direction, dest in self._world.get(room).exits.items():
+            if dest == episode.hide_room and self._world.is_open(dest):
+                return (episode.call, direction)
+        return None
 
     def _room_clues(self, room):
         """This room's clues, shown on every visit (and tap) so they can't be missed.

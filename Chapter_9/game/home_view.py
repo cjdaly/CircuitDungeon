@@ -17,8 +17,9 @@ draws, while the comic kit draws their words on top:
   pop      its lid flies off (POP!)
   peek     two eyes come up over the rim
   name     the critter big, and its name
-  bolt     back to the wide shot: it dashes out of the tipped box toward the
-           way it went, speed lines behind it
+  bolt     back to the wide shot: it runs a Z around the room out of the
+           tipped box, stops to look back, then dashes off the way it went,
+           speed lines behind it (escape.bolt_at, cd-342.49)
 
 The close-up shots cover the room with a plain backdrop; nav_view hides the
 edge markers and room name under them (escape.CLOSE_SHOTS). Everything is built once
@@ -33,8 +34,8 @@ import comic_fonts
 import critter_candidates
 import scene_art
 import story
-from escape import BOLT, CALM, CLOSE_SHOTS, CLOSEUP, NAME, PEEK, POP, RATTLE
-from rooms import DOWN, LEFT, RIGHT, UP
+from escape import (BOLT, CALM, CLOSE_SHOTS, CLOSEUP, DASH, NAME, PAUSE, PEEK, POP, RATTLE,
+                    bolt_at)
 
 _BACKDROP = 0x101018  # nav_view's background, so a cut reads as the same panel
 _TITLE_COLOR = 0xDAD45E
@@ -64,8 +65,8 @@ _NAME_SCALE = 3  # the critter big: 96px
 _NAME_X, _NAME_Y = 72, 64
 _FRAME_S = 0.3
 
-_BOLT_S = 0.9  # time to reach the edge
-_BOLT_PX = 130
+_HOP_PX = 2  # the runner bobs with its stride
+_SPEED_GAP_PX = 34  # speed lines this far behind it
 
 
 def first_frame(sprite):
@@ -261,6 +262,7 @@ class HomeView:
         self._wide.hidden = close
         for grid in (self._runner, self._speed) + self._wiggles:
             grid.hide()
+        self._title.hidden = False
         if slot is not None:
             x, y = SLOTS[slot]
             box = self._boxes[slot]
@@ -280,15 +282,13 @@ class HomeView:
             self._draw_close(shot, t)
 
     def _draw_bolt(self, t, x, y):
-        direction = self._escape.direction or LEFT
-        dx, dy = {LEFT: (-1, 0), RIGHT: (1, 0), UP: (0, -1), DOWN: (0, 1)}[direction]
-        travel = min(t / _BOLT_S, 1.0) * _BOLT_PX
-        rx, ry = int(x + dx * travel), int(y - 8 + dy * travel)
-        frame = first_frame(self._escape.sprite) + int(t / 0.1) % 2
-        self._runner.place(rx, ry, frame)
-        self._runner.grid.flip_x = dx > 0  # the sprites face left
-        if t < _BOLT_S:
-            self._speed.place(rx - dx * 34, ry - dy * 34)
+        rx, ry, ux, uy, leg = bolt_at((x, y - 8), self._escape.direction, t)
+        stride = int(t / 0.1) % 2 if leg != PAUSE else 0
+        self._runner.place(rx, ry - _HOP_PX * stride, first_frame(self._escape.sprite) + stride)
+        self._runner.grid.flip_x = ux > 0  # the sprites face left
+        if leg not in (0, PAUSE):
+            self._speed.place(int(rx - ux * _SPEED_GAP_PX), int(ry - uy * _SPEED_GAP_PX))
+        self._title.hidden = leg != DASH  # ZOOM! as it takes off
 
     def _draw_close(self, shot, t):
         escape = self._escape

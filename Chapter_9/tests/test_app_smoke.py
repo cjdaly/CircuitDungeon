@@ -413,7 +413,7 @@ class TestBusRecoveryWiring(unittest.TestCase):
         self.assertEqual(imu.reads, 20)
 
 
-_OPENING_S = 17.0  # the opening captions and escape cutscene have run by now
+_OPENING_S = 19.0  # the opening captions and escape cutscene have run by now
 _CUTSCENE_BEATS = 6
 _TAP_SPACING = 10.0  # likewise any overlay a tap brought up, unless a test wants it
 
@@ -442,7 +442,7 @@ class TestEpisodeOne(unittest.TestCase):
         self.assertEqual(r.message(), "9 PM")
         r = _Run(seconds=3.0)
         self.assertEqual(r.burst(), "RATTLE!")  # the cutscene, after the hour
-        r = _Run(seconds=11.0)
+        r = _Run(seconds=13.0)
         self.assertEqual(r.message(), "CHIRPY ESCAPED!")
 
     def test_closed_exit_shows_its_reason_and_does_not_move(self):
