@@ -19,6 +19,10 @@ through every caption of the escape cutscene.
 --depth N runs the game under N extra nested calls, to measure how much of
 the Python stack (pystack) is to spare: find the smallest N that fails.
 
+--ram prints the live heap every 200 polls (about 10 s): "RAM alloc=... free=..."
+after a gc.collect(), so two builds can be compared on the same board and
+firmware (gc.mem_free() alone misleads: the heap grows on demand).
+
 --push FILE... sends game modules over serial first and loads them into the
 board's memory in place of the ones on its flash, so a change can be tried
 without the drive (when macOS won't mount it). The flash is untouched: the
@@ -45,6 +49,7 @@ import serial
 import serial.tools.list_ports
 
 _SCRIPT = '''
+import gc
 import time
 import app
 import hardware
@@ -60,6 +65,9 @@ class Tapper:
 
     def poll(self, now):
         self.touch.poll(now)
+        if {ram} and self.n % 200 == 199:
+            gc.collect()
+            print("RAM alloc={{}} free={{}}".format(gc.mem_alloc(), gc.mem_free()))
         if now - self.t0 < 8:
             return None
         self.n += 1
@@ -205,6 +213,7 @@ def main():
     parser.add_argument("--seconds", type=float, default=60.0)
     parser.add_argument("--tap-every", type=int, default=43, help="polls between taps")
     parser.add_argument("--depth", type=int, default=0, help="extra nested calls")
+    parser.add_argument("--ram", action="store_true", help="print the live heap every ~10 s")
     parser.add_argument("--no-title", action="store_true",
                         help="straight into the game: no gift tag or title (to measure the "
                              "game's own stack headroom when start-up runs out first)")
@@ -239,7 +248,7 @@ def main():
         raise SystemExit("no raw REPL: {!r}".format(banner[-200:]))
     for path in args.push:
         _push(conn, path)
-    script = _SCRIPT.format(every=args.tap_every, depth=args.depth,
+    script = _SCRIPT.format(every=args.tap_every, depth=args.depth, ram=args.ram,
                             ticks=int(args.seconds / 0.05), title=not args.no_title)
     stdout, stderr = _raw_exec(conn, script, args.seconds * 2 + 30, echo=True)
     if stderr.strip():
